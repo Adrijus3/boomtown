@@ -1,0 +1,17 @@
+{
+  "name": "boomtown",
+  "version": "1.0.0",
+  "description": "Online property-trading board game: rooms, auctions, mortgages, trades, houses and hotels.",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/simulate.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

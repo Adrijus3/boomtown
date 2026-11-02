@@ -1,0 +1,10 @@
+# Render Blueprint: one free web service running the Boomtown game server.
+services:
+  - type: web
+    name: boomtown
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
