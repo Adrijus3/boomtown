@@ -1051,8 +1051,8 @@
         ${p.pardons.length ? `<div class="owner-line"><span class="muted">Pardon cards</span><span class="stepper"><button type="button" class="icon-btn" data-pard="${key}" data-d="-1" aria-label="Fewer">${icon('minus')}</button><b>${sd.pardons}</b><button type="button" class="icon-btn" data-pard="${key}" data-d="1" aria-label="More">${icon('plus')}</button></span></div>` : ''}
       </section>`;
     };
-    setModal(`<div class="sheet deal" role="dialog" aria-modal="true" aria-label="Make a deal">
-      <div class="sheet-h"><h2>${d.counterOf ? 'Counter-offer' : 'Make a deal'}</h2><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
+    setModal(`<div class="sheet deal" role="dialog" aria-modal="true" aria-label="Trade">
+      <div class="sheet-h"><h2>${d.counterOf ? 'Counter-offer' : 'Trade'}</h2><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
       <div class="sheet-b">${fromRow}
         <div class="deal-row"><span class="eyebrow">Trade with</span><div class="tb-to">${game.alive().filter((p) => p.id !== d.from).map((p) => `<button type="button" data-to="${p.id}" class="${p.id === d.to ? 'on' : ''}" style="--pc:${p.color}">${dotHTML(p)}${esc(p.name)}${p.bot ? ' <span class="tag">Bot</span>' : ''}</button>`).join('')}</div></div>
         <div class="tt">${side(from, 'give')}<div class="tt-mid" aria-hidden="true">${icon('swap')}</div>${side(to, 'get')}</div>
@@ -1152,7 +1152,7 @@
   function dealWithBtn(p) {
     const v = viewerPid();
     if (v == null || p.id === v || p.bankrupt || game.s.over) return '';
-    return `<button type="button" class="btn sm" data-dealwith="${p.id}">${icon('swap')} Make a deal</button>`;
+    return `<button type="button" class="btn sm" data-dealwith="${p.id}">${icon('swap')} Trade</button>`;
   }
   function offerHTML(i, owner) {
     const v = viewerPid();
@@ -1403,8 +1403,6 @@
     h += playerBlockHTML(p, v);
     const n = game.ownedBy(p.id).length;
     h += `<section class="ov-sec"><h4>${p.id === v ? 'Your properties' : 'Properties'} <span class="muted">${n}</span>${canManageNow(p) && n ? '<span class="h4-hint">Tap + to build</span>' : ''}</h4>${propertiesHTML(p)}</section>`;
-    const sg = suggestionsHTML();
-    if (sg) h += `<section class="ov-sec"><h4>Deals to try</h4>${sg}</section>`;
     h += `<section class="ov-sec"><h4>Activity</h4>${activityHTML()}</section>`;
     return h;
   }
@@ -1420,7 +1418,7 @@
     if (p.bankrupt) tags.push('<span class="tag bad">Bankrupt</span>');
     const canDeal = v != null && !p.bankrupt && !s.over && game.alive().length >= 2;
     const dealBtn = !canDeal ? '' : isMe
-      ? `<button type="button" class="btn primary sm" data-a="newtrade">${icon('swap')} Make a deal</button>`
+      ? `<button type="button" class="btn primary sm" data-a="newtrade">${icon('swap')} Trade</button>`
       : `<button type="button" class="btn primary sm" data-dealwith="${p.id}">${icon('swap')} Offer a deal</button>`;
     return `<section class="ov-sec ov-player">
       <div class="who-row" role="group" aria-label="Choose a player">${who}</div>
@@ -1558,7 +1556,7 @@
     const canTrade = p && !p.bankrupt && !game.s.over && game.alive().length >= 2;
     const pend = game.s.trades.filter((t) => t.status === 'pending').reverse();
     const done = game.s.trades.filter((t) => t.status !== 'pending').slice(-8).reverse();
-    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} Make a deal</button>${suggestionsHTML()}`;
+    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} Trade</button>${suggestionsHTML()}`;
     if (!pend.length && !done.length) return h + '<div class="empty"><b>No trades yet</b>Swap properties, cash and Pardon cards with anyone, any time. Bots also make offers when they need one city to finish a set.</div>';
     if (pend.length) h += '<div class="log-r" style="margin-top:16px">Open offers</div>' + pend.map(tradeCard).join('');
     if (done.length) h += '<div class="log-r" style="margin-top:16px">Recent</div>' + done.map(tradeCard).join('');
