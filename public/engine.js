@@ -10,8 +10,8 @@
     es: { name: 'Spain', color: '#F28B3A', house: 100 },
     jp: { name: 'Japan', color: '#E5484D', house: 150 },
     au: { name: 'Australia', color: '#E9C246', house: 150 },
-    uk: { name: 'United Kingdom', color: '#2EB673', house: 200 },
-    us: { name: 'United States', color: '#4C6FFF', house: 200 },
+    li: { name: 'Lincolnshire', color: '#2EB673', house: 200 },
+    yk: { name: 'Yorkshire', color: '#4C6FFF', house: 200 },
   };
 
   const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent });
@@ -47,15 +47,15 @@
     { type: 'utility', name: 'Water Works', price: 150 },
     P('Sydney', 'au', 280, [24, 120, 360, 850, 1025, 1200]),
     { type: 'gotojail', name: 'Go to Prison' },
-    P('Manchester', 'uk', 300, [26, 130, 390, 900, 1100, 1275]),
-    P('Edinburgh', 'uk', 300, [26, 130, 390, 900, 1100, 1275]),
+    P('Hibaldstow', 'li', 300, [26, 130, 390, 900, 1100, 1275]),
+    P('Brigg', 'li', 300, [26, 130, 390, 900, 1100, 1275]),
     { type: 'chest', name: 'Treasure' },
-    P('London', 'uk', 320, [28, 150, 450, 1000, 1200, 1400]),
-    { type: 'airport', name: 'JFK Airport', price: 200 },
+    P('Scunthorpe', 'li', 320, [28, 150, 450, 1000, 1200, 1400]),
+    { type: 'airport', name: 'Humberside Airport', price: 200 },
     { type: 'chance', name: 'Surprise' },
-    P('San Francisco', 'us', 350, [35, 175, 500, 1100, 1300, 1500]),
+    P('Sheffield', 'yk', 350, [35, 175, 500, 1100, 1300, 1500]),
     { type: 'tax', name: 'Luxury Tax', amount: 100 },
-    P('New York', 'us', 400, [50, 200, 600, 1400, 1700, 2000]),
+    P('Doncaster', 'yk', 400, [50, 200, 600, 1400, 1700, 2000]),
   ];
 
   const BUYABLE = (t) => t.type === 'prop' || t.type === 'airport' || t.type === 'utility';
@@ -67,7 +67,7 @@
   const CHANCE = [
     { text: 'Advance to Start and collect your salary.', a: 'moveTo', to: 0 },
     { text: 'Take the bullet train to Tokyo. Collect your salary if you pass Start.', a: 'moveTo', to: 24 },
-    { text: 'Advance to New York.', a: 'moveTo', to: 39 },
+    { text: 'Advance to Doncaster.', a: 'moveTo', to: 39 },
     { text: 'Take a detour to Mexico City. Collect your salary if you pass Start.', a: 'moveTo', to: 14 },
     { text: 'Catch a flight to CDG Airport. Collect your salary if you pass Start.', a: 'moveTo', to: 5 },
     { text: 'Advance to the nearest airport. If it is owned, pay the owner double rent.', a: 'nearest', kind: 'airport' },

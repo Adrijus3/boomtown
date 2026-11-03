@@ -33,7 +33,7 @@ const SETTING_RULES = {
   botSpeed: ['relaxed', 'normal', 'fast'],
 };
 const BOOL_SETTINGS = ['private', 'doubleOnStart', 'vacationCash', 'auctions', 'doubleRentSet', 'mortgages', 'evenBuild', 'limitedBuildings', 'noRentInPrison', 'randomOrder'];
-const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 4, private: false, rollTimer: 60, turnTimer: 120 });
+const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120 });
 const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
@@ -117,6 +117,7 @@ function roomView(room) {
     seats: room.seats.map((s) => ({ name: s.name, color: s.color, bot: !!s.bot, clientId: s.bot ? null : s.clientId, online: s.bot || online(room, s.clientId), avatar: s.bot ? '' : (clientsById.get(s.clientId) || {}).avatar || '' })),
     watchers: members(room).filter((c) => seatOf(room, c.id) < 0).length,
     chat: room.chat.slice(-60),
+    vote: voteView(room),
   };
 }
 function broadcastRoom(room) {
@@ -192,6 +193,7 @@ function startGame(room) {
   room.events = [];
   room.pidClient = room.seats.map((s) => (s.bot ? null : s.clientId));
   room.awaySince = {};
+  room.idle = {};
   room.busyUntil = Date.now() + 400;
   for (let pid = 0; pid < room.pidClient.length; pid++) {
     if (room.pidClient[pid] && !online(room, room.pidClient[pid])) room.awaySince[pid] = Date.now();
@@ -253,6 +255,7 @@ function sendGame(room, c, events, stateStr, evStr) {
     auction: room.auction ? (() => { const me = pidOf(room, c.id); return { deadline: room.auction.deadline, span: room.auction.span, proxy: me != null ? room.auction.proxy[me] || 0 : 0, passed: me != null && !!room.auction.passed[me] }; })() : null,
     turn: timerMeta(room),
     away: Object.keys(room.awaySince).map(Number),
+    idle: Object.keys(room.idle || {}).map(Number),
   };
   sendClient(c, `{"type":"game","gid":${room.gid},"state":${stateStr},"events":${evStr},"meta":${JSON.stringify(meta)}}`);
 }
@@ -284,6 +287,7 @@ function automate(room) {
     }, 1500 * sp.bot + 400);
   }
 
+  if (room.kickPending != null && applyKick(room)) return;
   const p = g.cur, ph = g.s.turn.phase;
   turnTimer(room);
   if (ph === 'moving') return;
@@ -346,6 +350,7 @@ function turnTimer(room) {
     TT.expired = true;
     if (!TT.fired[seg]) {
       TT.fired[seg] = true;
+      (room.idle || (room.idle = {}))[p.id] = true;
       sysChat(room, seg === 'roll' ? `${p.name} ran out of time to roll, so the dice were rolled for them.` : `Time's up for ${p.name}. Their turn is being finished for them.`);
     }
     return;
@@ -398,10 +403,86 @@ function auctionTick(room, g) {
 
 function clearTimers(room) {
   clearTimeout(room.timers.move); clearTimeout(room.timers.bot); clearTimeout(room.timers.turn); clearInterval(room.timers.auction); clearTimeout(room.timers.deferred);
-  room.timers = { move: null, bot: null, turn: null, auction: null, deferred: null };
+  clearTimeout(room.timers.vote); clearTimeout(room.timers.kick);
+  room.timers = { move: null, bot: null, turn: null, auction: null, deferred: null, vote: null, kick: null };
+  room.vote = null; room.kickPending = null;
   Object.values(room.tradeTimers).forEach(clearTimeout);
   room.tradeTimers = {};
   room.auction = null; room.turnT = null;
+}
+
+// ------------------------------------------------------------ vote to remove a player
+// Anyone still in the game can call a vote to remove another player: a bot, or someone who left or isn't playing.
+// The players who are connected, still in and not the one being voted on decide; more than half must say yes
+// within 30 seconds. If you're the only one who can vote, it passes at once. The removed player's properties
+// go back to the bank (or to the player they owe, if they were in debt) and the game carries on.
+const VOTE_MS = 30000;
+function voteView(room) {
+  const V = room.vote;
+  return V ? { target: V.target, by: V.by, yes: [...V.yes], no: [...V.no], voters: V.voters, need: V.need, deadline: V.deadline } : null;
+}
+function startKickVote(room, pid, target) {
+  const g = room.game, t = g.player(target);
+  if (room.vote) return 'A vote is already running. Wait for it to finish first.';
+  if (room.kickPending != null) return 'Someone is already being removed.';
+  if (!t || t.bankrupt) return 'That player is already out of the game.';
+  if (target === pid) return 'To leave the game yourself, declare bankruptcy instead.';
+  const voters = g.s.players.filter((p) => !p.bot && !p.bankrupt && p.id !== target && room.pidClient[p.id] && online(room, room.pidClient[p.id])).map((p) => p.id);
+  if (!voters.includes(pid)) voters.push(pid);
+  // A person who is here and playing can't be removed by one other player alone.
+  if (!t.bot && voters.length < 2 && !awayOrIdle(room, target)) return `${t.name} is still here and playing. You can vote them out once they leave or let their turn time out, or when there's another player to vote with you.`;
+  room.vote = { target, by: pid, yes: new Set([pid]), no: new Set(), voters, need: Math.floor(voters.length / 2) + 1, deadline: Date.now() + VOTE_MS };
+  if (voters.length > 1) sysChat(room, `${g.player(pid).name} started a vote to remove ${t.name}${t.bot ? ' (a bot)' : ''}.`);
+  room.timers.vote = setTimeout(() => endVote(room, false), VOTE_MS);
+  return checkVote(room);
+}
+const awayOrIdle = (room, pid) => room.awaySince[pid] != null || !online(room, room.pidClient[pid]) || !!(room.idle && room.idle[pid]);
+function castVote(room, pid, yes) {
+  const V = room.vote;
+  if (!V) return 'That vote has already finished.';
+  if (!V.voters.includes(pid)) return "You can't vote on this one.";
+  V.yes.delete(pid); V.no.delete(pid);
+  (yes ? V.yes : V.no).add(pid);
+  return checkVote(room);
+}
+function checkVote(room) {
+  const V = room.vote;
+  if (!V) return null;
+  if (V.yes.size >= V.need) endVote(room, true);
+  else if (V.voters.length - V.no.size < V.need) endVote(room, false);
+  else broadcastRoom(room);
+  return null;
+}
+function endVote(room, passed) {
+  const V = room.vote;
+  if (!V) return;
+  clearTimeout(room.timers.vote); room.timers.vote = null;
+  room.vote = null;
+  const g = room.game, t = g && g.player(V.target);
+  if (!g || g.s.over || !t || t.bankrupt) { broadcastRoom(room); return; }
+  if (passed) {
+    room.kickPending = V.target;
+    sysChat(room, V.voters.length > 1 ? `The vote passed, so ${t.name} is out of the game.` : `${g.player(V.by).name} removed ${t.name} from the game.`);
+  } else sysChat(room, `Not enough votes, so ${t.name} stays in the game.`);
+  broadcastRoom(room);
+  if (passed) automate(room);
+}
+// Takes the player out once nothing of theirs is mid-move or mid-auction; until then it retries.
+function applyKick(room) {
+  const g = room.game, pid = room.kickPending, p = g.player(pid);
+  if (!p || p.bankrupt) { room.kickPending = null; return false; }
+  const ph = g.s.turn.phase;
+  if (g.cur.id === pid && (ph === 'moving' || ph === 'auction' || Date.now() < room.busyUntil - 40)) {
+    clearTimeout(room.timers.kick);
+    room.timers.kick = setTimeout(() => { if (room.game === g) automate(room); }, Math.max(300, room.busyUntil - Date.now() + 80));
+    return false;
+  }
+  room.kickPending = null;
+  const owes = g.s.debt && g.s.debt.pid === pid && typeof g.s.debt.to === 'number';
+  g.log([{ p: pid }, owes ? ' was removed from the game by a vote.' : ' was removed from the game by a vote. Their properties go back to the bank.']);
+  g.declareBankruptcy(pid, true);
+  tick(room);
+  return true;
 }
 
 // ------------------------------------------------------------ player actions
@@ -419,6 +500,7 @@ function handleAction(room, c, msg) {
   const me = g.player(pid);
   if (me.bankrupt) return 'You are out of this game.';
   const isCur = g.cur.id === pid;
+  if (room.idle && msg.a !== 'kick' && msg.a !== 'vote') delete room.idle[pid];
   const settling = Date.now() < room.busyUntil - 300;
   if (settling && isCur && (msg.a === 'roll' || msg.a === 'end')) {
     // Tokens are still moving on screens; run the move as soon as they settle.
@@ -467,6 +549,8 @@ function handleAction(room, c, msg) {
     case 'accept': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.acceptTrade(tr.id); if (!ok && tr && tr.to === pid) { tick(room); return 'That trade is no longer possible.'; } break; }
     case 'reject': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.declineTrade(tr.id); break; }
     case 'withdraw': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.from === pid && g.cancelTrade(tr.id); break; }
+    case 'kick': return startKickVote(room, pid, int(msg.pid));
+    case 'vote': return castVote(room, pid, !!msg.yes);
     default: return 'Unknown action.';
   }
   if (!ok) return "That move isn't available right now.";

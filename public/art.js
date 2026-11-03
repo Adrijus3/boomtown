@@ -107,8 +107,13 @@
     es: flag('<rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/><rect x="6.3" y="7.6" width=".7" height="4.2" fill="#BDBDBD"/><rect x="11.1" y="7.6" width=".7" height="4.2" fill="#BDBDBD"/><path d="M7.5 7.8h3.2v2.6a1.6 1.6 0 0 1-3.2 0z" fill="#AA151B"/><path d="M8.4 8.6h1.4v1.6a.7.7 0 0 1-1.4 0z" fill="#F1BF00" opacity=".75"/><path d="M7.6 7.4h3l-.3-.9h-2.4z" fill="#C8A04A"/>', 'Spain'),
     jp: flag('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>', 'Japan'),
     au: flag('<rect width="30" height="20" fill="#012169"/><g transform="scale(.25 .3333)">' + UJ + '</g>' + starPts(7.5, 15, 2.1, 7, 0.45) + starPts(22.5, 16.4, 1.15, 7, 0.45) + starPts(22.5, 4.2, 1.15, 7, 0.45) + starPts(18.7, 8.6, 1.1, 7, 0.45) + starPts(26.1, 7.5, 1.1, 7, 0.45) + starPts(24.4, 10.9, .6, 5, 0.45), 'Australia'),
-    uk: flag('<g transform="scale(.5 .6667)"><rect width="60" height="30" fill="#012169"/>' + UJ + '</g>', 'the United Kingdom'),
-    us: flag('<rect width="30" height="20" fill="#B22234"/>' + [1, 3, 5, 7, 9, 11].map((i) => `<rect y="${(i * 20 / 13).toFixed(3)}" width="30" height="${(20 / 13).toFixed(3)}" fill="#fff"/>`).join('') + '<rect width="12.6" height="10.77" fill="#3C3B6E"/>' + usStars, 'the United States'),
+    li: flag('<rect width="15" height="10" fill="#00965E"/><rect x="15" width="15" height="10" fill="#0033A0"/><rect y="10" width="15" height="10" fill="#0033A0"/><rect x="15" y="10" width="15" height="10" fill="#00965E"/>'
+      + '<rect x="12.2" width="5.6" height="20" fill="#FFD100"/><rect y="7.2" width="30" height="5.6" fill="#FFD100"/><rect x="13.1" width="3.8" height="20" fill="#C8102E"/><rect y="8.1" width="30" height="3.8" fill="#C8102E"/>'
+      + '<g transform="translate(15 10) scale(.43)" fill="#FFD100" stroke="#7A5A00" stroke-width=".35" stroke-linejoin="round"><path d="M0-5.4C1.5-3.9 1.6-1.6 0 .2C-1.6-1.6-1.5-3.9 0-5.4Z"/><path d="M-.5-.2C-1.4-2.9-4.6-3.1-4.6-.6C-4.6 1.1-2.9 1.6-1.9.6C-2.9.5-3.2-.5-2.5-1.1C-1.8-1.6-1-1.1-.5-.2Z"/><path d="M.5-.2C1.4-2.9 4.6-3.1 4.6-.6C4.6 1.1 2.9 1.6 1.9.6C2.9.5 3.2-.5 2.5-1.1C1.8-1.6 1-1.1.5-.2Z"/><rect x="-2.6" y=".3" width="5.2" height="1.2" rx=".4"/><path d="M-1 1.6H1L0 4.6Z"/></g>', 'Lincolnshire'),
+    yk: flag('<rect width="30" height="20" fill="#0062B4"/><g transform="translate(15 10)">'
+      + [0, 72, 144, 216, 288].map((a) => `<path d="M0 0 1.2-3.9 0-5.9-1.2-3.9Z" fill="#3E8E3A" transform="rotate(${a + 36})"/>`).join('')
+      + [0, 72, 144, 216, 288].map((a) => `<circle cx="0" cy="-2.55" r="2.35" fill="#fff" stroke="#C9D3E6" stroke-width=".25" transform="rotate(${a})"/>`).join('')
+      + '<circle r="2.2" fill="#fff"/><circle r="1.15" fill="#F2C230" stroke="#C9952A" stroke-width=".25"/></g>', 'Yorkshire'),
   };
 
   // ---- prison cell: plain steel bars. They float above tokens so prisoners appear behind them.

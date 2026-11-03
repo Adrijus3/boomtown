@@ -44,8 +44,9 @@ Rooms and games are kept in memory, so restarting or redeploying the server ends
 ## How to play
 
 - **Play now** puts you in an open public room, or opens a new one. **Create a private game** makes a room that only people with the link can join.
-- The host sets the house rules, adds bots and starts the game. Anyone who joins after the start can watch and chat.
-- Add a profile photo on the start screen or in the waiting room. You can drag and zoom it into the circle, and it replaces your letter on your token and everywhere else your player appears. Photos are shrunk to a few kilobytes, kept on your device, and only shared with the people in your room.
+- Rooms have 6 seats to start with; the host can pick anything from 2 to 8. The host sets the house rules, adds bots and starts the game with the button at the top of the waiting room. Anyone who joins after the start can watch and chat.
+- If a bot is slowing things down, or a friend has left or stopped playing, open them in the side panel and press **Remove bot** or **Vote to remove**. The other players still in the game get 30 seconds to vote, and more than half must agree. Bots can always be removed; a person who is still playing can only be voted out if someone else votes with you, or once they've left or let their turn clock run out. Their properties go back to the bank.
+- Add a profile photo on the start screen, in the waiting room (tap your seat's circle) or during the game (the Photo button on your player). You can drag and zoom it into the circle, and it replaces your letter on your token and everywhere else your player appears. Photos are shrunk to a few kilobytes, kept on your device, and only shared with the people in your room.
 - If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back.
 - Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 

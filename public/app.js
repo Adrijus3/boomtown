@@ -244,6 +244,7 @@
   function show(name) {
     screen = name;
     for (const id of ['home', 'room', 'game']) $('#' + id).hidden = id !== name;
+    if (name !== 'game') { const vb = $('#voteBar'); if (vb) vb.remove(); }
     $('#app').scrollTop = 0; window.scrollTo(0, 0);
     if (name === 'home') drawRosette($('#homeRosette'), { rings: 3, alpha: 0.13 });
   }
@@ -268,6 +269,7 @@
       renderChats();
       scheduleRender();
     }
+    renderVote();
     if (first) document.title = `Boomtown · room ${r.id}`;
   }
   window.addEventListener('popstate', () => {
@@ -345,7 +347,7 @@
     $('#shareLink').value = `${location.origin}/room/${r.id}`;
     $('#seatCount').textContent = `${r.seats.length} of ${r.settings.maxPlayers} seats${r.watchers ? ` · ${r.watchers} watching` : ''}`;
     const rows = r.seats.map((s, i) => `<li class="seat-row ${i === mySeat ? 'me' : ''}">
-        ${dotHTML(s)}
+        ${i === mySeat ? `<button type="button" class="seat-face" data-act="photo" aria-label="${prof.avatar ? 'Change' : 'Add'} your photo">${dotHTML(s)}<span class="sw-cam" aria-hidden="true">${icon('camera')}</span></button>` : dotHTML(s)}
         <span class="who-name"><span class="nm">${esc(s.name)}</span>${s.bot ? '<span class="tag">Bot</span>' : `<span class="online-dot ${s.online ? '' : 'off'}" title="${s.online ? 'Online' : 'Offline'}"></span>`}${s.clientId && s.clientId === r.hostId ? `<span class="tag warn">${icon('crown')} Host</span>` : ''}${i === mySeat ? '<span class="tag you">You</span>' : ''}</span>
         ${host && i !== mySeat ? `<button class="icon-btn" data-kick="${i}" aria-label="Remove ${esc(s.name)}">${icon('x')}</button>` : '<span></span>'}
       </li>`);
@@ -664,6 +666,7 @@
         if (!paused && secs > 0 && secs <= 10 && w.beep !== secs) { w.beep = secs; Sound.tick(); }
       }
     }
+    tickVote();
     const A = meta.auction;
     const bar = $('#auctionBar'), secs = $('#auctionSecs');
     if (A && bar) {
@@ -1124,6 +1127,7 @@
     renderOfferDock();
     if (ui.modal && ui.modal.kind === 'over') renderOverModal();
     positionTokens();
+    renderVote();
   }
   function cardChip(deck) {
     const chance = deck === 'chance';
@@ -1652,12 +1656,19 @@
     const dealBtn = !canDeal ? '' : isMe
       ? `<button type="button" class="btn primary sm" data-a="newtrade">${icon('swap')} Trade</button>`
       : `<button type="button" class="btn primary sm" data-dealwith="${p.id}">${icon('swap')} Offer a deal</button>`;
+    const photoBtn = isMe && !s.over ? `<button type="button" class="btn sm" data-a="photo" aria-label="${avatarOf(p) ? 'Change' : 'Add'} your photo">${icon('camera')} ${avatarOf(p) ? 'Photo' : 'Add photo'}</button>` : '';
+    const me = v != null ? game.player(v) : null;
+    const othersCanVote = s.players.some((x) => !x.bot && !x.bankrupt && x.id !== p.id && x.id !== v && room && room.seats[x.id] && room.seats[x.id].online);
+    const kickable = p.bot || othersCanVote || isAway(p.id) || (meta && meta.idle && meta.idle.includes(p.id));
+    const canKick = me && !me.bankrupt && !isMe && !p.bankrupt && !s.over && kickable && !(room && room.vote);
+    const kick = canKick ? `<div class="ov-kick"><button type="button" class="btn sm ghost" data-a="kick" data-pid="${p.id}">${icon('x')} ${p.bot ? 'Remove bot' : 'Vote to remove'}</button><span class="muted">${p.bot ? 'Takes the bot out so the game goes faster.' : 'For someone who has left or stopped playing.'}</span></div>` : '';
     return `<section class="ov-sec ov-player">
       <div class="who-row" role="group" aria-label="Choose a player">${who}</div>
-      <div class="ov-head"><div class="ov-name"><b>${esc(p.name)}</b><span class="ov-tags">${tags.join('')}</span></div>${dealBtn}</div>
+      <div class="ov-head"><div class="ov-name"><b>${esc(p.name)}</b><span class="ov-tags">${tags.join('')}</span></div><div class="ov-btns">${photoBtn}${dealBtn}</div></div>
       <div class="stats"><div class="stat"><div class="k">Cash</div><div class="v">${fmt(p.money)}</div></div>
       <div class="stat"><div class="k">Net worth</div><div class="v">${fmt(game.netWorth(p.id))}</div></div>
       <div class="stat"><div class="k">Pardons</div><div class="v">${p.pardons.length}</div></div></div>
+      ${kick}
     </section>`;
   }
   function propertiesHTML(p) {
@@ -2007,7 +2018,48 @@
       case 'restart': closeModal(); net.send({ type: 'restart' }); return;
       case 'home': closeModal(); goHome(); return;
       case 'bankrupt': askBankrupt(); return;
+      case 'photo': pickPhoto(); return;
+      case 'kick': askKick(+el.dataset.pid); return;
     }
+  }
+  // ------------------------------------------------------------ vote to remove a player
+  function askKick(pid) {
+    const p = game.player(pid), mine = myPid();
+    if (!p || mine == null || p.bankrupt) return;
+    const others = game.s.players.filter((x) => !x.bot && !x.bankrupt && x.id !== pid && x.id !== mine && room && room.seats[x.id] && room.seats[x.id].online).length;
+    openModal('confirm', {
+      title: p.bot ? `Remove ${p.name}?` : `Vote to remove ${p.name}?`,
+      body: `${others ? `The other ${others === 1 ? 'player gets' : `${others} players get`} 30 seconds to vote. If more than half of you agree, ${esc(p.name)} is out of the game.` : `You're the only one who can vote, so ${esc(p.name)} leaves the game straight away.`} Their properties go back to the bank.`,
+      confirm: others ? 'Start the vote' : 'Remove', danger: true,
+      onConfirm: () => act('kick', { pid }),
+    });
+  }
+  // The vote shows as a bar at the top of everyone's screen while it runs.
+  function renderVote() {
+    let bar = $('#voteBar');
+    const V = room && room.vote;
+    if (!V || !game || screen !== 'game' || !game.player(V.target)) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'voteBar'; bar.className = 'vote-bar'; bar.setAttribute('role', 'status');
+      bar.addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) act('vote', { yes: b.dataset.v === '1' }); });
+      document.body.appendChild(bar);
+    }
+    const t = game.player(V.target), by = game.player(V.by), mine = myPid();
+    const canVote = mine != null && V.voters.includes(mine);
+    const voted = V.yes.includes(mine) ? 'yes' : V.no.includes(mine) ? 'no' : '';
+    const head = mine === V.target ? 'The others are voting on whether to remove you from the game.'
+      : `<b>${esc(by.id === mine ? 'You' : by.name)}</b> ${by.id === mine ? 'want' : 'wants'} to remove <b>${esc(t.name)}</b>${t.bot ? ' (bot)' : ''}.`;
+    const ctl = !canVote ? '' : !voted
+      ? '<button type="button" class="btn sm danger" data-v="1">Remove</button><button type="button" class="btn sm" data-v="0">Keep</button>'
+      : `<span class="muted">You voted to ${voted === 'yes' ? 'remove' : 'keep'} them.</span><button type="button" class="link" data-v="${voted === 'yes' ? 0 : 1}">Change</button>`;
+    const html = `<div class="vb-top">${dotHTML(t)}<span class="vb-txt"><span>${head}</span><span class="muted">${V.yes.length} of ${V.need} votes to remove · <span id="voteSecs"></span></span></span></div>${ctl ? `<div class="vb-ctl">${ctl}</div>` : ''}`;
+    if (bar.dataset.h !== html) { bar.dataset.h = html; bar.innerHTML = html; }
+    tickVote();
+  }
+  function tickVote() {
+    const el = $('#voteSecs'), V = room && room.vote;
+    if (el && V) el.textContent = `${Math.max(0, Math.ceil((V.deadline - serverNow()) / 1000))}s left`;
   }
   function askBankrupt() {
     const mine = myPid(); if (mine == null) return;
