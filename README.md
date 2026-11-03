@@ -26,7 +26,7 @@ To play with people on the same Wi-Fi, give them your computer's local address i
 
 Free services fall asleep after 15 minutes with nobody connected. The next visit wakes the server, which takes about a minute, then it's quick again. Games keep the server awake while anyone is playing.
 
-Every push to this repository redeploys automatically, and games in progress carry on afterwards (see below).
+Every push to this repository redeploys automatically, and games in progress carry on afterwards (see below). Pages that are already open notice the update and reload themselves, so phones never keep running old files.
 
 The game is one small Node.js server, so any host that runs Node.js and supports WebSockets also works.
 
@@ -47,7 +47,8 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - Rooms have 6 seats to start with; the host can pick anything from 2 to 8. The host sets the house rules, adds bots and starts the game with the button at the top of the waiting room. Anyone who joins after the start can watch and chat.
 - If a bot is slowing things down, or a friend has left or stopped playing, open them in the side panel and press **Remove bot** or **Vote to remove**. The other players still in the game get 30 seconds to vote, and more than half must agree. Bots can always be removed; a person who is still playing can only be voted out if someone else votes with you, or once they've left or let their turn clock run out. Their properties go back to the bank.
 - Add a profile photo on the start screen, in the waiting room (tap your seat's circle) or during the game (the Photo button on your player). You can drag and zoom it into the circle, and it replaces your letter on your token and everywhere else your player appears. Photos are shrunk to a few kilobytes, kept on your device, and only shared with the people in your room.
-- If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back.
+- If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back. On a different computer or phone, open the room link and press **That's me** next to your name. That works whenever your old device is no longer connected.
+- Press the palette button to pick a theme. You can choose Crayon, Chalkboard, Blueprint, Daylight, Classic, Neon or High contrast. Each person picks their own theme on their own device.
 - Taxes, fines and bail pile up on **Free Parking**, and whoever lands there collects the lot. The host can switch this off in the house rules.
 - Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 
@@ -59,9 +60,10 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 | `public/engine.js` | The rules: board, money, rent, building, mortgages, auctions, trades, Prison, cards, bankruptcy, bot strategy. The server and the browser share this file. |
 | `public/app.js` | The browser client: start screen, waiting room, board, animations, portfolio, trades, chat |
 | `public/art.js` | The hand-drawn board icons and country flags |
+| `public/themes.js`, `public/themes.css` | The themes and the theme picker. The sketch themes draw their hand-drawn outlines, colouring-in and paper grain as small SVG pictures. |
 | `public/photo.js` | The profile photo picker: choose, drag and zoom a picture into a circle, saved as a small JPEG |
 | `public/dice3d.js`, `public/vendor/three.min.js` | The 3D dice, drawn with three.js (MIT licence). Browsers without WebGL fall back to flat dice. |
-| `public/style.css`, `public/index.html`, `public/fonts/` | Layout, styling and the two typefaces (Bricolage Grotesque and Instrument Sans, both under the SIL Open Font License) |
+| `public/style.css`, `public/index.html`, `public/fonts/` | Layout, styling and the typefaces (Bricolage Grotesque, Instrument Sans, and Patrick Hand, Cabin Sketch and Architects Daughter for the sketch themes, all under the SIL Open Font License) |
 | `test/simulate.js` | Plays 600 bot-only games across different house rules and checks the rules never break (`npm test`) |
 
 The server is the only place moves are decided. Browsers send what a player wants to do ("roll", "bid $120"), the server checks it against the rules and sends the new game state to everyone in the room, so nobody can cheat by editing their page.

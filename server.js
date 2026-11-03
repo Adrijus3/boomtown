@@ -38,18 +38,45 @@ const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
+// A fingerprint of the game's files. The page asks for "/app.js?v=<BUILD>", so a phone can never mix an
+// old cached file with a new one, and an open tab that reconnects after an update sees a different BUILD
+// in the welcome message and reloads itself.
+const BUILD = (() => {
+  const h = crypto.createHash('sha256');
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const f = path.join(dir, name);
+      if (fs.statSync(f).isDirectory()) walk(f);
+      else if (/\.(js|css|html|svg|woff2)$/.test(name)) h.update(name).update(fs.readFileSync(f));
+    }
+  };
+  walk(PUBLIC);
+  return h.digest('hex').slice(0, 12);
+})();
+const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
+  .replace(/(<(?:script|link)\b[^>]*?\s(?:src|href)="\/[^"?]+\.(?:js|css))"/g, `$1?v=${BUILD}"`)
+  .replace('<head>', `<head>\n<script>window.BOOMTOWN_BUILD = ${JSON.stringify(BUILD)};</script>`);
 const server = http.createServer((req, res) => {
-  let p;
-  try { p = decodeURIComponent(new URL(req.url, 'http://local').pathname); } catch (e) { res.writeHead(400); return res.end(); }
+  let p, versioned;
+  try {
+    const u = new URL(req.url, 'http://local');
+    p = decodeURIComponent(u.pathname);
+    versioned = u.searchParams.get('v') === BUILD;
+  } catch (e) { res.writeHead(400); return res.end(); }
   if (p === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
-  if (p === '/' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) p = '/index.html';
+  if (p === '/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
+    res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
+    return res.end(INDEX);
+  }
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC + path.sep)) { res.writeHead(404); return res.end('Not found'); }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('Not found'); }
     res.writeHead(200, {
       'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
-      'cache-control': p === '/index.html' ? 'no-cache' : 'public, max-age=300',
+      // Files asked for with this build's fingerprint never change, so phones can keep them; anything
+      // else is checked with the server every time.
+      'cache-control': versioned ? 'public, max-age=31536000, immutable' : /\.woff2$/.test(file) ? 'public, max-age=86400' : 'no-cache',
       'x-content-type-options': 'nosniff',
     });
     res.end(buf);
@@ -676,7 +703,7 @@ function handle(ws, msg) {
     const n = cleanName(msg.name); if (n) c.name = n;
     if (COLORS.includes(msg.color)) c.color = msg.color;
     if (msg.avatar !== undefined) c.avatar = cleanAvatar(msg.avatar);
-    send(ws, { type: 'welcome', clientId: c.id, token: c.token });
+    send(ws, { type: 'welcome', clientId: c.id, token: c.token, build: BUILD });
     const room = rooms.get(c.roomId);
     if (room) { room.members.add(c.id); room.emptySince = null; }
     return;
@@ -754,6 +781,29 @@ function handle(ws, msg) {
       if (!takeSeat(room, c)) return fail('There are no free seats.');
       sysChat(room, `${c.name || 'A player'} took a seat.`);
       return broadcastRoom(room);
+    case 'rejoin': {
+      // Someone on a new device (no saved seat) takes back a player's seat while that player is offline.
+      const i = int(msg.seat), s = room.seats[i];
+      if (!s || s.bot) return fail('That seat is not a player.');
+      if (seatOf(room, c.id) >= 0 || pidOf(room, c.id) != null) return fail('You already have a seat in this game.');
+      const old = room.game ? room.pidClient[i] : s.clientId;
+      if (room.game && room.game.s.players[i] && room.game.s.players[i].bankrupt) return fail(`${s.name} is out of the game.`);
+      if (online(room, old)) return fail(`${s.name} is still connected on another device. Close the game there first, then try again.`);
+      s.clientId = c.id;
+      delete s.key;
+      c.color = s.color;
+      if (!c.name) c.name = s.name;
+      if (room.game) {
+        room.pidClient[i] = c.id;
+        delete room.awaySince[i];
+        if (room.idle) delete room.idle[i];
+      }
+      if (room.hostId === old) room.hostId = c.id;
+      sysChat(room, `${s.name} is back, on another device.`);
+      broadcastRoom(room);
+      if (room.game) { for (const m of members(room)) sendGame(room, m, []); automate(room); tick(room); }
+      return;
+    }
     case 'unseat': {
       if (room.status !== 'waiting') return;
       const i = seatOf(room, c.id);

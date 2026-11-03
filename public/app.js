@@ -25,6 +25,7 @@
   };
 
   const ICON = {
+    palette: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2s-.5-.8-.5-1.2c0-1 .8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11.5" r="1.3"/><circle cx="10.5" cy="7.3" r="1.3"/><circle cx="15" cy="7.6" r="1.3"/>',
     start: '<path d="M4 12h15"/><path d="m13 5 7 7-7 7"/>',
     plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
     bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
@@ -58,7 +59,7 @@
     send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
   };
   const icon = (n, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
-  const MARK = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="17" width="10" height="20" rx="2" fill="#F1B94B" opacity=".5"/><rect x="15" y="5" width="11" height="32" rx="2" fill="#F1B94B"/><rect x="28" y="12" width="9" height="25" rx="2" fill="#F1B94B" opacity=".78"/><g fill="#0A0F1E"><rect x="18" y="10" width="2" height="3"/><rect x="21.5" y="10" width="2" height="3"/><rect x="18" y="16" width="2" height="3"/><rect x="21.5" y="16" width="2" height="3"/><rect x="18" y="22" width="2" height="3"/><rect x="21.5" y="22" width="2" height="3"/><rect x="18" y="29" width="5.5" height="8"/></g></svg>';
+  const MARK = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="17" width="10" height="20" rx="2" style="fill:var(--brass)" opacity=".5"/><rect x="15" y="5" width="11" height="32" rx="2" style="fill:var(--brass)"/><rect x="28" y="12" width="9" height="25" rx="2" style="fill:var(--brass)" opacity=".78"/><g style="fill:var(--ink)"><rect x="18" y="10" width="2" height="3"/><rect x="21.5" y="10" width="2" height="3"/><rect x="18" y="16" width="2" height="3"/><rect x="21.5" y="16" width="2" height="3"/><rect x="18" y="22" width="2" height="3"/><rect x="21.5" y="22" width="2" height="3"/><rect x="18" y="29" width="5.5" height="8"/></g></svg>';
   const WORDMARK = `<span class="brand">${MARK}<span class="wordmark">Boom<em>town</em></span></span>`;
 
   // ------------------------------------------------------------ sound
@@ -223,6 +224,17 @@
       case 'welcome':
         me = m.clientId;
         if (prof.token !== m.token) { prof.token = m.token; saveProf(); }
+        // The game was updated while this tab was open (phones keep tabs asleep for days). Load the new
+        // files once; the room link and saved seat bring the player straight back to their game.
+        if (m.build && window.BOOMTOWN_BUILD !== m.build) {
+          let tried = '';
+          try { tried = sessionStorage.getItem('boomtown.reloadFor') || ''; } catch (e) {}
+          if (tried !== m.build) {
+            try { sessionStorage.setItem('boomtown.reloadFor', m.build); } catch (e) {}
+            toast('Updating to the latest version…');
+            setTimeout(() => location.reload(), 400);
+          }
+        }
         break;
       case 'rooms': renderRoomList(m.rooms); break;
       case 'room': onRoom(m.room); break;
@@ -357,6 +369,15 @@
     });
   }
 
+  // Seats whose player is offline. Someone who opens the room link on a new device (so has no saved seat)
+  // can take theirs back with one tap.
+  function rejoinHTML() {
+    if (!room || !room.seats) return '';
+    const inGame = room.status !== 'waiting' && game;
+    const list = room.seats.map((st, i) => ({ st, i })).filter(({ st, i }) => !st.bot && !st.online && !(inGame && game.s.players[i] && game.s.players[i].bankrupt));
+    if (!list.length) return '';
+    return `<div class="rejoin" role="group" aria-labelledby="rejoinH"><span id="rejoinH" class="rejoin-h">Playing on a new device? Pick your seat to carry on.</span><span class="rejoin-btns">${list.map(({ st, i }) => `<button type="button" class="btn sm" data-rejoin="${i}"><span class="mini-dot" style="--pc:${st.color}" aria-hidden="true"></span>That's me: ${esc(st.name)}</button>`).join('')}</span></div>`;
+  }
   // ------------------------------------------------------------ waiting room
   function renderRoom() {
     const r = room, host = amHost();
@@ -374,14 +395,14 @@
     let ctl = '';
     if (mySeat < 0) {
       const taken = r.seats.map((s) => s.color);
-      ctl = full ? '<span class="muted">All seats are taken. You can watch the game and chat.</span>'
+      ctl = rejoinHTML() + (full ? '<span class="muted">All seats are taken. You can watch the game and chat.</span>'
         : `<form class="seat-form" id="seatForm" autocomplete="off">
           <div class="photo-row"><span class="photo-prev ${prof.avatar ? 'has-img' : ''}" style="--pc:${prof.color}" aria-hidden="true">${prof.avatar ? imgHTML(prof.avatar) : esc(initial(prof.name || '?'))}</span>
             <div class="photo-txt"><div class="field-label">Profile photo</div><div class="photo-btns">${photoCtl()}</div></div></div>
           <label class="field-label" for="seatName">Your nickname</label>
           <input class="text-in" id="seatName" maxlength="18" value="${esc(prof.name)}" required>
           <div class="palette">${COLORS.map((c) => `<button type="button" data-seatc="${c}" style="--pc:${c}" class="${c === prof.color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Use this colour"></button>`).join('')}</div>
-          <div class="row"><button class="btn primary" type="submit">Take a seat</button></div></form>`;
+          <div class="row"><button class="btn primary" type="submit">Take a seat</button></div></form>`);
     } else {
       const taken = r.seats.filter((s, i) => i !== mySeat).map((s) => s.color);
       ctl = `<div class="palette">${COLORS.map((c) => `<button type="button" data-color="${c}" style="--pc:${c}" class="${c === r.seats[mySeat].color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Switch to this colour"></button>`).join('')}</div>
@@ -1567,7 +1588,7 @@
     }
     if (p.id !== mine) {
       const verb = { roll: 'about to roll', moving: 'on the move', buy: 'deciding whether to buy', auction: 'running an auction', end: 'wrapping up', debt: 'raising cash' }[t.phase] || 'thinking';
-      const watch = mine == null ? `<div class="watching">${icon('eye')} You are watching this game.</div>` : '';
+      const watch = mine == null ? `<div class="watching">${icon('eye')} You are watching this game.</div>${rejoinHTML()}` : '';
       return `<div class="wait">${dotHTML(p)}<span><b>${esc(p.name)}</b> is ${verb}<span class="dots"></span></span></div>${!p.bot && isAway(p.id) ? '<div class="hint">They are disconnected. A bot plays for them shortly.</div>' : ''}${watch}`;
     }
     const dis = ui.busy ? 'disabled' : '';
@@ -2231,6 +2252,12 @@
     let rt = null;
     const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { positionTokens(true); fitBadges(); drawRosette($('#rosette'), { rings: 4, alpha: 0.1 }); }, 120); };
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitBadges());
+    // A new theme changes fonts and edges, so tiles and tokens are measured again once its fonts are in.
+    window.addEventListener('boomtown:theme', () => {
+      drawRosette($('#homeRosette'), { rings: 3, alpha: 0.13 });
+      onResize();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize);
+    });
     window.addEventListener('resize', onResize);
     if (window.ResizeObserver) new ResizeObserver(onResize).observe($('#board'));
   }
@@ -2265,40 +2292,65 @@
     while (box.children.length > 3) box.firstElementChild.remove();
     setTimeout(() => el.remove(), 4800);
   }
+  // The rosette behind the board and on the start screen, in the theme's colours. Sketch themes draw it
+  // by hand: fewer, wobblier lines in several crayons or chalks.
   function drawRosette(canvas, opt) {
     if (!canvas) return;
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (!w || !h) return;
+    const css = getComputedStyle(document.documentElement);
+    const inks = (css.getPropertyValue('--rosette-rgb').trim() || '241,185,75').split('|').map((s) => s.trim());
+    const sketch = css.getPropertyValue('--rosette-sketch').trim() === '1';
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     const c = canvas.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.clearRect(0, 0, w, h);
     c.translate(w / 2, h / 2);
+    c.lineCap = 'round'; c.lineJoin = 'round';
     const R = Math.min(w, h) * 0.47;
+    const alpha = sketch ? opt.alpha * 1.7 : opt.alpha;
+    let seed = 7;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    // One closed loop round the centre; in a sketch theme the radius drifts a little, like a hand.
+    const loop = (radius) => {
+      let wob = 0;
+      c.beginPath();
+      for (let s = 0; s <= 720; s++) {
+        const th = (s / 720) * Math.PI * 2;
+        if (sketch) wob += (rnd() - 0.5) * 0.005 - wob * 0.03;
+        const rr = R * (radius(th) + wob);
+        if (s) c.lineTo(Math.cos(th) * rr, Math.sin(th) * rr); else c.moveTo(Math.cos(th) * rr, Math.sin(th) * rr);
+      }
+      c.stroke();
+    };
     const bands = [
       { r: 0.86, amp: 0.06, lobes: 24, copies: 14 }, { r: 0.66, amp: 0.05, lobes: 18, copies: 12 },
       { r: 0.42, amp: 0.07, lobes: 12, copies: 10 }, { r: 0.2, amp: 0.06, lobes: 8, copies: 8 },
     ].slice(0, opt.rings);
-    c.lineWidth = 0.7;
-    for (const b of bands) {
-      for (let k = 0; k < b.copies; k++) {
-        const ph = ((k / b.copies) * Math.PI * 2) / b.lobes;
-        c.strokeStyle = `rgba(241,185,75,${opt.alpha})`;
-        c.beginPath();
-        for (let s = 0; s <= 720; s++) {
-          const th = (s / 720) * Math.PI * 2;
-          const rr = R * (b.r + b.amp * Math.sin(b.lobes * (th + ph)) * Math.cos(th * 2 + k));
-          if (s) c.lineTo(Math.cos(th) * rr, Math.sin(th) * rr); else c.moveTo(Math.cos(th) * rr, Math.sin(th) * rr);
-        }
-        c.stroke();
+    bands.forEach((b, bi) => {
+      const copies = sketch ? Math.ceil(b.copies / 3) : b.copies;
+      c.lineWidth = sketch ? 1.4 : 0.7;
+      c.strokeStyle = `rgba(${inks[bi % inks.length]},${alpha})`;
+      for (let k = 0; k < copies; k++) {
+        const ph = ((k / copies) * Math.PI * 2) / b.lobes;
+        loop((th) => b.r + b.amp * Math.sin(b.lobes * (th + ph)) * Math.cos(th * 2 + k));
       }
-    }
-    c.strokeStyle = `rgba(241,185,75,${opt.alpha * 1.4})`;
-    for (const f of [0.95, 0.955, 0.54, 0.545]) { c.beginPath(); c.arc(0, 0, R * f, 0, Math.PI * 2); c.stroke(); }
+    });
+    c.strokeStyle = `rgba(${inks[0]},${alpha * 1.4})`;
+    for (const f of [0.95, 0.955, 0.54, 0.545]) loop(() => f);
   }
 
   // ------------------------------------------------------------ boot
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-rejoin]');
+    if (b) { Sound.ensure(); net.send({ type: 'rejoin', seat: Number(b.dataset.rejoin) }); }
+  });
+  // Theme buttons on the start screen, in the waiting room and in the game.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-theme-btn]');
+    if (b && window.BoomThemes) window.BoomThemes.openPicker({ returnTo: b });
+  });
   $$('.brandslot').forEach((el) => { el.innerHTML = WORDMARK; });
   bindHome();
   bindRoom();

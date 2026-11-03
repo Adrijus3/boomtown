@@ -9,6 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='3' y='17' width='10' height='20' rx='2' fill='%23F1B94B' opacity='.5'/%3E%3Crect x='15' y='5' width='11' height='32' rx='2' fill='%23F1B94B'/%3E%3Crect x='28' y='12' width='9' height='25' rx='2' fill='%23F1B94B' opacity='.78'/%3E%3C/svg%3E">
 <link rel="preload" href="/fonts/bricolage-grotesque-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/themes.css">
+<script src="/themes.js"></script>
 </head>
 <body>
 <div id="app">
@@ -16,7 +18,7 @@
   <main id="home" class="lobby" aria-label="Start">
     <canvas class="lobby-rosette" id="homeRosette" aria-hidden="true"></canvas>
     <header class="lobby-head">
-      <h1 class="brandslot"></h1>
+      <div class="lobby-top"><h1 class="brandslot"></h1><button class="btn sm theme-btn" type="button" data-theme-btn aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2s-.5-.8-.5-1.2c0-1 .8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11.5" r="1.3"/><circle cx="10.5" cy="7.3" r="1.3"/><circle cx="15" cy="7.6" r="1.3"/></svg>Theme</button></div>
       <p>Buy up whole regions of the UK, stack them with houses and hotels, out-bid rivals at auction and trade your way to a monopoly. <b>Play online with friends or bots.</b></p>
     </header>
     <div class="home-grid">
@@ -57,7 +59,7 @@
         <label class="eyebrow" for="shareLink">Invite friends with this link</label>
         <div class="share-row"><input class="text-in" id="shareLink" readonly><button class="btn" type="button" id="copyLink">Copy</button></div>
       </div>
-      <button class="btn ghost" type="button" id="leaveRoom">Leave room</button>
+      <span class="room-tools"><button class="btn sm theme-btn" type="button" data-theme-btn aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2s-.5-.8-.5-1.2c0-1 .8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11.5" r="1.3"/><circle cx="10.5" cy="7.3" r="1.3"/><circle cx="15" cy="7.6" r="1.3"/></svg>Theme</button><button class="btn ghost" type="button" id="leaveRoom">Leave room</button></span>
     </header>
     <div class="lobby-cta room-cta" id="roomCta"></div>
     <div class="room-grid">
@@ -84,6 +86,7 @@
         <span class="tools">
           <button class="icon-btn" id="rulesBtn" type="button" aria-label="How to play and house rules"></button>
           <button class="icon-btn" id="soundBtn" type="button" aria-label="Mute sound"></button>
+          <button class="icon-btn" id="themeBtn" type="button" data-theme-btn aria-haspopup="dialog" aria-label="Change theme"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2s-.5-.8-.5-1.2c0-1 .8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11.5" r="1.3"/><circle cx="10.5" cy="7.3" r="1.3"/><circle cx="15" cy="7.6" r="1.3"/></svg></button>
           <button class="icon-btn" id="copyBtn" type="button" aria-label="Copy room link"></button>
           <button class="icon-btn" id="leaveBtn" type="button" aria-label="Leave game"></button>
         </span>
