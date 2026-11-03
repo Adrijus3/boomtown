@@ -36,7 +36,7 @@
     { type: 'chest', name: 'Treasure' },
     P('Nottingham', 'md', 180, [14, 70, 200, 550, 750, 950]),
     P('Birmingham', 'md', 200, [16, 80, 220, 600, 800, 1000]),
-    { type: 'vacation', name: 'Vacation' },
+    { type: 'vacation', name: 'Free Parking' },
     P('Bradford', 'yk', 220, [18, 90, 250, 700, 875, 1050]),
     { type: 'chance', name: 'Surprise' },
     P('Doncaster', 'yk', 220, [18, 90, 250, 700, 875, 1050]),
@@ -76,29 +76,29 @@
     { text: 'Go back 3 spaces.', a: 'back', n: 3 },
     { text: 'Go directly to Prison. Do not pass Start.', a: 'jail' },
     { text: 'Pardon: get out of Prison free. Keep this card until you need it.', a: 'pardon' },
-    { text: 'The bank pays you a dividend of $50.', a: 'gain', n: 50 },
-    { text: 'Your building loan matures. Collect $150.', a: 'gain', n: 150 },
-    { text: 'Speeding fine. Pay $15.', a: 'pay', n: 15 },
-    { text: 'Renovation time. Pay $25 for each house and $100 for each hotel.', a: 'repairs', house: 25, hotel: 100 },
-    { text: 'You were elected board chair. Pay each player $50.', a: 'payEach', n: 50 },
+    { text: 'The bank pays you a dividend of £50.', a: 'gain', n: 50 },
+    { text: 'Your building loan matures. Collect £150.', a: 'gain', n: 150 },
+    { text: 'Speeding fine. Pay £15.', a: 'pay', n: 15 },
+    { text: 'Renovation time. Pay £25 for each house and £100 for each hotel.', a: 'repairs', house: 25, hotel: 100 },
+    { text: 'You were elected board chair. Pay each player £50.', a: 'payEach', n: 50 },
   ];
   const CHEST = [
     { text: 'Advance to Start and collect your salary.', a: 'moveTo', to: 0 },
-    { text: 'Bank error in your favour. Collect $200.', a: 'gain', n: 200 },
-    { text: "Doctor's fee. Pay $50.", a: 'pay', n: 50 },
-    { text: 'You sold some shares. Collect $50.', a: 'gain', n: 50 },
+    { text: 'Bank error in your favour. Collect £200.', a: 'gain', n: 200 },
+    { text: "Doctor's fee. Pay £50.", a: 'pay', n: 50 },
+    { text: 'You sold some shares. Collect £50.', a: 'gain', n: 50 },
     { text: 'Pardon: get out of Prison free. Keep this card until you need it.', a: 'pardon' },
     { text: 'Go directly to Prison. Do not pass Start.', a: 'jail' },
-    { text: 'Your holiday fund matures. Collect $100.', a: 'gain', n: 100 },
-    { text: 'Tax refund. Collect $20.', a: 'gain', n: 20 },
-    { text: "It's your birthday. Collect $10 from every player.", a: 'collectEach', n: 10 },
-    { text: 'You host a launch party. Collect $25 from every player.', a: 'collectEach', n: 25 },
-    { text: 'Hospital fees. Pay $100.', a: 'pay', n: 100 },
-    { text: 'School fees. Pay $50.', a: 'pay', n: 50 },
-    { text: 'Consulting fee. Collect $25.', a: 'gain', n: 25 },
-    { text: 'Street repairs. Pay $40 for each house and $115 for each hotel.', a: 'repairs', house: 40, hotel: 115 },
-    { text: 'Second prize in a design contest. Collect $10.', a: 'gain', n: 10 },
-    { text: 'You inherit $100.', a: 'gain', n: 100 },
+    { text: 'Your holiday fund matures. Collect £100.', a: 'gain', n: 100 },
+    { text: 'Tax refund. Collect £20.', a: 'gain', n: 20 },
+    { text: "It's your birthday. Collect £10 from every player.", a: 'collectEach', n: 10 },
+    { text: 'You host a launch party. Collect £25 from every player.', a: 'collectEach', n: 25 },
+    { text: 'Hospital fees. Pay £100.', a: 'pay', n: 100 },
+    { text: 'School fees. Pay £50.', a: 'pay', n: 50 },
+    { text: 'Consulting fee. Collect £25.', a: 'gain', n: 25 },
+    { text: 'Street repairs. Pay £40 for each house and £115 for each hotel.', a: 'repairs', house: 40, hotel: 115 },
+    { text: 'Second prize in a design contest. Collect £10.', a: 'gain', n: 10 },
+    { text: 'You inherit £100.', a: 'gain', n: 100 },
   ];
   const DECKS = { chance: CHANCE, chest: CHEST };
   const PARDON_INDEX = { chance: CHANCE.findIndex((c) => c.a === 'pardon'), chest: CHEST.findIndex((c) => c.a === 'pardon') };
@@ -108,7 +108,7 @@
     salary: 200,
     doubleOnStart: false,
     doubleRentSet: true,
-    vacationCash: false,
+    vacationCash: true,
     auctions: true,
     noRentInPrison: false,
     mortgages: true,
@@ -122,7 +122,7 @@
     botSpeed: 'normal',
   };
 
-  const fmt = (n) => '$' + Math.round(n).toLocaleString('en-US');
+  const fmt = (n) => '£' + Math.round(n).toLocaleString('en-GB');
 
   function shuffle(arr, rng) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -399,7 +399,7 @@
           if (this.st.vacationCash && s.pot > 0) {
             const pot = s.pot; s.pot = 0;
             this.gain(p, pot);
-            this.log([{ p: p.id }, ' went on vacation and collected the ', { m: pot }, ' pot.']);
+            this.log([{ p: p.id }, ' landed on Free Parking and collected the ', { m: pot }, ' jackpot.']);
           }
           return this.finishAction();
         default:
@@ -886,7 +886,7 @@
       const limit = this.bidLimit(g, p, a.tile);
       const inc = a.high < 100 ? 10 : a.high < 400 ? 20 : 50;
       let next = Math.max(10, a.high + inc);
-      // Open strongly instead of creeping up $10 at a time.
+      // Open strongly instead of creeping up £10 at a time.
       if (a.high < limit * 0.45) next = Math.max(next, Math.round((limit * (0.4 + g.rng() * 0.15)) / 10) * 10);
       return next <= limit ? next : null;
     },

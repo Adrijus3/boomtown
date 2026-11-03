@@ -26,7 +26,7 @@ To play with people on the same Wi-Fi, give them your computer's local address i
 
 Free services fall asleep after 15 minutes with nobody connected. The next visit wakes the server, which takes about a minute, then it's quick again. Games keep the server awake while anyone is playing.
 
-Every push to this repository redeploys automatically.
+Every push to this repository redeploys automatically, and games in progress carry on afterwards (see below).
 
 The game is one small Node.js server, so any host that runs Node.js and supports WebSockets also works.
 
@@ -39,7 +39,7 @@ docker run -d -p 3000:3000 --restart unless-stopped boomtown
 
 Railway, Fly.io and a basic VPS all work the same way. The server reads the `PORT` environment variable if your host sets one.
 
-Rooms and games are kept in memory, so restarting or redeploying the server ends any games in progress.
+Games survive restarts and redeploys. Rooms live in the server's memory, so the server keeps sending each seated player a signed copy of their room, which their browser stores. When the server comes back and someone reopens the room link, their browser hands the copy back, the server checks the signature (so nobody can edit their money) and rebuilds the room. Everyone gets their seat back when they reconnect, and a bot covers anyone who doesn't. Copies older than 12 hours aren't used. The signing key comes from `SNAPSHOT_SECRET`, which the Render Blueprint generates once; without it the server falls back to Render's service ID, or to a `.snapshot-secret` file when run on your own computer.
 
 ## How to play
 
@@ -48,6 +48,7 @@ Rooms and games are kept in memory, so restarting or redeploying the server ends
 - If a bot is slowing things down, or a friend has left or stopped playing, open them in the side panel and press **Remove bot** or **Vote to remove**. The other players still in the game get 30 seconds to vote, and more than half must agree. Bots can always be removed; a person who is still playing can only be voted out if someone else votes with you, or once they've left or let their turn clock run out. Their properties go back to the bank.
 - Add a profile photo on the start screen, in the waiting room (tap your seat's circle) or during the game (the Photo button on your player). You can drag and zoom it into the circle, and it replaces your letter on your token and everywhere else your player appears. Photos are shrunk to a few kilobytes, kept on your device, and only shared with the people in your room.
 - If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back.
+- Taxes, fines and bail pile up on **Free Parking**, and whoever lands there collects the lot. The host can switch this off in the house rules.
 - Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 
 ## What's in the folder
@@ -64,3 +65,7 @@ Rooms and games are kept in memory, so restarting or redeploying the server ends
 | `test/simulate.js` | Plays 600 bot-only games across different house rules and checks the rules never break (`npm test`) |
 
 The server is the only place moves are decided. Browsers send what a player wants to do ("roll", "bid $120"), the server checks it against the rules and sends the new game state to everyone in the room, so nobody can cheat by editing their page.
+
+## Accessibility
+
+Every screen and dialog in both versions passes the axe checks for WCAG 2.2 AA and recommended best practice, at phone and desktop sizes. You can play the whole game with a keyboard: focus stays inside open dialogs, Escape closes them, and focus goes back where it was afterwards. Text meets 4.5:1 contrast, the page is marked as British English for screen readers, the activity feed announces what happens, and countdowns are kept out of what screen readers read aloud. With "reduce motion" switched on, there's no camera zoom or flying coins. Phones held sideways, tablets and small laptops get a layout with the board beside the side panel, so the whole board stays in view.

@@ -8,3 +8,8 @@ services:
     startCommand: npm start
     healthCheckPath: /healthz
     autoDeploy: true
+    envVars:
+      # Signs the copies of each room that players' browsers keep, so games can be brought back after an
+      # update. Render makes this random value once and keeps it across deploys.
+      - key: SNAPSHOT_SECRET
+        generateValue: true

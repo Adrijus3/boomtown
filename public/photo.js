@@ -47,8 +47,8 @@
       const wrap = document.createElement('div');
       wrap.className = 'pp-modal';
       wrap.innerHTML = `<div class="pp-sheet" role="dialog" aria-modal="true" aria-labelledby="ppTitle">
-        <div class="pp-h"><b id="ppTitle">Your photo</b><span>Drag to move it. Pinch or use the slider to zoom.</span></div>
-        <div class="pp-stage" tabindex="0" aria-label="Photo position. Arrow keys move it, plus and minus zoom."><canvas></canvas><div class="pp-ring"></div></div>
+        <div class="pp-h"><b id="ppTitle">Your photo</b><span id="ppHint">Drag to move it. Pinch or use the slider to zoom. With a keyboard, use the arrow keys to move it and plus or minus to zoom.</span></div>
+        <div class="pp-stage" tabindex="0" role="application" aria-label="Photo position" aria-describedby="ppHint"><canvas></canvas><div class="pp-ring"></div></div>
         <label class="pp-zoom"><span aria-hidden="true">−</span><input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"><span aria-hidden="true">+</span></label>
         <div class="pp-f">
           <button type="button" class="btn ghost" data-pp="other">Choose another</button>
@@ -134,13 +134,23 @@
       range.addEventListener('input', () => zoomTo(parseFloat(range.value), S / 2, S / 2));
       const onResize = () => measure();
       window.addEventListener('resize', onResize);
-      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); close(null); } };
+      const returnTo = document.activeElement;
+      const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); close(null); return; }
+        if (e.key !== 'Tab') return; // keep keyboard focus inside the picker
+        const items = [...wrap.querySelectorAll('button, input, [tabindex="0"]')].filter((x) => !x.disabled);
+        const first = items[0], last = items[items.length - 1], at = document.activeElement;
+        if (!wrap.contains(at)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+      };
       document.addEventListener('keydown', onKey);
       function close(result) {
         window.removeEventListener('resize', onResize);
         document.removeEventListener('keydown', onKey);
         document.documentElement.classList.remove('pp-open');
         wrap.remove();
+        if (returnTo && document.contains(returnTo) && returnTo.getClientRects().length) returnTo.focus({ preventScroll: true });
         resolve(result);
       }
       function exportPhoto() {

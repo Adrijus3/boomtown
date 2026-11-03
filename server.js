@@ -83,6 +83,111 @@ const online = (room, clientId) => { const c = clientsById.get(clientId); return
 const members = (room) => [...room.members].map((id) => clientsById.get(id)).filter(Boolean);
 
 // ------------------------------------------------------------ rooms
+// ------------------------------------------------------------ games that survive restarts
+// Rooms live in memory, so a restart or a redeploy would end every game. Instead the server keeps sending each
+// seated player a signed copy of their room. When the server comes back and someone reopens the room link,
+// their browser hands the copy back; the signature proves this server made it and nobody changed it, and the
+// room is rebuilt. Players get their seats back by a hash of their private token, which never leaves their
+// browser. If several players send copies at once, the newest one wins.
+const SNAP_MAX_AGE = 12 * 3600 * 1000;
+const SNAP_SECRET = (() => {
+  if (process.env.SNAPSHOT_SECRET) return process.env.SNAPSHOT_SECRET;
+  if (process.env.RENDER_SERVICE_ID) return `render:${process.env.RENDER_SERVICE_ID}`; // the same across deploys
+  const f = path.join(__dirname, '.snapshot-secret');
+  try { const v = fs.readFileSync(f, 'utf8').trim(); if (v) return v; } catch (e) { /* first run */ }
+  const v = crypto.randomBytes(32).toString('hex');
+  try { fs.writeFileSync(f, v); } catch (e) { /* read-only disk: copies only work until the next restart */ }
+  return v;
+})();
+const sign = (data) => crypto.createHmac('sha256', SNAP_SECRET).update(data).digest('base64url');
+const sameSig = (a, b) => typeof a === 'string' && a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const seatKey = (token) => crypto.createHash('sha256').update(`seat:${token}`).digest('base64url').slice(0, 24);
+const keyOfClient = (cid) => { const c = clientsById.get(cid); return c ? seatKey(c.token) : null; };
+
+function snapshotOf(room) {
+  const g = room.game;
+  room.snapSeq = (room.snapSeq || 0) + 1;
+  const state = g ? Object.assign({}, g.s, {
+    log: g.s.log.slice(-80),
+    trades: g.s.trades.filter((t) => t.status === 'pending').concat(g.s.trades.filter((t) => t.status !== 'pending').slice(-10)),
+  }) : null;
+  return JSON.stringify({
+    v: 1, id: room.id, at: Date.now(), seq: room.snapSeq, status: room.status, gid: room.gid,
+    settings: room.settings, host: keyOfClient(room.hostId) || room.hostKey || null,
+    seats: room.seats.map((x) => ({ name: x.name, color: x.color, bot: !!x.bot, key: x.bot ? null : keyOfClient(x.clientId) || x.key || null })),
+    state, chat: room.chat.slice(-20),
+  });
+}
+function sendSnapshot(room) {
+  clearTimeout(room.snapTimer); room.snapTimer = null;
+  if (rooms.get(room.id) !== room || room.status === 'over' || !room.seats.some((x) => !x.bot)) return;
+  const data = snapshotOf(room);
+  const msg = JSON.stringify({ type: 'snap', room: room.id, data, sig: sign(data) });
+  for (const c of members(room)) if (seatOf(room, c.id) >= 0) sendClient(c, msg);
+}
+const queueSnapshot = (room) => { if (!room.snapTimer) room.snapTimer = setTimeout(() => sendSnapshot(room), 1500); };
+
+const restoring = new Map(); // room id -> { snap, waiters, timer }
+function requestRestore(c, data, sig) {
+  if (typeof data !== 'string' || data.length > 200000 || !sameSig(sig, sign(data))) return 'That saved game could not be checked, so it was not brought back.';
+  let snap;
+  try { snap = JSON.parse(data); } catch (e) { return 'That saved game could not be read.'; }
+  if (!snap || snap.v !== 1 || typeof snap.id !== 'string' || !Array.isArray(snap.seats)) return 'That saved game could not be read.';
+  if (Date.now() - snap.at > SNAP_MAX_AGE) return 'That game is too old to bring back.';
+  const live = rooms.get(snap.id);
+  if (live) { joinRoom(c, live); return null; }
+  if (rooms.size >= MAX_ROOMS) return 'The server is full right now. Try again in a few minutes.';
+  let r = restoring.get(snap.id);
+  if (!r) { r = { snap, waiters: new Set(), timer: setTimeout(() => finishRestore(snap.id), 1200) }; restoring.set(snap.id, r); }
+  else if (snap.gid > r.snap.gid || (snap.gid === r.snap.gid && snap.seq > r.snap.seq)) r.snap = snap;
+  r.waiters.add(c);
+  return null;
+}
+function finishRestore(id) {
+  const r = restoring.get(id);
+  restoring.delete(id);
+  if (!r) return;
+  let room = rooms.get(id);
+  if (!room) {
+    const s = r.snap, now = Date.now();
+    room = {
+      id, hostId: null, hostKey: s.host, status: s.status === 'playing' && s.state ? 'playing' : 'waiting', createdAt: now, emptySince: null,
+      settings: Object.assign({}, ROOM_DEFAULTS, s.settings),
+      // Seats whose players haven't come back yet hold a placeholder that always counts as offline.
+      seats: s.seats.map((x, i) => (x.bot ? { clientId: null, bot: true, name: x.name, color: x.color } : { clientId: `gone:${i}`, bot: false, name: x.name, color: x.color, key: x.key })),
+      members: new Set(), chat: Array.isArray(s.chat) ? s.chat : [],
+      game: null, gid: s.gid || 0, events: [], pidClient: [], busyUntil: 0,
+      timers: { move: null, bot: null, turn: null, auction: null }, tradeTimers: {},
+      auction: null, turnT: null, awaySince: {}, idle: {}, snapSeq: s.seq,
+    };
+    if (room.status === 'playing') {
+      const g = new Game(s.state);
+      room.game = g;
+      g.on((ev) => room.events.push(ev));
+      room.pidClient = room.seats.map((x) => (x.bot ? null : x.clientId));
+      room.seats.forEach((x, i) => { if (!x.bot) room.awaySince[i] = now; });
+      room.busyUntil = now + 400;
+    }
+    rooms.set(id, room);
+    sysChat(room, 'The server was updated and this game was brought back. Everyone gets their seat back when they reconnect.');
+  }
+  for (const c of r.waiters) if (c.sockets.size) joinRoom(c, room);
+  passHost(room);
+  broadcastRoom(room);
+  if (room.game) tick(room);
+}
+// A returning player takes back their own seat (and the host role, if it was theirs).
+function claimSeat(room, c) {
+  const key = seatKey(c.token);
+  if (room.hostKey && room.hostKey === key) { room.hostId = c.id; room.hostKey = null; }
+  const i = room.seats.findIndex((x) => !x.bot && x.key === key && String(x.clientId).startsWith('gone:'));
+  if (i < 0) return false;
+  room.seats[i].clientId = c.id;
+  c.color = room.seats[i].color;
+  if (room.game) { room.pidClient[i] = c.id; delete room.awaySince[i]; }
+  return true;
+}
+
 function createRoom(host, isPrivate) {
   let id;
   do { id = rid(5); } while (id.length < 5 || rooms.has(id));
@@ -123,6 +228,7 @@ function roomView(room) {
 function broadcastRoom(room) {
   const view = JSON.stringify({ type: 'room', room: roomView(room) });
   for (const c of members(room)) sendClient(c, view);
+  queueSnapshot(room);
 }
 
 function listRooms() {
@@ -142,6 +248,7 @@ function joinRoom(c, room) {
   c.roomId = room.id;
   room.members.add(c.id);
   room.emptySince = null;
+  if (claimSeat(room, c) && room.game) sysChat(room, `${room.seats[pidOf(room, c.id)].name} is back.`);
   const pid = pidOf(room, c.id);
   if (pid != null && room.awaySince[pid]) { delete room.awaySince[pid]; if (room.game) sysChat(room, `${c.name || 'A player'} is back.`); }
   if (fresh && room.status !== 'waiting' && pid == null && c.name) sysChat(room, `${c.name} is watching.`);
@@ -242,6 +349,7 @@ function tick(room) {
   const stateStr = JSON.stringify(Object.assign({}, g.s, { log: g.s.log.slice(-150) }));
   const evStr = JSON.stringify(events);
   for (const c of members(room)) sendGame(room, c, null, stateStr, evStr);
+  queueSnapshot(room);
 }
 
 function sendGame(room, c, events, stateStr, evStr) {
@@ -623,6 +731,7 @@ function handle(ws, msg) {
       return joinRoom(c, r);
     }
     case 'leave': if (room) leaveRoom(c); return send(ws, { type: 'left' });
+    case 'restore': { const err = requestRestore(c, msg.data, msg.sig); if (err) fail(err, 'norestore'); return; }
     case 'chat': {
       if (!room) return;
       const text = String(msg.text || '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 280);
@@ -698,7 +807,7 @@ function handle(ws, msg) {
 }
 
 // ------------------------------------------------------------ sockets
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 32 * 1024 });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 256 * 1024 }); // room copies sent back after a restart can be large
 wss.on('connection', (ws) => {
   ws.client = null;
   ws.isAlive = true;
@@ -758,3 +867,18 @@ setInterval(() => {
 }, 60000);
 
 server.listen(PORT, () => console.log(`Boomtown is running on http://localhost:${PORT}`));
+
+// Before an update shuts this server down, hand every player the latest copy of their room and tell them.
+let stopping = false;
+function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  for (const room of rooms.values()) {
+    if (room.status === 'over') continue;
+    sendSnapshot(room);
+    for (const c of members(room)) sendClient(c, { type: 'notice', message: 'The server is updating. Your game will carry on in a moment.' });
+  }
+  setTimeout(() => process.exit(0), 700);
+}
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);

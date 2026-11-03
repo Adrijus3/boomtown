@@ -847,8 +847,8 @@ button.deedcard:hover:not(:disabled) { transform: translateY(-3px); border-color
 .sidebody { padding: 0; }
 .ov-sec { padding: 16px; border-top: 1px solid var(--line-soft); }
 .ov-sec:first-child { border-top: 0; }
-.ov-sec > h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: 700 11.5px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
-.ov-sec > h4 .muted { letter-spacing: 0; text-transform: none; font-weight: 600; font-size: 12.5px; }
+.ov-sec > h4, .ov-sec > h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: 700 11.5px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.ov-sec > h4 .muted, .ov-sec > h2 .muted { letter-spacing: 0; text-transform: none; font-weight: 600; font-size: 12.5px; }
 .ov-sec .empty { padding: 4px 0 2px; text-align: left; }
 .ov-sec .log-r:first-of-type { margin-top: 0; }
 .ov-sec .suggest:first-of-type { margin-top: 0; }
@@ -1343,3 +1343,51 @@ html.pp-open { overflow: hidden; }
 #room .room-cta { padding: 14px 16px; border-radius: 16px; background: var(--tile); border: 1px solid var(--line-soft); }
 #room .room-cta.is-host { border-color: rgba(241,185,75,.4); background: linear-gradient(180deg, rgba(241,185,75,.08), rgba(241,185,75,.02)), var(--tile); }
 #room .room-cta .room-cta-note { font-size: 13.5px; }
+
+/* ---------------------------------------------------------------- accessibility and platform fixes */
+/* Text colours that meet WCAG AA contrast (4.5:1) on every panel colour. */
+:root { --muted: #A1ABC6; --faint: #8A95B4; }
+/* The wordmark is the page heading; it keeps its own size and look. */
+h1.brandslot, #gameBrand { font: inherit; margin: 0; }
+/* Text boxes get the same clear focus ring as buttons, not just a border colour change. */
+.text-in:focus-visible, .seat-name:focus-visible, .chat-form input:focus-visible, .money-in input:focus-visible, .select:focus-visible {
+  outline: 2px solid var(--brass); outline-offset: 2px;
+}
+/* Text-style buttons are at least 24px tall, so they are easy to hit. */
+.link { min-height: 24px; display: inline-flex; align-items: center; }
+/* Phones and tablets: no grey tap flash, no double-tap zoom delay on controls, no automatic text inflation
+   when turned sideways. Pinch zoom still works everywhere. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, .tile, [role="button"], a, label.switch, select { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+/* Touch screens have no real hover, so a tapped tile shouldn't stay lit up. */
+@media (hover: none) {
+  .tile:hover { filter: none; }
+  .pcard:hover { background: transparent; }
+  .pcard.viewing:hover { background: var(--tile-2); }
+}
+/* Windows high contrast and other forced-colour modes: keep focus rings and toggles visible. */
+@media (forced-colors: active) {
+  :focus-visible { outline: 2px solid CanvasText !important; }
+  .switch span { border: 1px solid CanvasText; }
+  .switch input:checked + span::after { background: Highlight; }
+}
+/* Player picker: every player at full strength (their letters stay readable); the selected one has the ring. */
+.who-row button { opacity: 1; }
+.who-row button.out { background: var(--tile-3); color: var(--text); text-decoration: line-through; }
+.who-row button.out.has-img img { filter: grayscale(1) brightness(.8); }
+
+/* ---------------------------------------------------------------- landscape screens under 1180px wide
+   Phones held sideways, small laptops and landscape tablets: the board fills the height on the left and stays
+   in view, while players, the side panel and chat scroll on the right. */
+@media (max-width: 1180px) and (orientation: landscape) and (min-width: 560px) {
+  .game {
+    grid-template-columns: min(calc(100svh - 24px), 58vw) minmax(0, 1fr); grid-template-rows: auto 1fr;
+    max-width: none; align-items: start; column-gap: 16px; row-gap: 12px;
+  }
+  .stage { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 12px; order: 0; }
+  .side.left { display: flex; grid-column: 2; grid-row: 1; min-width: 0; }
+  .side.right { grid-column: 2; grid-row: 2; min-height: 360px; align-self: stretch; }
+  .players { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
+/* A player's worth and property count wraps instead of being cut off. */
+.pmeta { white-space: normal; overflow: visible; text-overflow: clip; }

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Boomtown</title>
-<meta name="description" content="Boomtown: an online property-trading board game. Buy countries, build hotels, win auctions and trade with friends.">
+<meta name="description" content="Boomtown: an online property-trading board game. Buy up the UK, build hotels, win auctions and trade with friends.">
 <meta name="theme-color" content="#0A0F1E">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='3' y='17' width='10' height='20' rx='2' fill='%23F1B94B' opacity='.5'/%3E%3Crect x='15' y='5' width='11' height='32' rx='2' fill='%23F1B94B'/%3E%3Crect x='28' y='12' width='9' height='25' rx='2' fill='%23F1B94B' opacity='.78'/%3E%3C/svg%3E">
 <link rel="preload" href="/fonts/bricolage-grotesque-latin-standard-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -13,11 +13,11 @@
 <body>
 <div id="app">
   <!-- Home -->
-  <section id="home" class="lobby" aria-label="Start">
+  <main id="home" class="lobby" aria-label="Start">
     <canvas class="lobby-rosette" id="homeRosette" aria-hidden="true"></canvas>
     <header class="lobby-head">
       <h1 class="brandslot"></h1>
-      <p>Buy whole countries, stack them with houses and hotels, out-bid rivals at auction and trade your way to a monopoly. <b>Play online with friends or bots.</b></p>
+      <p>Buy up whole regions of the UK, stack them with houses and hotels, out-bid rivals at auction and trade your way to a monopoly. <b>Play online with friends or bots.</b></p>
     </header>
     <div class="home-grid">
       <form class="panel home-card" id="homeForm" autocomplete="off">
@@ -47,12 +47,12 @@
         </form>
       </div>
     </div>
-  </section>
+  </main>
 
   <!-- Waiting room -->
-  <section id="room" class="lobby" hidden aria-label="Waiting room">
+  <main id="room" class="lobby" hidden aria-label="Waiting room">
     <header class="room-top">
-      <span class="brandslot small-brand"></span>
+      <h1 class="brandslot small-brand"></h1>
       <div class="share">
         <label class="eyebrow" for="shareLink">Invite friends with this link</label>
         <div class="share-row"><input class="text-in" id="shareLink" readonly><button class="btn" type="button" id="copyLink">Copy</button></div>
@@ -74,13 +74,13 @@
         <div class="rules-form" id="roomRules"></div>
       </div>
     </div>
-  </section>
+  </main>
 
   <!-- Game -->
-  <section id="game" class="game" hidden aria-label="Game table">
+  <div id="game" class="game" hidden>
     <aside class="side left" aria-label="Players and chat">
       <div class="side-top">
-        <span class="brandslot"></span>
+        <h1 class="brandslot"></h1>
         <span class="tools">
           <button class="icon-btn" id="rulesBtn" type="button" aria-label="How to play and house rules"></button>
           <button class="icon-btn" id="soundBtn" type="button" aria-label="Mute sound"></button>
@@ -100,7 +100,7 @@
       <div class="tabs" id="tabs" role="tablist" hidden></div>
       <div class="panel sidebody" id="sidebody"></div>
     </aside>
-  </section>
+  </div>
 </div>
 
 <div class="netbar" id="netbar" hidden role="status">Connection lost. Reconnecting…</div>

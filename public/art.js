@@ -68,13 +68,10 @@
       <rect x="14.9" y="19.6" width="2.2" height="4.4" rx="1.1" fill="#5A1414"/>
       <path d="M8.8 16.4h4" stroke="#FFC0C0" stroke-width="1.4" stroke-linecap="round"/>`, 'gotojail'),
 
-    vacation: svg(`<path d="M2.8 27.4c4.2-3.4 22.2-3.4 26.4 0V29H2.8z" fill="#E9C246"/>
-      <path d="M15.4 11.5l2.6 15.2" stroke="#DCE3F2" stroke-width="1.8" stroke-linecap="round"/>
-      <g transform="rotate(-10 15 12)">
-        <path d="M3.5 13.4C4.4 7.6 9.4 3.6 15 3.6s10.6 4 11.5 9.8c-1.9-1-3.8-1-5.7 0-1.9-1-3.9-1-5.8 0-1.9-1-3.9-1-5.8 0-1.9-1-3.8-1-5.7 0z" fill="#B23C78" transform="translate(0 1.4)"/>
-        <path d="M3.5 13.4C4.4 7.6 9.4 3.6 15 3.6s10.6 4 11.5 9.8c-1.9-1-3.8-1-5.7 0-1.9-1-3.9-1-5.8 0-1.9-1-3.9-1-5.8 0-1.9-1-3.8-1-5.7 0z" fill="#F062A5"/>
-        <path d="M9.2 13.4C9.4 8.6 11.8 5 15 3.6c-1.4 2.6-2.1 6-2.1 9.8-1.2-.6-2.5-.6-3.7 0z" fill="#FFFFFF"/>
-        <path d="M20.8 13.4C20.6 8.6 18.2 5 15 3.6c1.4 2.6 2.1 6 2.1 9.8 1.2-.6 2.5-.6 3.7 0z" fill="#FFFFFF"/></g>`, 'vacation'),
+    vacation: svg(`<rect x="5" y="5.8" width="22" height="22" rx="4.5" fill="#173F86"/>
+      <rect x="5" y="4" width="22" height="22" rx="4.5" fill="#2E6BD8"/>
+      <rect x="6.6" y="5.6" width="18.8" height="18.8" rx="3.2" fill="none" stroke="#9EC0FF" stroke-width=".8" opacity=".55"/>
+      <path d="M12.4 21.4V8.8h5a3.9 3.9 0 0 1 0 7.8h-5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`, 'parking'),
 
     die: svg(`<rect x="4" y="5.6" width="24" height="24" rx="6" fill="#B9C2D8"/>
       <rect x="4" y="4" width="24" height="24" rx="6" fill="#FFFFFF"/>
@@ -90,7 +87,7 @@
     }
     return `<polygon points="${pts.join(' ')}" fill="#fff"/>`;
   };
-  const UJ = '<path d="M0 0L60 30M60 0L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0L60 30M60 0L0 30" stroke="#C8102E" stroke-width="2"/><path d="M30 0V30M0 15H60" stroke="#fff" stroke-width="10"/><path d="M30 0V30M0 15H60" stroke="#C8102E" stroke-width="6"/>';
+  const UJ = '<rect width="60" height="30" fill="#012169"/><path d="M0 0 60 30M60 0 0 30" stroke="#fff" stroke-width="6"/><path d="M0 0 30 15 29.106 16.789-.894 1.789ZM30 15 60 30 60.894 28.211 30.894 13.211ZM30 15 60 0 59.106-1.789 29.106 13.211ZM30 15 0 30 .894 31.789 30.894 16.789Z" fill="#C8102E"/><path d="M30 0V30M0 15H60" stroke="#fff" stroke-width="10"/><path d="M30 0V30M0 15H60" stroke="#C8102E" stroke-width="6"/>';
   const usStars = (() => {
     let o = '';
     for (let r = 0; r < 9; r++) {
@@ -135,8 +132,8 @@
     li: flag('<rect width="15" height="10" fill="#00965E"/><rect x="15" width="15" height="10" fill="#0033A0"/><rect y="10" width="15" height="10" fill="#0033A0"/><rect x="15" y="10" width="15" height="10" fill="#00965E"/>'
       + '<rect x="12.2" width="5.6" height="20" fill="#FFD100"/><rect y="7.2" width="30" height="5.6" fill="#FFD100"/><rect x="13.1" width="3.8" height="20" fill="#C8102E"/><rect y="8.1" width="30" height="3.8" fill="#C8102E"/>'
       + '<g transform="translate(15 10) scale(.43)" fill="#FFD100" stroke="#7A5A00" stroke-width=".35" stroke-linejoin="round"><path d="M0-5.4C1.5-3.9 1.6-1.6 0 .2C-1.6-1.6-1.5-3.9 0-5.4Z"/><path d="M-.5-.2C-1.4-2.9-4.6-3.1-4.6-.6C-4.6 1.1-2.9 1.6-1.9.6C-2.9.5-3.2-.5-2.5-1.1C-1.8-1.6-1-1.1-.5-.2Z"/><path d="M.5-.2C1.4-2.9 4.6-3.1 4.6-.6C4.6 1.1 2.9 1.6 1.9.6C2.9.5 3.2-.5 2.5-1.1C1.8-1.6 1-1.1.5-.2Z"/><rect x="-2.6" y=".3" width="5.2" height="1.2" rx=".4"/><path d="M-1 1.6H1L0 4.6Z"/></g>', 'Lincolnshire'),
-    // London: the City of London's St George's cross with a red sword, point up, in the top corner by the pole.
-    ln: flag(georgeCross + '<g fill="#CE1124"><path d="M6.5.8 7.15 1.7V5.2H5.85V1.7Z"/><rect x="4.6" y="5.2" width="3.8" height=".8" rx=".25"/><rect x="6.1" y="6" width=".8" height="1"/><circle cx="6.5" cy="7.35" r=".45"/></g>', 'the City of London'),
+    // London: the Union flag, as the capital.
+    ln: flag('<g transform="scale(.5 .6667)">' + UJ + '</g>', 'the United Kingdom'),
   };
 
   // ---- prison cell: plain steel bars. They float above tokens so prisoners appear behind them.

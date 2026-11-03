@@ -8,11 +8,15 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const initial = (n) => (String(n || '?').trim()[0] || '?').toUpperCase();
+  document.documentElement.lang = document.documentElement.lang || 'en-GB'; // British English for screen readers
   const PROF_KEY = 'boomtown.online.v1';
   const store = {
     get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } },
   };
+  // The latest signed copy of the room this player is seated in, so the game can come back after a server update.
+  const SNAP_KEY = 'boomtown.snap.v1';
   const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4'];
   const SPEED = {
     relaxed: { step: 150, dice: 1300, card: 500, jump: 560 },
@@ -123,22 +127,22 @@
     { key: 'maxPlayers', type: 'select', label: 'Maximum players', desc: 'How many seats this room has.', options: [2, 3, 4, 5, 6, 7, 8].map((n) => [n, `${n} players`]) },
     { key: 'private', type: 'toggle', label: 'Private room', desc: 'Hidden from the open rooms list. Only people with the link can join.' },
     { group: 'Money' },
-    { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '$1,000'], [1500, '$1,500'], [2000, '$2,000'], [2500, '$2,500'], [3000, '$3,000']] },
-    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '$100'], [200, '$200'], [300, '$300'], [400, '$400']] },
+    { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
+    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [200, '£200'], [300, '£300'], [400, '£400']] },
     { key: 'doubleOnStart', type: 'toggle', label: 'Double salary on Start', desc: 'Land exactly on Start to collect twice the salary.' },
-    { key: 'vacationCash', type: 'toggle', label: 'Vacation jackpot', desc: 'Taxes, fines and bail go into a pot. Land on Vacation to collect it.' },
+    { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Taxes, fines and bail pile up on Free Parking. Whoever lands there collects the lot.' },
     { group: 'Property' },
     { key: 'auctions', type: 'toggle', label: 'Auctions', desc: 'A property nobody buys goes to the highest bidder.' },
-    { key: 'doubleRentSet', type: 'toggle', label: 'Double rent on full sets', desc: 'Own a whole country to charge twice the base rent on empty lots.' },
+    { key: 'doubleRentSet', type: 'toggle', label: 'Double rent on full sets', desc: 'Own a whole region to charge twice the base rent on empty lots.' },
     { key: 'mortgages', type: 'toggle', label: 'Mortgages', desc: 'Borrow half a property’s price. Pay it back with 10% interest.' },
-    { key: 'evenBuild', type: 'toggle', label: 'Even build', desc: 'Houses go up and come down evenly across a country.' },
+    { key: 'evenBuild', type: 'toggle', label: 'Even build', desc: 'Houses go up and come down evenly across a region.' },
     { key: 'limitedBuildings', type: 'toggle', label: 'Housing shortage', desc: 'The bank holds only 32 houses and 12 hotels.' },
     { key: 'noRentInPrison', type: 'toggle', label: 'No rent from Prison', desc: 'Owners serving time collect nothing.' },
     { group: 'Pace' },
     { key: 'roundLimit', type: 'select', label: 'Game length', desc: 'With a limit, the highest net worth wins after the final round.', options: [[0, 'Last one standing'], [10, '10 rounds'], [15, '15 rounds'], [20, '20 rounds'], [30, '30 rounds'], [50, '50 rounds']] },
     { key: 'rollTimer', type: 'select', label: 'Roll timer', desc: 'How long each player has to roll the dice. When it runs out, the dice are rolled for them.', options: [[0, 'Off'], [30, '30 seconds'], [60, '1 minute'], [90, '1½ minutes'], [120, '2 minutes']] },
     { key: 'turnTimer', type: 'select', label: 'Turn timer', desc: 'After rolling, how long to buy, build, trade and end the turn. When it runs out, the turn is finished and nothing is bought.', options: [[0, 'Off'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes']] },
-    { key: 'bail', type: 'select', label: 'Prison bail', desc: 'What it costs to walk out early.', options: [[50, '$50'], [100, '$100'], [150, '$150']] },
+    { key: 'bail', type: 'select', label: 'Prison bail', desc: 'What it costs to walk out early.', options: [[50, '£50'], [100, '£100'], [150, '£150']] },
     { key: 'botSpeed', type: 'select', label: 'Game speed', desc: 'How fast tokens move and bots decide.', options: [['relaxed', 'Relaxed'], ['normal', 'Normal'], ['fast', 'Fast']] },
     { key: 'randomOrder', type: 'toggle', label: 'Shuffle turn order', desc: 'Randomise who goes first.' },
   ];
@@ -232,10 +236,22 @@
         renderChats();
         if (!m.msg.sys && m.msg.from !== me) Sound.chat();
         break;
-      case 'error':
+      case 'error': {
+        // After a server update the room is gone from memory; hand back our copy so it can be rebuilt.
+        const snap = m.code === 'noroom' ? store.get(SNAP_KEY) : null;
+        if (snap && wantRoom && snap.room === wantRoom && Date.now() - snap.at < 12 * 3600e3) {
+          net.send({ type: 'restore', data: snap.data, sig: snap.sig });
+          toast('The server was updated. Bringing your game back…');
+          break;
+        }
         toast(esc(m.message));
-        if (m.code === 'noroom') { wantRoom = null; goHome(); }
+        if (m.code === 'noroom' || m.code === 'norestore') { if (m.code === 'norestore') store.del(SNAP_KEY); wantRoom = null; goHome(); }
         break;
+      }
+      case 'snap':
+        if (room && m.room === room.id) store.set(SNAP_KEY, { room: m.room, data: m.data, sig: m.sig, at: Date.now() });
+        break;
+      case 'notice': toast(esc(m.message)); break;
       case 'left': break;
     }
   }
@@ -259,6 +275,7 @@
   }
   function onRoom(r) {
     const first = !room || room.id !== r.id;
+    if (r.status === 'over') { const snap = store.get(SNAP_KEY); if (snap && snap.room === r.id) store.del(SNAP_KEY); }
     room = r;
     wantRoom = r.id;
     if (location.pathname !== `/room/${r.id}`) history.pushState(null, '', `/room/${r.id}`);
@@ -860,7 +877,7 @@
       case 'tax': return `<div class="body">${art(t.amount >= 200 ? 'incomeTax' : 'luxuryTax')}<div class="tname">${esc(t.name)}</div><div class="tprice">${fmt(t.amount)}</div></div>`;
       case 'start': return `<div class="corner"><span class="cbig">${A.start}</span><div class="tname">Start</div><div class="sub">Collect ${fmt(st.salary)}</div></div>`;
       case 'jail': return `<div class="jail-corner"><div class="visit">Just visiting</div><div class="cell">${A.jailWall}</div></div>`;
-      case 'vacation': return `<div class="corner"><span class="cbig">${A.vacation}</span><div class="tname">Vacation</div><div class="sub" id="potLabel">${st.vacationCash ? 'Jackpot' : 'Free stop'}</div></div>`;
+      case 'vacation': return `<div class="corner"><span class="cbig">${A.vacation}</span><div class="tname">Free Parking</div><div class="sub" id="potLabel">${st.vacationCash ? 'Jackpot' : 'Free stop'}</div></div>`;
       case 'gotojail': return `<div class="corner"><span class="cbig">${A.gotojail}</span><div class="tname">Go to Prison</div></div>`;
     }
     return '';
@@ -988,7 +1005,7 @@
       if (owner) el.style.setProperty('--own', owner.color); else el.style.removeProperty('--own');
       const price = $('.tprice', el);
       if (price) {
-        const shortMoney = (n) => (n >= 1000 ? `$${(n / 1000).toFixed(n % 1000 ? 1 : 0).replace(/\.0$/, '')}k` : fmt(n));
+        const shortMoney = (n) => (n >= 1000 ? `£${(n / 1000).toFixed(n % 1000 ? 1 : 0).replace(/\.0$/, '')}k` : fmt(n));
         const label = !owner ? fmt(t.price) : pr.mortgaged ? 'lock' : shortMoney(game.rentFor(i, null, 7));
         const key = (owner ? `${owner.id}:${tokenText(owner)}:${owner.color}` : '-') + '|' + label;
         if (price.dataset.v !== key) {
@@ -1028,7 +1045,7 @@
   function tileTipHTML(i) {
     const t = BOARD[i], pr = game.s.props[i], st = game.st;
     if (!pr) {
-      const sub = { tax: `Pay ${fmt(t.amount || 0)}`, chance: 'Draw a Surprise card', chest: 'Open a Treasure card', start: `Collect ${fmt(st.salary)} when you pass`, jail: `Just visiting · bail ${fmt(st.bail)}`, gotojail: 'Go straight to Prison', vacation: st.vacationCash ? `Jackpot ${fmt(game.s.pot)}` : 'Free stop' }[t.type] || '';
+      const sub = { tax: `Pay ${fmt(t.amount || 0)}`, chance: 'Draw a Surprise card', chest: 'Open a Treasure card', start: `Collect ${fmt(st.salary)} when you pass`, jail: `Just visiting · bail ${fmt(st.bail)}`, gotojail: 'Go straight to Prison', vacation: st.vacationCash ? `Jackpot ${fmt(game.s.pot)}` : 'Free parking' }[t.type] || '';
       return `<b>${esc(t.name)}</b>${sub ? `<span class="muted">${esc(sub)}</span>` : ''}`;
     }
     const owner = pr.owner != null ? game.player(pr.owner) : null;
@@ -1393,7 +1410,7 @@
     const v = viewerPid();
     if (!owner || v == null || owner.id === v || owner.bankrupt || game.s.over) return '';
     const ok = game.tradable(owner.id, i);
-    return `<div class="manage one"><button type="button" class="btn primary lg" data-deal="${i}" ${ok ? '' : 'disabled'}>${icon('swap')} Make ${esc(owner.name)} an offer</button>${ok ? '' : '<div class="why">They have buildings in this country and must sell them before trading it.</div>'}</div>`;
+    return `<div class="manage one"><button type="button" class="btn primary lg" data-deal="${i}" ${ok ? '' : 'disabled'}>${icon('swap')} Make ${esc(owner.name)} an offer</button>${ok ? '' : '<div class="why">They have buildings in this region and must sell them before trading it.</div>'}</div>`;
   }
 
   // ---- auctions: bid, auto-bid up to a cap, or pass
@@ -1506,7 +1523,7 @@
     setHTML($('#bankbox'), 'bank', `
       <div><div class="k">${st.limitedBuildings ? 'Houses left' : 'Houses built'}</div><div class="v">${st.limitedBuildings ? b.houses : houses}</div></div>
       <div><div class="k">${st.limitedBuildings ? 'Hotels left' : 'Hotels built'}</div><div class="v">${st.limitedBuildings ? b.hotels : hotels}</div></div>
-      ${st.vacationCash ? `<div><div class="k">Vacation pot</div><div class="v">${fmt(s.pot)}</div></div>` : ''}
+      ${st.vacationCash ? `<div><div class="k">Free Parking</div><div class="v">${fmt(s.pot)}</div></div>` : ''}
       <div><div class="k">Round</div><div class="v">${s.round}${st.roundLimit ? ` / ${st.roundLimit}` : ''}</div></div>`);
     const myp = mine != null ? game.player(mine) : null;
     $('#resignBtn').hidden = !(myp && !myp.bankrupt && !s.over);
@@ -1634,12 +1651,12 @@
     const pend = s.over ? [] : s.trades.filter((t) => t.status === 'pending');
     const inc = pend.filter(isMyOffer), out = pend.filter((t) => isMyOutgoing(t) && !isMyOffer(t));
     if (inc.length || out.length) {
-      h += `<section class="ov-sec offers-sec"><h4>${inc.length ? 'Offers for you' : 'Your offers'}${inc.length ? ` <span class="badge">${inc.length}</span>` : ''}</h4>${inc.map((t) => offerCardHTML(t)).join('')}${out.map((t) => offerCardHTML(t)).join('')}</section>`;
+      h += `<section class="ov-sec offers-sec"><h2>${inc.length ? 'Offers for you' : 'Your offers'}${inc.length ? ` <span class="badge">${inc.length}</span>` : ''}</h2>${inc.map((t) => offerCardHTML(t)).join('')}${out.map((t) => offerCardHTML(t)).join('')}</section>`;
     }
     h += playerBlockHTML(p, v);
     const n = game.ownedBy(p.id).length;
-    h += `<section class="ov-sec"><h4>${p.id === v ? 'Your properties' : 'Properties'} <span class="muted">${n}</span>${canManageNow(p) && n ? '<span class="h4-hint">Tap + to build</span>' : ''}</h4>${propertiesHTML(p)}</section>`;
-    h += `<section class="ov-sec"><h4>Activity</h4>${activityHTML()}</section>`;
+    h += `<section class="ov-sec"><h2>${p.id === v ? 'Your properties' : 'Properties'} <span class="muted">${n}</span>${canManageNow(p) && n ? '<span class="h4-hint">Tap + to build</span>' : ''}</h2>${propertiesHTML(p)}</section>`;
+    h += `<section class="ov-sec"><h2>Activity</h2>${activityHTML()}</section>`;
     return h;
   }
   function playerBlockHTML(p, v) {
@@ -1674,7 +1691,7 @@
   function propertiesHTML(p) {
     const s = game.s, owned = game.ownedBy(p.id), manage = canManageNow(p);
     if (p.bankrupt) return `<div class="empty"><b>Out of the game</b>Went bankrupt in round ${p.outRound}.</div>`;
-    if (!owned.length) return '<div class="empty"><b>No properties yet</b>Land on an unowned city, airport or utility to buy it.</div>';
+    if (!owned.length) return '<div class="empty"><b>No properties yet</b>Land on an unowned place, airport or utility to buy it.</div>';
     const sections = Object.keys(GROUP_TILES).map((g) => ({ key: g, name: GROUPS[g].name, color: GROUPS[g].color, tiles: GROUP_TILES[g] }));
     sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: [5, 15, 25, 35] }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: [12, 28] });
     let h = '';
@@ -1743,7 +1760,7 @@
       <div class="stat"><div class="k">Net worth</div><div class="v">${fmt(game.netWorth(p.id))}</div></div>
       <div class="stat"><div class="k">Pardons</div><div class="v">${p.pardons.length}</div></div></div>`;
     if (p.bankrupt) return h + `<div class="empty"><b>Out of the game</b>Went bankrupt in round ${p.outRound}.</div>`;
-    if (!owned.length) return h + '<div class="empty"><b>No properties yet</b>Land on an unowned city, airport or utility to buy it.</div>';
+    if (!owned.length) return h + '<div class="empty"><b>No properties yet</b>Land on an unowned place, airport or utility to buy it.</div>';
     const sections = Object.keys(GROUP_TILES).map((g) => ({ key: g, name: GROUPS[g].name, color: GROUPS[g].color, tiles: GROUP_TILES[g] }));
     sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: [5, 15, 25, 35] }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: [12, 28] });
     for (const sec of sections) {
@@ -1815,7 +1832,29 @@
   }
 
   // ------------------------------------------------------------ modals
+  // ------------------------------------------------------------ dialogs and the keyboard
+  // While a dialog is open, Tab and Shift+Tab wrap around inside it; closing it puts focus back where it was.
+  let modalReturn = null;
+  const focusables = (box) => [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+    .filter((x) => !x.disabled && !x.closest('[hidden]') && x.getClientRects().length && getComputedStyle(x).visibility !== 'hidden');
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || document.querySelector('.pp-modal')) return; // the photo picker keeps its own focus
+    const box = $('#modal');
+    if (!box || box.hidden) return;
+    const items = focusables(box);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1], at = document.activeElement;
+    if (!box.contains(at)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+    else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+  }, true);
+  function restoreFocus() {
+    const r = modalReturn;
+    modalReturn = null;
+    if (r && document.contains(r) && r.getClientRects().length) r.focus({ preventScroll: true });
+  }
   function openModal(kind, data) {
+    if ($('#modal').hidden) modalReturn = document.activeElement;
     ui.modal = Object.assign({ kind }, data || {});
     ui.lastHTML.modal = '';
     $('#modal').hidden = false;
@@ -1833,6 +1872,7 @@
     m.hidden = true; m.innerHTML = '';
     ui.lastHTML.modal = '';
     scheduleRender();
+    restoreFocus();
   }
   function setModal(html) {
     if (ui.lastHTML.modal === html) return;
@@ -1848,11 +1888,11 @@
       const desc = {
         start: `Collect ${fmt(st.salary)} every time you pass Start${st.doubleOnStart ? `, or ${fmt(st.salary * 2)} if you land on it exactly` : ''}.`,
         jail: `Landing here is just a visit. Prisoners can pay ${fmt(st.bail)} bail, use a Pardon card or try to roll doubles. After three failed tries, bail is paid automatically.${st.noRentInPrison ? ' Owners in Prison collect no rent.' : ''}`,
-        vacation: st.vacationCash ? `Collect the jackpot of taxes, fines and bail. It currently holds ${fmt(s.pot)}.` : 'A free rest stop. Nothing happens here.',
+        vacation: st.vacationCash ? `Collect the jackpot of taxes, fines and bail. It currently holds ${fmt(s.pot)}.` : 'Free parking. Nothing happens here.',
         gotojail: 'Go straight to Prison. You do not pass Start and do not collect your salary.',
         chance: 'Draw a Surprise card. It might move you, pay you or cost you.',
         chest: 'Open a Treasure card. Mostly good news, with the occasional bill.',
-        tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Vacation jackpot)' : ''}.`,
+        tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Free Parking jackpot)' : ''}.`,
       }[t.type] || '';
       setModal(`<div class="sheet deed plain" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}<p>${desc}</p></div></div>`);
       return;
@@ -1961,7 +2001,7 @@
         <ol class="guide">
           <li><b>Roll and move.</b> Doubles let you roll again, but three doubles in a row send you to Prison.</li>
           <li><b>Buy what you land on.</b> Pass on it and it ${st.auctions ? 'goes to auction for everyone to bid on' : 'stays with the bank'}.</li>
-          <li><b>Collect rent.</b> Own every city in a country to ${st.doubleRentSet ? 'double the base rent and ' : ''}start building houses, then a hotel.</li>
+          <li><b>Collect rent.</b> Own every place in a region to ${st.doubleRentSet ? 'double the base rent and ' : ''}start building houses, then a hotel.</li>
           <li><b>Raise cash when you need it.</b> Sell buildings back at half price${st.mortgages ? ', mortgage property for half its value' : ''}, sell property to the bank, or trade.</li>
           <li><b>Win.</b> ${st.roundLimit ? `After round ${st.roundLimit}, the highest net worth wins. Or be the last one standing.` : 'Be the last player who is not bankrupt.'}</li>
         </ol>
@@ -2053,7 +2093,7 @@
     const ctl = !canVote ? '' : !voted
       ? '<button type="button" class="btn sm danger" data-v="1">Remove</button><button type="button" class="btn sm" data-v="0">Keep</button>'
       : `<span class="muted">You voted to ${voted === 'yes' ? 'remove' : 'keep'} them.</span><button type="button" class="link" data-v="${voted === 'yes' ? 0 : 1}">Change</button>`;
-    const html = `<div class="vb-top">${dotHTML(t)}<span class="vb-txt"><span>${head}</span><span class="muted">${V.yes.length} of ${V.need} votes to remove · <span id="voteSecs"></span></span></span></div>${ctl ? `<div class="vb-ctl">${ctl}</div>` : ''}`;
+    const html = `<div class="vb-top">${dotHTML(t)}<span class="vb-txt"><span>${head}</span><span class="muted">${V.yes.length} of ${V.need} votes to remove<span aria-hidden="true"> · <span id="voteSecs"></span></span></span></span></div>${ctl ? `<div class="vb-ctl">${ctl}</div>` : ''}`;
     if (bar.dataset.h !== html) { bar.dataset.h = html; bar.innerHTML = html; }
     tickVote();
   }
@@ -2207,6 +2247,7 @@
     if (!r.width) return;
     const f = document.createElement('div');
     f.className = `float ${ev.delta > 0 ? 'up' : 'down'}`;
+    f.setAttribute('aria-hidden', 'true'); // a visual echo of the balance; the activity feed announces it
     f.textContent = `${ev.delta > 0 ? '+' : '−'}${fmt(Math.abs(ev.delta))}`;
     f.style.left = `${r.left + r.width / 2}px`;
     f.style.top = `${r.top - 4}px`;
