@@ -23,6 +23,10 @@
       <form class="panel home-card" id="homeForm" autocomplete="off">
         <div class="panel-h"><h2>Your player</h2></div>
         <div class="home-body">
+          <div class="photo-row">
+            <span class="photo-prev" id="homePhoto" aria-hidden="true"></span>
+            <div class="photo-txt"><div class="field-label">Profile photo</div><div class="photo-btns"><button class="btn sm" type="button" id="photoBtn">Add a photo</button><button class="link" type="button" id="photoDel" hidden>Remove</button></div></div>
+          </div>
           <label class="field-label" for="nick">Nickname</label>
           <input class="text-in" id="nick" maxlength="18" placeholder="Your nickname" required>
           <div class="field-label">Colour</div>
@@ -108,6 +112,7 @@
 <script src="/engine.js"></script>
 <script src="/art.js"></script>
 <script src="/dice3d.js"></script>
+<script src="/photo.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

@@ -48,6 +48,8 @@
     crown: '<path d="m2 18 2.5-11 5 5L12 5l2.5 7 5-5L22 18z"/><path d="M4 21h16"/>',
     house: '<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/>',
     flag: '<path d="M4 22V4"/><path d="M4 4h13l-2.5 4L17 12H4"/>',
+    camera: '<path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.8l1.6-2.2h6.2L16.7 6h1.8A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/><circle cx="12" cy="13" r="3.6"/>',
+    warn: '<path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4.5M12 17.2h.01"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
   };
@@ -142,7 +144,7 @@
   ];
 
   // ------------------------------------------------------------ state
-  const prof = Object.assign({ token: '', name: '', color: COLORS[0], sound: true }, store.get(PROF_KEY) || {});
+  const prof = Object.assign({ token: '', name: '', color: COLORS[0], sound: true, avatar: '' }, store.get(PROF_KEY) || {});
   const saveProf = () => store.set(PROF_KEY, prof);
   Sound.on = prof.sound !== false;
   let screen = 'home';
@@ -173,7 +175,15 @@
     const letters = String(p.name).replace(/[^\p{L}]/gu, '');
     return (letters.slice(0, 2) || first).replace(/^./, (c) => c.toUpperCase());
   }
-  const dotHTML = (p, cls) => `<span class="pdot ${cls || ''}" style="--pc:${p.color}">${esc(tokenText(p))}</span>`;
+  // A player's or seat's photo, if they picked one. In a game, player ids are seat numbers.
+  const avatarOf = (p) => (!p ? '' : p.avatar || (p.id != null && room && room.seats && room.seats[p.id] && !room.seats[p.id].bot ? room.seats[p.id].avatar || '' : ''));
+  const glowFor = (p) => p.id === myPid(); // the danger glow is shown to the player about to roll
+  // A photo replaces the letter wherever a player's dot is drawn, ringed in their colour.
+  const imgHTML = (src) => `<img src="${esc(src)}" alt="" draggable="false" decoding="async">`;
+  const dotHTML = (p, cls) => { const src = avatarOf(p); return `<span class="pdot ${src ? 'has-img' : ''} ${cls || ''}" style="--pc:${p.color}">${src ? imgHTML(src) : esc(tokenText(p))}</span>`; };
+  const faceKey = (p) => avatarOf(p) || `t:${tokenText(p)}`;
+  const tokenFaceHTML = (p) => { const src = avatarOf(p); return `<div class="tk ${src ? 'has-img' : ''}">${src ? imgHTML(src) : esc(tokenText(p))}</div>`; };
+  const whoFace = (x) => { const src = avatarOf(x); return src ? imgHTML(src) : esc(tokenText(x)); };
   const groupColor = (i) => (BOARD[i].group ? GROUPS[BOARD[i].group].color : BOARD[i].type === 'airport' ? '#9AA6C4' : '#7CC8FF');
   const serverNow = () => Date.now() + ui.offset;
 
@@ -186,7 +196,7 @@
       ws.onopen = () => {
         this.open = true; this.backoff = 600;
         $('#netbar').hidden = true;
-        this.raw({ type: 'hello', token: prof.token, name: prof.name, color: prof.color });
+        this.raw({ type: 'hello', token: prof.token, name: prof.name, color: prof.color, avatar: prof.avatar || '' });
         if (wantRoom) this.raw({ type: 'join', room: wantRoom });
         else this.raw({ type: 'rooms' });
       };
@@ -270,7 +280,31 @@
   function renderHome() {
     $('#nick').value = prof.name || '';
     $('#homePalette').innerHTML = COLORS.map((c) => `<button type="button" data-c="${c}" style="--pc:${c}" class="${c === prof.color ? 'on' : ''}" aria-label="Use this colour" aria-pressed="${c === prof.color}"></button>`).join('');
+    renderHomePhoto();
   }
+  function renderHomePhoto() {
+    const ph = $('#homePhoto'); if (!ph) return;
+    ph.style.setProperty('--pc', prof.color);
+    ph.classList.toggle('has-img', !!prof.avatar);
+    ph.innerHTML = prof.avatar ? imgHTML(prof.avatar) : esc(initial(($('#nick') && $('#nick').value) || prof.name || '?'));
+    $('#photoBtn').innerHTML = `${icon('camera')} ${prof.avatar ? 'Change photo' : 'Add a photo'}`;
+    $('#photoDel').hidden = !prof.avatar;
+  }
+  // The photo picker opens from a tap. The picture is saved on this device and sent to the server.
+  function pickPhoto() {
+    if (!window.BoomPhoto) return;
+    const sn = $('#seatName');
+    if (sn && sn.value.trim()) { prof.name = sn.value.trim().slice(0, 18); saveProf(); }
+    window.BoomPhoto.pick({ color: prof.color, onError: (msg) => toast(esc(msg)) }).then((url) => { if (url) setPhoto(url); });
+  }
+  function setPhoto(url) {
+    prof.avatar = url || '';
+    saveProf();
+    net.send({ type: 'profile', avatar: prof.avatar });
+    renderHomePhoto();
+    if (room && screen === 'room') renderRoom();
+  }
+  const photoCtl = () => `<button class="btn sm" type="button" data-act="photo">${icon('camera')} ${prof.avatar ? 'Change photo' : 'Add a photo'}</button>${prof.avatar ? '<button class="link" type="button" data-act="nophoto">Remove photo</button>' : ''}`;
   function renderRoomList(list) {
     const el = $('#roomList');
     if (!list.length) { el.innerHTML = '<div class="empty"><b>No open rooms right now</b>Press Play now to open one, then share the link with friends.</div>'; return; }
@@ -290,6 +324,9 @@
     $('#privateBtn').addEventListener('click', () => { Sound.ensure(); const n = readNick(); if (n) net.send({ type: 'create', private: true, name: n }); });
     $('#homePalette').addEventListener('click', (e) => { const b = e.target.closest('[data-c]'); if (!b) return; prof.color = b.dataset.c; saveProf(); renderHome(); net.send({ type: 'profile', color: prof.color }); });
     $('#nick').addEventListener('change', () => { const n = $('#nick').value.trim(); if (n) { prof.name = n.slice(0, 18); saveProf(); net.send({ type: 'profile', name: prof.name }); } });
+    $('#nick').addEventListener('input', () => { if (!prof.avatar) renderHomePhoto(); });
+    $('#photoBtn').addEventListener('click', pickPhoto);
+    $('#photoDel').addEventListener('click', () => setPhoto(''));
     $('#refreshRooms').addEventListener('click', () => net.send({ type: 'rooms' }));
     $('#roomList').addEventListener('click', (e) => { const b = e.target.closest('[data-join]'); if (!b) return; const n = $('#nick').value.trim(); if (n) { prof.name = n; saveProf(); net.send({ type: 'profile', name: n }); } wantRoom = b.dataset.join; net.send({ type: 'join', room: wantRoom }); });
     $('#codeForm').addEventListener('submit', (e) => {
@@ -319,13 +356,17 @@
     if (mySeat < 0) {
       const taken = r.seats.map((s) => s.color);
       ctl = full ? '<span class="muted">All seats are taken. You can watch the game and chat.</span>'
-        : `<form class="seat-form" id="seatForm" autocomplete="off"><label class="field-label" for="seatName">Your nickname</label>
+        : `<form class="seat-form" id="seatForm" autocomplete="off">
+          <div class="photo-row"><span class="photo-prev ${prof.avatar ? 'has-img' : ''}" style="--pc:${prof.color}" aria-hidden="true">${prof.avatar ? imgHTML(prof.avatar) : esc(initial(prof.name || '?'))}</span>
+            <div class="photo-txt"><div class="field-label">Profile photo</div><div class="photo-btns">${photoCtl()}</div></div></div>
+          <label class="field-label" for="seatName">Your nickname</label>
           <input class="text-in" id="seatName" maxlength="18" value="${esc(prof.name)}" required>
           <div class="palette">${COLORS.map((c) => `<button type="button" data-seatc="${c}" style="--pc:${c}" class="${c === prof.color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Use this colour"></button>`).join('')}</div>
           <div class="row"><button class="btn primary" type="submit">Take a seat</button></div></form>`;
     } else {
       const taken = r.seats.filter((s, i) => i !== mySeat).map((s) => s.color);
       ctl = `<div class="palette">${COLORS.map((c) => `<button type="button" data-color="${c}" style="--pc:${c}" class="${c === r.seats[mySeat].color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Switch to this colour"></button>`).join('')}</div>
+        <span class="photo-btns seat-photo">${photoCtl()}</span>
         <button class="btn sm ghost" data-act="unseat">Give up my seat</button>`;
     }
     if (host) ctl += `<button class="btn sm" data-act="addBot" ${full ? 'disabled' : ''}>${icon('bot')} Add a bot</button>`;
@@ -356,6 +397,8 @@
       if (b.dataset.color) { prof.color = b.dataset.color; saveProf(); return net.send({ type: 'profile', color: prof.color }); }
       if (b.dataset.seatc) { prof.color = b.dataset.seatc; saveProf(); $$('[data-seatc]').forEach((x) => x.classList.toggle('on', x === b)); return; }
       const a = b.dataset.act;
+      if (a === 'photo') return pickPhoto();
+      if (a === 'nophoto') return setPhoto('');
       if (a === 'unseat' || a === 'addBot' || a === 'start') net.send({ type: a });
     });
     sec.addEventListener('submit', (e) => {
@@ -422,6 +465,7 @@
         else applyGame(m);
         for (const ev of m.events) quickEvent(ev);
         render();
+        flyMoney(moneyFlows(m.events.filter((ev) => ev.type === 'money')));
         for (const ev of m.events) { if (ui !== mine) break; await playEvent(ev); }
         syncPositions();
       }
@@ -525,10 +569,12 @@
       ghosts.push(gh);
     });
     Sound.whoosh(ms);
+    if (jump) camOut(); else camFollow(pts, dist, total, ms, easing);
     const anim = el.animate(frames, { duration: ms, easing });
     try { await anim.finished; } catch (e) { /* interrupted */ }
     done();
     Sound.land();
+    if (!jump) camOut(450);
     setTimeout(() => ghosts.forEach((g) => g.remove()), 5 * 26 + 60);
   }
   async function teleport(pid, to) {
@@ -563,6 +609,7 @@
     });
   }
   async function rollDice(d) {
+    camOut();
     const ms = speed().dice, wrap = $('#dice');
     if (!wrap) return;
     if (dice3d) { Sound.dice(); await dice3d.roll(d, ms); return; }
@@ -573,6 +620,7 @@
     await sleep(ms + 60);
   }
   function showCard() {
+    camOut();
     Sound.card();
     render();
     const first = $('#cFeed div');
@@ -626,6 +674,170 @@
   }, 200);
 
   // ------------------------------------------------------------ board
+  // ------------------------------------------------------------ token faces
+  function syncTokenFaces() {
+    for (const p of game.s.players) {
+      const el = ui.tokenEls[p.id], key = faceKey(p);
+      if (el && el.dataset.face !== key) { el.dataset.face = key; el.innerHTML = tokenFaceHTML(p); }
+    }
+  }
+
+  // ------------------------------------------------------------ follow-cam (phone-sized boards)
+  // While a token walks, the board zooms in to frame the walk, then eases back out. It always zooms out
+  // before dice, cards and auctions, which sit in the middle of the board.
+  const cam = { on: false, t: 0, t2: 0, anim: null, last: '' };
+  function camReset() {
+    const board = $('#board');
+    clearTimeout(cam.t); clearTimeout(cam.t2); cam.on = false;
+    if (cam.anim) { cam.anim.cancel(); cam.anim = null; }
+    if (board) { board.style.transform = ''; board.style.transition = ''; board.classList.remove('cam'); if (board.parentElement) board.parentElement.classList.remove('cam-clip'); }
+  }
+  // The camera rides along with the token on the same path and timing, so the token stays near the middle
+  // of the screen (or as near as the board's edges allow).
+  function camFollow(pts, dist, total, ms, easing) {
+    const board = $('#board');
+    if (!board || board.clientWidth >= 600 || reduceMotion() || total < 1) return;
+    const W = board.clientWidth, H = board.clientHeight, s = 1.7;
+    const at = (p) => {
+      const tx = Math.min(0, Math.max(W - W * s, W / 2 - p.x * s)), ty = Math.min(0, Math.max(H - H * s, H / 2 - p.y * s));
+      return `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${s})`;
+    };
+    const pointAt = (q) => {
+      const want = q * total;
+      for (let k = 1; k < pts.length; k++) {
+        if (dist[k] >= want) { const f = (want - dist[k - 1]) / ((dist[k] - dist[k - 1]) || 1); return { x: pts[k - 1].x + (pts[k].x - pts[k - 1].x) * f, y: pts[k - 1].y + (pts[k].y - pts[k - 1].y) * f }; }
+      }
+      return pts[pts.length - 1];
+    };
+    const q = Math.min(0.45, 320 / ms); // zooming in takes about a third of a second
+    const kf = [{ transform: cam.on && cam.last ? cam.last : 'translate(0px, 0px) scale(1)', offset: 0 }, { transform: at(pointAt(q)), offset: q }];
+    for (let k = 1; k < pts.length; k++) { const o = dist[k] / total; if (o > q) kf.push({ transform: at(pts[k]), offset: o }); }
+    clearTimeout(cam.t); clearTimeout(cam.t2);
+    if (cam.anim) cam.anim.cancel();
+    board.style.transition = 'none';
+    board.parentElement.classList.add('cam-clip');
+    board.classList.add('cam');
+    cam.last = kf[kf.length - 1].transform;
+    cam.anim = board.animate(kf, { duration: ms, easing, fill: 'forwards' });
+    cam.on = true;
+  }
+  function camOut(delay) {
+    const board = $('#board');
+    if (!board || !cam.on) return;
+    clearTimeout(cam.t);
+    cam.t = setTimeout(() => {
+      cam.on = false;
+      board.style.transition = 'none';
+      board.style.transform = cam.last || '';
+      if (cam.anim) { cam.anim.cancel(); cam.anim = null; }
+      void board.offsetWidth;
+      board.style.transition = '';
+      board.style.transform = '';
+      clearTimeout(cam.t2);
+      cam.t2 = setTimeout(() => { if (!cam.on) { board.classList.remove('cam'); if (board.parentElement) board.parentElement.classList.remove('cam-clip'); } }, 600);
+    }, delay || 0);
+  }
+
+  // ------------------------------------------------------------ money you can see move
+  // A payment arrives as −amount for the payer, then +amount for each receiver. A −amount with nobody after it
+  // went to the bank, and a +amount on its own came from the bank. The bank is the middle of the board.
+  function moneyFlows(evs) {
+    const out = [];
+    for (let k = 0; k < evs.length; k++) {
+      const e = evs[k];
+      if (!e.delta) continue;
+      if (e.delta > 0) { out.push({ from: null, to: e.pid, amt: e.delta }); continue; }
+      let left = -e.delta;
+      const recv = [];
+      while (k + 1 < evs.length && evs[k + 1].delta > 0 && evs[k + 1].pid !== e.pid && evs[k + 1].delta <= left) { k++; recv.push(evs[k]); left -= evs[k].delta; }
+      if (recv.length) recv.forEach((r) => out.push({ from: e.pid, to: r.pid, amt: r.delta }));
+      else out.push({ from: e.pid, to: null, amt: -e.delta });
+    }
+    return out;
+  }
+  function flyMoney(flows) {
+    const board = $('#board');
+    if (!flows.length || !board || !board.offsetParent || !game || reduceMotion()) return;
+    const bank = { x: board.clientWidth / 2, y: board.clientHeight / 2 };
+    const at = (pid) => { if (pid == null) return bank; const p = game.player(pid); return p && !p.bankrupt && ui.tokenXY[pid] ? ui.tokenXY[pid] : bank; };
+    flows.slice(0, 8).forEach((f, n) => {
+      const a = at(f.from), b = at(f.to);
+      if (Math.hypot(b.x - a.x, b.y - a.y) < 1) return;
+      const delay = n * 170, coins = f.amt < 25 ? 1 : f.amt < 100 ? 2 : f.amt < 300 ? 3 : f.amt < 800 ? 4 : f.amt < 1500 ? 5 : 6;
+      const dur = Math.round(Math.min(950, 520 + Math.hypot(b.x - a.x, b.y - a.y) * 0.8));
+      if (f.from != null) boardFloat(board, a, `−${fmt(f.amt)}`, 'down', delay);
+      for (let c = 0; c < coins; c++) coinFlight(board, a, b, dur, delay + c * 75, c);
+      if (f.to != null) boardFloat(board, b, `+${fmt(f.amt)}`, 'up', delay + dur + (coins - 1) * 75 - 80);
+    });
+  }
+  function coinFlight(board, a, b, dur, delay, c) {
+    const el = document.createElement('div');
+    el.className = 'coin';
+    board.appendChild(el);
+    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
+    const W2 = board.clientWidth / 2, H2 = board.clientHeight / 2, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    let px = -dy / d, py = dx / d;
+    if ((W2 - mx) * px + (H2 - my) * py < 0) { px = -px; py = -py; } // bend towards the middle of the board
+    const bend = Math.min(board.clientWidth * 0.16, 18 + d * 0.28) * (c % 2 ? 0.78 : 1.1);
+    const qx = mx + px * bend + (c - 1.5) * 2.5, qy = my + py * bend;
+    const frames = [];
+    for (let k = 0; k <= 14; k++) {
+      const t = k / 14, u = 1 - t;
+      const x = u * u * a.x + 2 * u * t * qx + t * t * b.x, y = u * u * a.y + 2 * u * t * qy + t * t * b.y;
+      const sc = 0.55 + Math.sin(Math.PI * t) * 0.5 + t * 0.2;
+      frames.push({ transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(2)})`, opacity: k === 0 ? 0 : t > 0.9 ? Math.max(0, (1 - t) * 10) : 1, offset: t });
+    }
+    const an = el.animate(frames, { duration: dur, delay, easing: 'cubic-bezier(.4,.05,.3,1)', fill: 'both' });
+    const end = () => el.remove();
+    an.finished.then(end, end);
+  }
+  function boardFloat(board, p, text, cls, delay) {
+    const el = document.createElement('div');
+    el.className = `bfloat ${cls}`;
+    el.textContent = text;
+    board.appendChild(el);
+    const base = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
+    const an = el.animate([
+      { transform: `${base} translateY(-30%)`, opacity: 0 },
+      { transform: `${base} translateY(-115%)`, opacity: 1, offset: 0.18 },
+      { transform: `${base} translateY(-115%)`, opacity: 1, offset: 0.62 },
+      { transform: `${base} translateY(-195%)`, opacity: 0 },
+    ], { duration: 1500, delay: Math.max(0, delay), easing: 'ease-out', fill: 'both' });
+    const end = () => el.remove();
+    an.finished.then(end, end);
+  }
+
+  // ------------------------------------------------------------ danger glow
+  // Before you roll, tiles 2 to 12 spaces ahead that would cost you money glow red, brighter the more
+  // they cost. Each tile is exactly one dice total away, so utility rent is known exactly.
+  const rollOdds = (d) => (6 - Math.abs(d - 7)) / 36;
+  function landingCost(p, i, d) {
+    const t = BOARD[i], pr = game.s.props[i];
+    if (t.type === 'tax') return t.amount || 0;
+    if (!pr || pr.owner == null || pr.owner === p.id || pr.mortgaged) return 0;
+    const o = game.player(pr.owner);
+    if (!o || o.bankrupt || (game.st.noRentInPrison && o.jail)) return 0;
+    return game.rentFor(i, null, d);
+  }
+  function dangerMap() {
+    const s = game.s, p = game.cur;
+    if (!p || s.over || s.turn.phase !== 'roll' || p.jail || ui.busy || !glowFor(p)) return null;
+    let m = null;
+    for (let d = 2; d <= 12; d++) {
+      const i = (p.pos + d) % 40, cost = landingCost(p, i, d);
+      if (cost <= 0 || (cost < 50 && cost < p.money * 0.25)) continue;
+      const level = cost >= p.money ? 1 : Math.max(0.22, Math.min(1, cost / Math.max(250, p.money * 0.6)));
+      (m || (m = {}))[i] = { cost, odds: rollOdds(d), level };
+    }
+    return m;
+  }
+  function dangerNote(i) {
+    const dz = ui.danger && ui.danger[i];
+    if (!dz) return '';
+    const pct = Math.max(1, Math.round(dz.odds * 100));
+    return `<div class="tt-danger">${icon('warn')}<span>Land here on this roll and you pay <b class="num">${fmt(dz.cost)}</b>. About a ${pct}% chance.</span></div>`;
+  }
+
   function gridPos(i) {
     if (i <= 10) return [1, i + 1];
     if (i < 20) return [i - 9, 11];
@@ -691,12 +903,14 @@
       <div class="auction" id="auctionBox" hidden></div>
       <div class="overlay" id="overlay" hidden></div>`;
     board.appendChild(center);
+    camReset();
     ui.tokenEls = {};
     for (const p of game.s.players) {
       const el = document.createElement('div');
       el.className = 'token';
       el.style.setProperty('--pc', p.color);
-      el.innerHTML = `<div class="tk">${esc(tokenText(p))}</div>`;
+      el.innerHTML = tokenFaceHTML(p);
+      el.dataset.face = faceKey(p);
       board.appendChild(el);
       ui.tokenEls[p.id] = el;
     }
@@ -755,9 +969,14 @@
   function updateTiles() {
     const s = game.s;
     const target = s.turn.phase === 'buy' || s.turn.phase === 'auction' ? (s.auction ? s.auction.tile : game.cur.pos) : -1;
+    const danger = ui.danger = dangerMap();
+    syncTokenFaces();
     BOARD.forEach((t, i) => {
       const el = ui.tileEls[i];
       el.classList.toggle('target', i === target);
+      const dz = danger && danger[i];
+      el.classList.toggle('danger', !!dz);
+      if (dz) el.style.setProperty('--dz', dz.level.toFixed(2)); else el.style.removeProperty('--dz');
       const pr = s.props[i];
       if (!pr) return;
       const owner = pr.owner != null ? game.player(pr.owner) : null;
@@ -819,7 +1038,7 @@
   function showTip(i) {
     const tip = $('#tileTip'), tile = ui.tileEls[i], board = $('#board');
     if (!tip || !tile || !game) return;
-    tip.innerHTML = tileTipHTML(i);
+    tip.innerHTML = tileTipHTML(i) + dangerNote(i);
     tip.hidden = false;
     const bw = board.clientWidth, bh = board.clientHeight, tw = tip.offsetWidth, th = tip.offsetHeight;
     const x = tile.offsetLeft, y = tile.offsetTop, w = tile.offsetWidth, h = tile.offsetHeight, sd = side(i);
@@ -1377,6 +1596,7 @@
     const box = $('#auctionBox'), a = game.s.auction, inner = $('.center-inner');
     if (!a || game.s.turn.phase !== 'auction') { box.hidden = true; ui.lastHTML.auction = ''; if (inner) inner.style.visibility = ''; return; }
     box.hidden = false;
+    camOut();
     if (inner) inner.style.visibility = 'hidden';
     const bidder = a.bidder != null ? game.player(a.bidder) : null;
     const mine = myPid(), p = mine != null ? game.player(mine) : null;
@@ -1420,7 +1640,7 @@
   }
   function playerBlockHTML(p, v) {
     const s = game.s;
-    const who = s.players.map((x) => `<button type="button" data-view="${x.id}" class="${x.id === p.id ? 'on' : ''} ${x.bankrupt ? 'out' : ''}" style="--pc:${x.color}" aria-label="Show ${esc(x.name)}">${esc(tokenText(x))}</button>`).join('');
+    const who = s.players.map((x) => `<button type="button" data-view="${x.id}" class="${x.id === p.id ? 'on' : ''} ${x.bankrupt ? 'out' : ''} ${avatarOf(x) ? 'has-img' : ''}" style="--pc:${x.color}" aria-label="Show ${esc(x.name)}">${whoFace(x)}</button>`).join('');
     const isMe = p.id === v, tags = [];
     if (isMe && !/^you$/i.test(p.name.trim())) tags.push('<span class="tag you">You</span>');
     if (p.bot) tags.push('<span class="tag">Bot</span>');
@@ -1503,7 +1723,7 @@
   function portfolioHTML() {
     const s = game.s, mine = myPid();
     const p = game.player(ui.view) || game.cur;
-    const who = s.players.map((x) => `<button data-view="${x.id}" class="${x.id === p.id ? 'on' : ''} ${x.bankrupt ? 'out' : ''}" style="--pc:${x.color}" aria-label="${esc(x.name)}">${esc(tokenText(x))}</button>`).join('');
+    const who = s.players.map((x) => `<button data-view="${x.id}" class="${x.id === p.id ? 'on' : ''} ${x.bankrupt ? 'out' : ''} ${avatarOf(x) ? 'has-img' : ''}" style="--pc:${x.color}" aria-label="${esc(x.name)}">${whoFace(x)}</button>`).join('');
     const owned = game.ownedBy(p.id);
     const manage = p.id === mine && game.canManage(p.id) && !ui.busy;
     let h = `<div class="who-row">${who}</div>
@@ -1623,7 +1843,7 @@
         chest: 'Open a Treasure card. Mostly good news, with the occasional bill.',
         tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Vacation jackpot)' : ''}.`,
       }[t.type] || '';
-      setModal(`<div class="sheet deed plain" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b"><p>${desc}</p></div></div>`);
+      setModal(`<div class="sheet deed plain" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}<p>${desc}</p></div></div>`);
       return;
     }
     let table = '';
@@ -1666,7 +1886,7 @@
     const country = t.group ? GROUPS[t.group].name : t.type === 'airport' ? 'Airport' : 'Utility';
     setModal(`<div class="sheet deed" style="--g:${groupColor(i)}" role="dialog" aria-modal="true" aria-label="${esc(t.name)}">
       <div class="deed-head has-flag">${emblemHTML(i, 'big wave')}<div><div class="eyebrow">${esc(country)}</div><div class="deed-name">${esc(t.name)}</div></div>${close}</div>
-      <div class="sheet-b">
+      <div class="sheet-b">${dangerNote(i)}
         <div class="owner-line">${owner ? `${dotHTML(owner)}<span>Owned by <b>${esc(owner.id === mine ? 'you' : owner.name)}</b></span>${pr.mortgaged ? '<span class="tag bad">Mortgaged</span>' : ''}${set ? '<span class="tag good">Full set</span>' : ''}${pr.houses ? `<span class="tag">${pr.houses === 5 ? 'Hotel' : `${pr.houses} house${pr.houses > 1 ? 's' : ''}`}</span>` : ''}` : `<span class="tag warn">For sale</span><span class="muted">Land here to buy it for ${fmt(t.price)}.</span>`}</div>
         <table class="rent"><tbody>${table}</tbody></table>
         <dl class="facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>

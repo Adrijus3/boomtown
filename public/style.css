@@ -1216,3 +1216,105 @@ button.deedcard:hover:not(:disabled) { transform: translateY(-3px); border-color
   #room .lobby-cta .btn { width: 100%; }
 }
 .seat-row.empty { text-align: left; }
+
+/* ---------------------------------------------------------------- profile photos
+   A picked photo fills the player's dot, ringed in their colour so ownership colours still read. */
+.pdot.has-img, .token .tk.has-img, .who-row button.has-img, .photo-prev.has-img { padding: 0; overflow: hidden; color: transparent; }
+.pdot.has-img img, .token .tk.has-img img, .who-row button.has-img img, .swatch.has-img img, .photo-prev img {
+  display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+  box-sizing: border-box; border: 2px solid var(--pc); background: var(--pc);
+  -webkit-user-drag: none; user-select: none; -webkit-user-select: none; pointer-events: none;
+}
+.token .tk.has-img img { border-width: max(2px, calc(var(--tk) * .085)); }
+.winner .pdot.has-img img, .swatch.has-img img, .photo-prev img { border-width: 3px; }
+.swatch { position: relative; padding: 0; }
+.swatch.has-img { background: var(--pc); }
+.sw-cam {
+  position: absolute; right: -5px; bottom: -5px; width: 19px; height: 19px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--tile-3); color: var(--text); box-shadow: 0 0 0 2px var(--tile);
+}
+.sw-cam .ic { width: 11px; height: 11px; }
+.seat .seat-photo { grid-column: 1 / -1; padding: 0 0 6px 2px; }
+.photo-row { display: flex; align-items: center; gap: 14px; }
+.photo-prev {
+  flex: none; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--pc); color: rgba(10,15,30,.85); font: 800 22px var(--font-display);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+}
+.photo-txt { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.photo-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.photo-btns .link { font-size: 13.5px; }
+.seat-actions .seat-photo { flex-basis: 100%; }
+
+/* photo picker */
+html.pp-open { overflow: hidden; }
+.pp-modal {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(4,7,16,.74); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: fadeIn .18s ease-out;
+}
+.pp-sheet {
+  width: min(380px, 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 14px; padding: 18px;
+  background: var(--tile); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 40px 80px -30px rgba(0,0,0,.9);
+  animation: rise .25s cubic-bezier(.2,.8,.3,1);
+}
+.pp-h { display: flex; flex-direction: column; gap: 3px; }
+.pp-h b { font: 800 21px/1.1 var(--font-display); letter-spacing: -.01em; }
+.pp-h span { color: var(--muted); font-size: 13.5px; }
+.pp-stage {
+  position: relative; width: 100%; max-width: min(340px, calc(100svh - 260px)); align-self: center; aspect-ratio: 1;
+  border-radius: 16px; overflow: hidden; background: #070B17; cursor: grab;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.pp-stage:active { cursor: grabbing; }
+.pp-stage:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.pp-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pp-ring { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 999px rgba(7,11,23,.62), inset 0 0 0 3px var(--pp-ring, #fff); }
+.pp-zoom { display: flex; align-items: center; gap: 12px; color: var(--muted); font: 700 18px/1 var(--font-ui); }
+.pp-zoom input { flex: 1; min-width: 0; height: 30px; accent-color: var(--brass); }
+.pp-f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pp-sp { flex: 1; }
+@media (max-width: 440px) {
+  .pp-sheet { padding: 16px; gap: 12px; }
+  .pp-f .btn { flex: 1 1 0; min-height: 44px; }
+  .pp-f [data-pp=other] { flex-basis: 100%; order: 3; }
+  .pp-sp { display: none; }
+}
+
+/* ---------------------------------------------------------------- money you can see move */
+.coin {
+  position: absolute; left: 0; top: 0; z-index: 9; pointer-events: none;
+  --cs: clamp(11px, 2.5cqi, 22px); width: var(--cs); height: var(--cs); margin: calc(var(--cs) / -2) 0 0 calc(var(--cs) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #FFF6D2 0 10%, #F9D47F 30%, #E5A935 68%, #B9800F 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(120,72,0,.5), inset 0 -2px 2px rgba(120,72,0,.35), 0 3px 6px rgba(0,0,0,.45);
+}
+.coin::after { content: "$"; position: absolute; inset: 0; display: grid; place-items: center; font: 800 calc(var(--cs) * .58)/1 var(--font-display); color: rgba(110,64,0,.8); }
+.bfloat {
+  position: absolute; left: 0; top: 0; z-index: 10; pointer-events: none; white-space: nowrap;
+  font: 800 clamp(11px, 2.1cqi, 17px)/1 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  padding: .28em .5em; border-radius: 99px; background: rgba(7,11,23,.82); box-shadow: 0 4px 12px -4px rgba(0,0,0,.7);
+}
+.bfloat.up { color: var(--mint); }
+.bfloat.down { color: #FF8A8A; }
+
+/* ---------------------------------------------------------------- danger glow */
+.tile.danger {
+  z-index: 3;
+  outline: calc(2px + 1.5px * var(--dz, .5)) solid rgba(255, 92, 92, calc(.65 + .35 * var(--dz, .5)));
+  outline-offset: -1px;
+  box-shadow: 0 0 calc(6px + 20px * var(--dz, .5)) calc(0px + 2px * var(--dz, .5)) rgba(255, 60, 60, calc(.4 + .45 * var(--dz, .5)));
+  animation: dangerPulse 1.7s ease-in-out infinite;
+}
+.tile.danger .body { background: rgba(255, 64, 64, calc(.12 + .22 * var(--dz, .5))); }
+@keyframes dangerPulse { 50% { outline-color: rgba(255, 150, 150, .95); filter: brightness(1.14); } }
+.tt-danger { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(255,82,82,.13); color: #FFC2C2; font-size: 12.5px; line-height: 1.35; text-align: left; }
+.tt-danger .ic { flex: none; width: 15px; height: 15px; margin-top: 1px; color: #FF7A7A; }
+.tt-danger b { color: #FFE0E0; }
+#tileTip .tt-danger { margin-top: 8px; }
+.sheet-b .tt-danger { font-size: 14px; padding: 11px 12px; }
+.sheet-b .tt-danger .ic { width: 17px; height: 17px; }
+
+/* ---------------------------------------------------------------- follow-cam (phone-sized boards) */
+.board.cam { transform-origin: 0 0; transition: transform .5s cubic-bezier(.3,.7,.3,1); }
+.stage.cam-clip { overflow: hidden; border-radius: 12px; }

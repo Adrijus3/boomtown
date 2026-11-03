@@ -67,13 +67,16 @@ function getClient(token) {
   const c = {
     id: rid(10),
     token: typeof token === 'string' && /^[a-z0-9]{16,64}$/i.test(token) ? token : rid(24) + rid(8),
-    name: '', color: COLORS[0], sockets: new Set(), roomId: null,
+    name: '', color: COLORS[0], avatar: '', sockets: new Set(), roomId: null,
   };
   clientsByToken.set(c.token, c);
   clientsById.set(c.id, c);
   return c;
 }
 const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 18);
+// A profile photo: a small JPEG, PNG or WebP picture sent as a data URL, or '' for none.
+const AVATAR_MAX = 24000;
+const cleanAvatar = (v) => (typeof v === 'string' && v.length <= AVATAR_MAX && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : '');
 const send = (ws, msg) => { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); };
 function sendClient(c, msg) { const str = typeof msg === 'string' ? msg : JSON.stringify(msg); for (const ws of c.sockets) send(ws, str); }
 const online = (room, clientId) => { const c = clientsById.get(clientId); return !!c && c.sockets.size > 0 && c.roomId === room.id; };
@@ -111,7 +114,7 @@ function roomView(room) {
   return {
     id: room.id, hostId: room.hostId, hostName: host ? host.name : '', status: room.status, gid: room.gid,
     settings: room.settings,
-    seats: room.seats.map((s) => ({ name: s.name, color: s.color, bot: !!s.bot, clientId: s.bot ? null : s.clientId, online: s.bot || online(room, s.clientId) })),
+    seats: room.seats.map((s) => ({ name: s.name, color: s.color, bot: !!s.bot, clientId: s.bot ? null : s.clientId, online: s.bot || online(room, s.clientId), avatar: s.bot ? '' : (clientsById.get(s.clientId) || {}).avatar || '' })),
     watchers: members(room).filter((c) => seatOf(room, c.id) < 0).length,
     chat: room.chat.slice(-60),
   };
@@ -480,6 +483,7 @@ function handle(ws, msg) {
     ws.client = c;
     const n = cleanName(msg.name); if (n) c.name = n;
     if (COLORS.includes(msg.color)) c.color = msg.color;
+    if (msg.avatar !== undefined) c.avatar = cleanAvatar(msg.avatar);
     send(ws, { type: 'welcome', clientId: c.id, token: c.token });
     const room = rooms.get(c.roomId);
     if (room) { room.members.add(c.id); room.emptySince = null; }
@@ -495,6 +499,11 @@ function handle(ws, msg) {
     case 'rooms': return send(ws, { type: 'rooms', rooms: listRooms() });
     case 'profile': {
       const n = cleanName(msg.name); if (n) c.name = n;
+      if (msg.avatar !== undefined) {
+        const a = cleanAvatar(msg.avatar);
+        if (msg.avatar && !a) return fail('That photo could not be used. Try another one.');
+        if (a !== c.avatar) { c.avatar = a; if (room && room.status !== 'waiting') broadcastRoom(room); }
+      }
       if (COLORS.includes(msg.color)) {
         if (room && room.status === 'waiting' && room.seats.some((s) => s.color === msg.color && s.clientId !== c.id)) return fail('Someone else already has that colour.');
         c.color = msg.color;
