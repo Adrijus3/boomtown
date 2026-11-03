@@ -28,11 +28,12 @@ const SETTING_RULES = {
   salary: [100, 200, 300, 400],
   bail: [50, 100, 150],
   roundLimit: [0, 10, 15, 20, 30, 50],
+  rollTimer: [0, 30, 60, 90, 120],
   turnTimer: [0, 60, 120, 180, 300],
   botSpeed: ['relaxed', 'normal', 'fast'],
 };
 const BOOL_SETTINGS = ['private', 'doubleOnStart', 'vacationCash', 'auctions', 'doubleRentSet', 'mortgages', 'evenBuild', 'limitedBuildings', 'noRentInPrison', 'randomOrder'];
-const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 4, private: false, turnTimer: 180 });
+const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 4, private: false, rollTimer: 60, turnTimer: 120 });
 const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
@@ -302,42 +303,57 @@ function automate(room) {
   }
 }
 
-// One clock per whole turn, doubles included. Time is banked on every state change and the clock pauses
-// while dice roll, tokens move and auctions run. When it runs out, the rest of the turn plays itself.
+// Two clocks per turn: one to roll the dice, then one to buy, build, trade and end the turn. Each starts
+// the moment its part of the turn begins and keeps running while dice roll and tokens move; only an auction
+// pauses it. When a clock runs out, that part of the turn is played for the player.
 const turnKey = (room) => `${room.gid}:${room.game.s.turn.n}`;
+const segOf = (ph) => (ph === 'roll' ? 'roll' : ph === 'moving' || ph === 'buy' || ph === 'end' || ph === 'debt' ? 'end' : null);
 function timerMeta(room) {
   const TT = room.turnT;
-  if (!TT) return null;
-  return { total: TT.total, left: Math.max(0, Math.round(TT.left)), deadline: TT.runningSince != null ? TT.runningSince + TT.left : null, expired: TT.expired };
+  if (!TT || !TT.seg) return null;
+  const onRoll = TT.seg === 'roll', left = Math.max(0, Math.round(onRoll ? TT.roll : TT.end));
+  return { n: TT.n, seg: TT.seg, total: onRoll ? TT.rollTotal : TT.endTotal, left, deadline: TT.runningSince != null ? TT.runningSince + left : null, expired: TT.expired };
 }
 function sendTimer(room) {
   const msg = JSON.stringify({ type: 'timer', now: Date.now(), turn: timerMeta(room) });
   for (const c of members(room)) sendClient(c, msg);
 }
 function turnTimer(room) {
-  const g = room.game, T = room.settings.turnTimer, p = g.cur, t = g.s.turn, now = Date.now();
+  const g = room.game, p = g.cur, t = g.s.turn, now = Date.now();
+  const rollMs = (room.settings.rollTimer || 0) * 1000, endMs = (room.settings.turnTimer || 0) * 1000;
   clearTimeout(room.timers.turn); room.timers.turn = null;
-  if (!T || p.bot || g.s.over) { room.turnT = null; return; }
+  if ((!rollMs && !endMs) || p.bot || g.s.over) { room.turnT = null; return; }
   const key = turnKey(room);
-  if (!room.turnT || room.turnT.key !== key) room.turnT = { key, pid: p.id, total: T * 1000, left: T * 1000, runningSince: null, expired: false };
+  if (!room.turnT || room.turnT.key !== key) {
+    room.turnT = { key, n: t.n, pid: p.id, roll: rollMs, end: endMs, rollTotal: rollMs, endTotal: endMs, seg: null, runningSince: null, expired: false, fired: {} };
+  }
   const TT = room.turnT;
-  if (TT.runningSince != null) { TT.left = Math.max(0, TT.left - (now - TT.runningSince)); TT.runningSince = null; }
-  if (TT.expired) return;
-  if (TT.left <= 0) {
+  // Charge the time since the last check to whichever clock was running.
+  if (TT.runningSince != null && TT.seg) {
+    const used = now - TT.runningSince;
+    if (TT.seg === 'roll') TT.roll = Math.max(0, TT.roll - used); else TT.end = Math.max(0, TT.end - used);
+  }
+  TT.runningSince = null;
+  const seg = segOf(t.phase), budget = seg === 'roll' ? rollMs : seg === 'end' ? endMs : 0;
+  TT.seg = seg && budget ? seg : null; // no clock for an auction, or for a part of the turn that's switched off
+  TT.expired = false;
+  if (!TT.seg) return;
+  const left = seg === 'roll' ? TT.roll : TT.end;
+  if (left <= 0) {
     TT.expired = true;
-    sysChat(room, `Time's up for ${p.name}. Their turn is being finished for them.`);
+    if (!TT.fired[seg]) {
+      TT.fired[seg] = true;
+      sysChat(room, seg === 'roll' ? `${p.name} ran out of time to roll, so the dice were rolled for them.` : `Time's up for ${p.name}. Their turn is being finished for them.`);
+    }
     return;
   }
-  if (t.phase === 'moving' || t.phase === 'auction') return; // resumes on the next state change
-  const later = () => {
-    if (room.game !== g || g.s.over) return;
-    const was = room.turnT && room.turnT.expired;
-    turnTimer(room);
-    if (room.turnT && room.turnT.expired && !was) tick(room); else sendTimer(room);
-  };
-  if (now < room.busyUntil) { room.timers.turn = setTimeout(later, room.busyUntil - now + 20); return; }
   TT.runningSince = now;
-  room.timers.turn = setTimeout(later, TT.left + 20);
+  room.timers.turn = setTimeout(() => {
+    room.timers.turn = null;
+    if (room.game !== g || g.s.over) return;
+    turnTimer(room);
+    if (room.turnT && room.turnT.expired) tick(room); else sendTimer(room);
+  }, left + 20);
 }
 
 function startAuction(room) {

@@ -46,7 +46,7 @@ Rooms and games are kept in memory, so restarting or redeploying the server ends
 - **Play now** puts you in an open public room, or opens a new one. **Create a private game** makes a room that only people with the link can join.
 - The host sets the house rules, adds bots and starts the game. Anyone who joins after the start can watch and chat.
 - If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back.
-- Each player has 3 minutes for their whole turn (the host can pick 1, 2, 3 or 5 minutes, or switch it off). The clock pauses while dice roll, tokens move and auctions run. When it runs out, the turn is finished for them: nothing is bought and the turn ends.
+- Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 
 ## What's in the folder
 

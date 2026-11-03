@@ -134,7 +134,8 @@
     { key: 'noRentInPrison', type: 'toggle', label: 'No rent from Prison', desc: 'Owners serving time collect nothing.' },
     { group: 'Pace' },
     { key: 'roundLimit', type: 'select', label: 'Game length', desc: 'With a limit, the highest net worth wins after the final round.', options: [[0, 'Last one standing'], [10, '10 rounds'], [15, '15 rounds'], [20, '20 rounds'], [30, '30 rounds'], [50, '50 rounds']] },
-    { key: 'turnTimer', type: 'select', label: 'Turn timer', desc: 'How long each player has to finish their turn. When it runs out, the turn ends for them and nothing is bought.', options: [[0, 'Off'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes']] },
+    { key: 'rollTimer', type: 'select', label: 'Roll timer', desc: 'How long each player has to roll the dice. When it runs out, the dice are rolled for them.', options: [[0, 'Off'], [30, '30 seconds'], [60, '1 minute'], [90, '1½ minutes'], [120, '2 minutes']] },
+    { key: 'turnTimer', type: 'select', label: 'Turn timer', desc: 'After rolling, how long to buy, build, trade and end the turn. When it runs out, the turn is finished and nothing is bought.', options: [[0, 'Off'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes']] },
     { key: 'bail', type: 'select', label: 'Prison bail', desc: 'What it costs to walk out early.', options: [[50, '$50'], [100, '$100'], [150, '$150']] },
     { key: 'botSpeed', type: 'select', label: 'Game speed', desc: 'How fast tokens move and bots decide.', options: [['relaxed', 'Relaxed'], ['normal', 'Normal'], ['fast', 'Fast']] },
     { key: 'randomOrder', type: 'toggle', label: 'Shuffle turn order', desc: 'Randomise who goes first.' },
@@ -154,7 +155,7 @@
   let dice3d = null; // WebGL dice; null means the CSS dice are used
   function freshUI() {
     return {
-      busy: false, gq: [], gid: -1, offset: 0, displayPos: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
+      busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
       view: null, tab: 'portfolio', modal: null, draft: null, renderQueued: false, lastHTML: {}, lastTurn: null,
     };
   }
@@ -211,10 +212,9 @@
         break;
       case 'rooms': renderRoomList(m.rooms); break;
       case 'room': onRoom(m.room); break;
-      case 'game': ui.gq.push(m); pumpGame(); break;
-      case 'timer':
-        if (meta) { meta.turn = m.turn; ui.offset = m.now - Date.now(); }
-        break;
+      // The turn clock is applied as soon as it arrives; game updates wait for their animations to play.
+      case 'game': setClock(m.meta.turn, m.meta.now); ui.gq.push(m); pumpGame(); break;
+      case 'timer': setClock(m.turn, m.now); break;
       case 'chat':
         if (!room) break;
         room.chat.push(m.msg);
@@ -431,7 +431,12 @@
   function applyGame(m) {
     game = new Game(m.state);
     meta = m.meta;
-    ui.offset = m.meta.now - Date.now();
+  }
+  function setClock(turn, now) {
+    if (now < ui.clockAt) return;
+    ui.clock = turn || null;
+    ui.clockAt = now;
+    ui.offset = now - Date.now();
   }
   function setupGame(m) {
     closeModal();
@@ -576,30 +581,36 @@
 
   // ------------------------------------------------------------ timers shown on screen
   const fmtClock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-  const clockLeft = () => { const T = meta && meta.turn; if (!T) return 0; return Math.max(0, T.deadline != null ? T.deadline - serverNow() : T.left); };
+  // The clock for the turn on screen: one to roll, then one to finish the turn. Hidden for bots and auctions.
+  const curClock = () => { const T = ui.clock; return T && game && !game.s.over && !game.cur.bot && T.n === game.s.turn.n ? T : null; };
+  const clockLeft = (T) => (T ? Math.max(0, T.deadline != null ? T.deadline - serverNow() : T.left) : 0);
+  const lowAt = (T) => Math.min(30000, T.total / 3);
   function clockLabel() {
-    const T = meta && meta.turn;
-    if (!T || !game || game.cur.bot || game.s.over) return 'Now';
-    return T.expired ? 'Time' : fmtClock(clockLeft());
+    const T = curClock();
+    if (!T) return 'Now';
+    return T.expired ? 'Time' : fmtClock(clockLeft(T));
   }
   setInterval(() => {
     if (screen !== 'game' || !game || !meta) return;
     const ring = $('#timerRing'), clock = $('#turnClock'), badge = $('#nowBadge');
-    const T = meta.turn, on = !!T && !game.s.over && !game.cur.bot;
+    const T = curClock(), on = !!T;
     if (ring) ring.hidden = !on;
     if (clock) clock.hidden = !on;
+    if (!on && badge) badge.textContent = 'Now';
     if (on) {
-      const left = clockLeft(), low = left <= 30000, paused = T.deadline == null && !T.expired;
+      const left = clockLeft(T), low = left <= lowAt(T), paused = T.deadline == null && !T.expired;
+      const what = T.seg === 'roll' ? 'to roll' : 'to finish the turn';
       if (ring) {
         ring.classList.toggle('low', low);
         ring.querySelector('.fg').style.strokeDashoffset = String(56.5 * (1 - Math.max(0, Math.min(1, left / T.total))));
-        ring.setAttribute('aria-label', `${fmtClock(left)} left in this turn`);
+        ring.setAttribute('aria-label', `${fmtClock(left)} left ${what}`);
       }
-      if (clock) { clock.textContent = T.expired ? "Time's up" : fmtClock(left); clock.classList.toggle('low', low); clock.classList.toggle('paused', paused); }
+      if (clock) { clock.textContent = T.expired ? "Time's up" : fmtClock(left); clock.title = `Time left ${what}`; clock.classList.toggle('low', low); clock.classList.toggle('paused', paused); }
       if (badge) badge.textContent = T.expired ? 'Time' : fmtClock(left);
       if (game.cur.id === myPid() && !T.expired) {
-        const w = ui.tw && ui.tw.n === game.s.turn.n ? ui.tw : (ui.tw = { n: game.s.turn.n, warned: false, beep: 0 });
-        if (low && left > 0 && !w.warned) { w.warned = true; toast('You have <b>30 seconds</b> left to finish your turn.'); }
+        const key = `${T.n}:${T.seg}`;
+        const w = ui.tw && ui.tw.key === key ? ui.tw : (ui.tw = { key, warned: false, beep: 0 });
+        if (low && left > 0 && !w.warned) { w.warned = true; toast(`You have <b>${Math.round(lowAt(T) / 1000)} seconds</b> left ${T.seg === 'roll' ? 'to roll the dice' : 'to finish your turn'}.`); }
         const secs = Math.ceil(left / 1000);
         if (!paused && secs > 0 && secs <= 10 && w.beep !== secs) { w.beep = secs; Sound.tick(); }
       }
