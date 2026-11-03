@@ -99,21 +99,44 @@
     }
     return o;
   })();
+  // A heraldic rose (five petals with sepals between them), drawn at the centre of a 30 x 20 flag.
+  const rose = (petal, edge, centre, centreEdge, sepal) => '<g transform="translate(15 10)">'
+    + [0, 72, 144, 216, 288].map((a) => `<path d="M0 0 1.2-3.9 0-5.9-1.2-3.9Z" fill="${sepal}" transform="rotate(${a + 36})"/>`).join('')
+    + [0, 72, 144, 216, 288].map((a) => `<circle cx="0" cy="-2.55" r="2.35" fill="${petal}" stroke="${edge}" stroke-width=".25" transform="rotate(${a})"/>`).join('')
+    + `<circle r="2.2" fill="${petal}"/><circle r="1.15" fill="${centre}" stroke="${centreEdge}" stroke-width=".25"/></g>`;
+  const georgeCross = '<rect width="30" height="20" fill="#fff"/><rect x="13" width="4" height="20" fill="#CE1124"/><rect y="8" width="30" height="4" fill="#CE1124"/>';
+  // The red dragon of Wales, walking towards the flagpole, with one forepaw raised.
+  const dragon = '<g fill="#D30731" stroke="#D30731" stroke-linejoin="round" stroke-linecap="round" transform="scale(.5)">'
+    + '<path d="M19.5 23.5Q22 18.4 33 18.2Q44.5 18 46.5 22.8Q47 28 40.5 29.3L25 29.4Q19 28.6 19.5 23.5Z" stroke-width=".6"/>'
+    + '<path d="M21.5 23Q17.6 19.4 16.6 14.6L20.6 12.6Q22.4 17.2 26.2 19.8Z" stroke-width=".6"/>'
+    + '<path d="M17.2 15.2Q15.6 10.2 10.6 10.6L6.6 11.8L9.8 13.1L6.8 14.6L10.6 15.4Q14.2 16.4 17.2 15.2Z" stroke-width=".6"/>'
+    + '<path d="M6.8 13.2 3.4 12.4M3.4 12.4 4.6 11.3M3.4 12.4 4.3 13.6" fill="none" stroke-width=".7"/>'
+    + '<path d="M28 19Q23.6 12.6 25.6 5.6Q28.4 8.6 31.2 7.8Q31.6 12.4 32.6 18.6Z" stroke-width=".5"/>'
+    + '<path d="M33 18.6Q35.4 10.4 44.6 5Q44.4 9.4 41.6 11.6Q43.8 12.8 41 15.4Q42 17.6 38.6 19.2Z" stroke-width=".5"/>'
+    + '<path d="M23.4 27.2 19.6 30.2 17.4 29.4M26.6 29 25.6 34.4 23.2 34.6M38.4 29.2 39.4 34.4 41.8 34.6M43.4 27 46.4 32.2 48.8 32.4" fill="none" stroke-width="2.1"/>'
+    + '<path d="M45.4 23.2Q53.4 23.4 53.2 15.4Q53 10.8 48.4 10.6" fill="none" stroke-width="2.1"/>'
+    + '<path d="M48.6 7.6 45.6 10.9 49.8 12Z" stroke-width=".5"/>'
+    + '<circle cx="13.2" cy="12.4" r=".7" fill="#fff" stroke="none"/></g>';
   const flag = (body, name) => `<svg viewBox="0 0 30 20" preserveAspectRatio="none" role="img" aria-label="Flag of ${name}">${body}</svg>`;
   ART.flags = {
-    ma: flag('<rect width="30" height="20" fill="#C1272D"/><path d="M15 5.9L17.59 13.86L10.82 8.94H19.18L12.41 13.86Z" fill="none" stroke="#006233" stroke-width="1" stroke-linejoin="round"/>', 'Morocco'),
-    pt: flag('<rect width="12" height="20" fill="#046A38"/><rect x="12" width="18" height="20" fill="#DA291C"/><circle cx="12" cy="10" r="3.6" fill="none" stroke="#FFE11A" stroke-width="1.1"/><path d="M10.6 8.1h2.8v2.6a1.4 1.4 0 0 1-2.8 0z" fill="#fff" stroke="#DA291C" stroke-width=".55"/><circle cx="12" cy="9.9" r=".5" fill="#003399"/>', 'Portugal'),
-    mx: flag('<rect width="10" height="20" fill="#006847"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#CE1126"/><path d="M12.6 10.6a2.6 2.6 0 0 0 4.8 0" fill="none" stroke="#5E8C3A" stroke-width=".7" stroke-linecap="round"/><path d="M13.6 9.6q.9-2.2 2.6-1.1.6.8-.2 1.9-.9.9-1.7.3z" fill="#8A5A2B"/>', 'Mexico'),
-    es: flag('<rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/><rect x="6.3" y="7.6" width=".7" height="4.2" fill="#BDBDBD"/><rect x="11.1" y="7.6" width=".7" height="4.2" fill="#BDBDBD"/><path d="M7.5 7.8h3.2v2.6a1.6 1.6 0 0 1-3.2 0z" fill="#AA151B"/><path d="M8.4 8.6h1.4v1.6a.7.7 0 0 1-1.4 0z" fill="#F1BF00" opacity=".75"/><path d="M7.6 7.4h3l-.3-.9h-2.4z" fill="#C8A04A"/>', 'Spain'),
-    jp: flag('<rect width="30" height="20" fill="#fff"/><circle cx="15" cy="10" r="6" fill="#BC002D"/>', 'Japan'),
-    au: flag('<rect width="30" height="20" fill="#012169"/><g transform="scale(.25 .3333)">' + UJ + '</g>' + starPts(7.5, 15, 2.1, 7, 0.45) + starPts(22.5, 16.4, 1.15, 7, 0.45) + starPts(22.5, 4.2, 1.15, 7, 0.45) + starPts(18.7, 8.6, 1.1, 7, 0.45) + starPts(26.1, 7.5, 1.1, 7, 0.45) + starPts(24.4, 10.9, .6, 5, 0.45), 'Australia'),
+    // Wales: the red dragon on white over green.
+    wa: flag('<rect width="30" height="10" fill="#fff"/><rect y="10" width="30" height="10" fill="#00B140"/>' + dragon, 'Wales'),
+    // Devon: a centred white cross edged in black, on green.
+    dv: flag('<rect width="30" height="20" fill="#00843D"/><rect x="12.4" width="5.2" height="20" fill="#000"/><rect y="7.4" width="30" height="5.2" fill="#000"/><rect x="13.4" width="3.2" height="20" fill="#fff"/><rect y="8.4" width="30" height="3.2" fill="#fff"/>', 'Devon'),
+    // Lancashire: the red rose on gold.
+    lc: flag('<rect width="30" height="20" fill="#FFCD00"/>' + rose('#DA291C', '#9D2235', '#FFCD00', '#9D2235', '#00B140'), 'Lancashire'),
+    // The Midlands: the St George's cross of England.
+    md: flag(georgeCross, 'England'),
+    // Yorkshire: the white rose on blue.
+    yk: flag('<rect width="30" height="20" fill="#0062B4"/>' + rose('#fff', '#C9D3E6', '#F2C230', '#C9952A', '#3E8E3A'), 'Yorkshire'),
+    // Scotland: the white saltire on blue.
+    sc: flag('<rect width="30" height="20" fill="#005EB8"/><path d="M0 0 30 20M30 0 0 20" stroke="#fff" stroke-width="3.6"/>', 'Scotland'),
+    // Lincolnshire: quartered green and blue, a red cross edged in yellow, a yellow fleur-de-lys.
     li: flag('<rect width="15" height="10" fill="#00965E"/><rect x="15" width="15" height="10" fill="#0033A0"/><rect y="10" width="15" height="10" fill="#0033A0"/><rect x="15" y="10" width="15" height="10" fill="#00965E"/>'
       + '<rect x="12.2" width="5.6" height="20" fill="#FFD100"/><rect y="7.2" width="30" height="5.6" fill="#FFD100"/><rect x="13.1" width="3.8" height="20" fill="#C8102E"/><rect y="8.1" width="30" height="3.8" fill="#C8102E"/>'
       + '<g transform="translate(15 10) scale(.43)" fill="#FFD100" stroke="#7A5A00" stroke-width=".35" stroke-linejoin="round"><path d="M0-5.4C1.5-3.9 1.6-1.6 0 .2C-1.6-1.6-1.5-3.9 0-5.4Z"/><path d="M-.5-.2C-1.4-2.9-4.6-3.1-4.6-.6C-4.6 1.1-2.9 1.6-1.9.6C-2.9.5-3.2-.5-2.5-1.1C-1.8-1.6-1-1.1-.5-.2Z"/><path d="M.5-.2C1.4-2.9 4.6-3.1 4.6-.6C4.6 1.1 2.9 1.6 1.9.6C2.9.5 3.2-.5 2.5-1.1C1.8-1.6 1-1.1.5-.2Z"/><rect x="-2.6" y=".3" width="5.2" height="1.2" rx=".4"/><path d="M-1 1.6H1L0 4.6Z"/></g>', 'Lincolnshire'),
-    yk: flag('<rect width="30" height="20" fill="#0062B4"/><g transform="translate(15 10)">'
-      + [0, 72, 144, 216, 288].map((a) => `<path d="M0 0 1.2-3.9 0-5.9-1.2-3.9Z" fill="#3E8E3A" transform="rotate(${a + 36})"/>`).join('')
-      + [0, 72, 144, 216, 288].map((a) => `<circle cx="0" cy="-2.55" r="2.35" fill="#fff" stroke="#C9D3E6" stroke-width=".25" transform="rotate(${a})"/>`).join('')
-      + '<circle r="2.2" fill="#fff"/><circle r="1.15" fill="#F2C230" stroke="#C9952A" stroke-width=".25"/></g>', 'Yorkshire'),
+    // London: the City of London's St George's cross with a red sword, point up, in the top corner by the pole.
+    ln: flag(georgeCross + '<g fill="#CE1124"><path d="M6.5.8 7.15 1.7V5.2H5.85V1.7Z"/><rect x="4.6" y="5.2" width="3.8" height=".8" rx=".25"/><rect x="6.1" y="6" width=".8" height="1"/><circle cx="6.5" cy="7.35" r=".45"/></g>', 'the City of London'),
   };
 
   // ---- prison cell: plain steel bars. They float above tokens so prisoners appear behind them.
