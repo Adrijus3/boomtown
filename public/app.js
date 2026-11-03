@@ -338,8 +338,9 @@
       const c = rule.type === 'toggle'
         ? `<label class="switch"><input type="checkbox" id="rule-${rule.key}" data-rule="${rule.key}" ${v ? 'checked' : ''} ${dis} aria-label="${esc(rule.label)}"><span></span></label>`
         : `<select class="select" id="rule-${rule.key}" data-rule="${rule.key}" ${dis} aria-label="${esc(rule.label)}">${rule.options.map(([val, lab]) => `<option value="${val}" ${String(val) === String(v) ? 'selected' : ''}>${lab}</option>`).join('')}</select>`;
-      return `<div class="rule"><div><div class="rl">${rule.label}</div><div class="rd">${rule.desc}</div></div>${c}</div>`;
+      return `<div class="rule ${rule.type === 'toggle' ? 'flip' : 'pick'}"><div><div class="rl">${rule.label}</div><div class="rd">${rule.desc}</div></div>${c}</div>`;
     }).join('');
+    $('#roomCta').classList.toggle('is-host', host);
     $('#roomCta').innerHTML = host
       ? `<button class="btn primary xl" data-act="start" ${r.seats.length < 2 ? 'disabled' : ''}>Start game</button><span class="room-cta-note">${r.seats.length < 2 ? 'You need at least two players. Share the link or add a bot.' : 'Everyone seated will play. People who join later can watch.'}</span>`
       : `<span class="room-cta-note">${icon('eye')} Waiting for ${esc(r.hostName || 'the host')} to start the game.</span>`;
