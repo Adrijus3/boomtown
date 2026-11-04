@@ -508,3 +508,24 @@ html.th-open { overflow: hidden; }
 [data-sketch] .tile.owned .band::after {
   inset: 3px;
 }
+
+
+/* Sketch-board ownership tabs must stop short of the hand-drawn cell frame.
+   The border-image outset is decorative; the coloured strip is inset content. */
+[data-sketch] .board > .tile .band {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  flex-basis: calc(25% - 6px);
+  margin: 3px;
+  overflow: hidden;
+}
+[data-sketch] .board > .tile .band::after {
+  inset: 0;
+}
+@container board (max-width: 600px) {
+  [data-sketch] .board > .tile .band {
+    flex-basis: calc(25% - 4px);
+    margin: 2px;
+  }
+}
