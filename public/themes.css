@@ -504,10 +504,7 @@ html.th-open { overflow: hidden; }
 [data-sketch] .tile.owned .band {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 [data-sketch] .tile.owned .band::after {
   inset: 3px;
-  max-width: calc(100% - 6px);
-  max-height: calc(100% - 6px);
 }
