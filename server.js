@@ -1,5 +1,5 @@
 'use strict';
-/* Boomtown online server: static files + WebSocket rooms. The server runs the rules engine for every
+/* RichDown online server: static files + WebSocket rooms. The server runs the rules engine for every
    room, so clients only send intentions ("roll", "bid 120") and receive the authoritative state. */
 const http = require('http');
 const fs = require('fs');
@@ -25,7 +25,7 @@ const BOT_NAMES = ['Baroness Bly', 'Otto Vance', 'Mila Sterling', 'Rex Holloway'
 const SETTING_RULES = {
   maxPlayers: [2, 3, 4, 5, 6, 7, 8],
   startingCash: [1000, 1500, 2000, 2500, 3000],
-  salary: [100, 200, 300, 400],
+  salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
   roundLimit: [0, 10, 15, 20, 30, 50],
   rollTimer: [0, 30, 60, 90, 120],
@@ -916,7 +916,7 @@ setInterval(() => {
   }
 }, 60000);
 
-server.listen(PORT, () => console.log(`Boomtown is running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`RichDown is running on http://localhost:${PORT}`));
 
 // Before an update shuts this server down, hand every player the latest copy of their room and tell them.
 let stopping = false;

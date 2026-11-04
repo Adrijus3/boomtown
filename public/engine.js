@@ -1,20 +1,20 @@
-/* Boomtown rules engine. Pure JavaScript, no dependencies; runs in the browser and in Node. */
+/* RichDown rules engine. Pure JavaScript, no dependencies; runs in the browser and in Node. */
 (function (root) {
   'use strict';
 
   // ---------------------------------------------------------------- board data
   const GROUPS = {
-    wa: { name: 'Wales', color: '#B8754F', house: 50 },
-    dv: { name: 'Devon', color: '#5EC2E6', house: 50 },
-    lc: { name: 'Lancashire', color: '#E35DA6', house: 100 },
-    md: { name: 'The Midlands', color: '#F28B3A', house: 100 },
-    yk: { name: 'Yorkshire', color: '#E5484D', house: 150 },
-    sc: { name: 'Scotland', color: '#E9C246', house: 150 },
-    li: { name: 'Lincolnshire', color: '#2EB673', house: 200 },
-    ln: { name: 'London', color: '#4C6FFF', house: 200 },
+    wa: { name: 'Wales', color: '#B8754F', house: 40 },
+    dv: { name: 'Devon', color: '#5EC2E6', house: 40 },
+    lc: { name: 'Lancashire', color: '#E35DA6', house: 80 },
+    md: { name: 'The Midlands', color: '#F28B3A', house: 80 },
+    yk: { name: 'Yorkshire', color: '#E5484D', house: 120 },
+    sc: { name: 'Scotland', color: '#E9C246', house: 120 },
+    li: { name: 'Lincolnshire', color: '#2EB673', house: 160 },
+    ln: { name: 'London', color: '#4C6FFF', house: 160 },
   };
 
-  const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent });
+  const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: rent.map((value, level) => Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] / 5) * 5) });
   const BOARD = [
     { type: 'start', name: 'Start' },
     P('Swansea', 'wa', 60, [2, 10, 30, 90, 160, 250]),
@@ -79,7 +79,7 @@
     { text: 'The bank pays you a dividend of £50.', a: 'gain', n: 50 },
     { text: 'Your building loan matures. Collect £150.', a: 'gain', n: 150 },
     { text: 'Speeding fine. Pay £15.', a: 'pay', n: 15 },
-    { text: 'Renovation time. Pay £25 for each house and £100 for each hotel.', a: 'repairs', house: 25, hotel: 100 },
+    { text: 'Renovation time. Pay £25 for each house and £100 for each hotel.', a: 'repairs', house: 20, hotel: 80 },
     { text: 'You were elected board chair. Pay each player £50.', a: 'payEach', n: 50 },
   ];
   const CHEST = [
@@ -96,7 +96,7 @@
     { text: 'Hospital fees. Pay £100.', a: 'pay', n: 100 },
     { text: 'School fees. Pay £50.', a: 'pay', n: 50 },
     { text: 'Consulting fee. Collect £25.', a: 'gain', n: 25 },
-    { text: 'Street repairs. Pay £40 for each house and £115 for each hotel.', a: 'repairs', house: 40, hotel: 115 },
+    { text: 'Street repairs. Pay £40 for each house and £115 for each hotel.', a: 'repairs', house: 30, hotel: 90 },
     { text: 'Second prize in a design contest. Collect £10.', a: 'gain', n: 10 },
     { text: 'You inherit £100.', a: 'gain', n: 100 },
   ];
@@ -105,7 +105,7 @@
 
   const DEFAULT_SETTINGS = {
     startingCash: 1500,
-    salary: 200,
+    salary: 150,
     doubleOnStart: false,
     doubleRentSet: true,
     vacationCash: true,
@@ -157,7 +157,7 @@
         bank: { houses: 32, hotels: 12 },
         decks: { chance: shuffle(range(CHANCE.length), rng), chest: shuffle(range(CHEST.length), rng) },
         turn: { idx: 0, phase: 'roll', dice: null, doubles: 0, again: false, n: 1 },
-        pending: null, debt: null, auction: null,
+        pending: null, debt: null, auction: null, bankruptcyAuctionQueue: [],
         trades: [], tradeSeq: 1,
         round: 1, pot: 0, log: [], history: [],
         over: false, winner: null, endReason: null, card: null, bankruptSeq: 0, memo: {},
@@ -500,6 +500,17 @@
       return true;
     }
 
+    startBankruptcyAuction() {
+      const s = this.s;
+      if (!s.bankruptcyAuctionQueue || !s.bankruptcyAuctionQueue.length) return false;
+      const idx = s.bankruptcyAuctionQueue.shift();
+      s.auction = { tile: idx, high: 0, bidder: null, seq: 0, bankruptcy: true };
+      this.log(['Bankruptcy property ', { t: idx }, ' goes to auction.']);
+      this.setPhase('auction');
+      this.emit({ type: 'auction', idx });
+      return true;
+    }
+
     advanceTurn() {
       const s = this.s, ps = s.players, n = ps.length;
       if (this.alive().length <= 1) return this.endGame('last');
@@ -519,7 +530,7 @@
       }
       s.turn = { idx: i, phase: 'roll', dice: null, doubles: 0, again: false, n: s.turn.n + 1 };
       this.emit({ type: 'turn', pid: ps[i].id });
-      this.setPhase('roll');
+      if (!this.startBankruptcyAuction()) this.setPhase('roll');
     }
 
     // ---- buying & auctions
@@ -575,7 +586,9 @@
       } else {
         this.log(['Nobody bid on ', { t: a.tile }, '. It stays with the bank.']);
       }
-      this.finishAction();
+      if (a.bankruptcy) {
+        if (!this.startBankruptcyAuction()) this.setPhase('roll');
+      } else this.finishAction();
       return true;
     }
 
@@ -709,12 +722,18 @@
           pr.houses = 0;
         }
       }
+      for (const i of owned) {
+        const pr = s.props[i];
+        pr.owner = null;
+        pr.mortgaged = false;
+        pr.houses = 0;
+        s.bankruptcyAuctionQueue.push(i);
+        this.emit({ type: 'own', idx: i, pid: null });
+      }
       if (creditor) {
         if (p.money > 0) this.gain(creditor, p.money);
-        for (const i of owned) s.props[i].owner = creditor.id;
         creditor.pardons.push(...p.pardons);
       } else {
-        for (const i of owned) { s.props[i].owner = null; s.props[i].mortgaged = false; }
         for (const deck of p.pardons) s.decks[deck].push(PARDON_INDEX[deck]);
       }
       p.money = 0; p.pardons = []; p.bankrupt = true; p.jail = false;
@@ -722,8 +741,8 @@
       if (d) s.debt = null;
       for (const tr of s.trades) if (tr.status === 'pending' && (tr.from === pid || tr.to === pid)) tr.status = 'cancelled';
       if (s.auction && s.auction.bidder === pid) { s.auction.high = 0; s.auction.bidder = null; }
-      if (!silent) this.log([{ p: pid }, ' went bankrupt', creditor ? ['. Everything goes to ', { p: creditor.id }, '.'] : '. Their properties return to the bank.']);
-      else if (creditor) this.log(['Their assets go to ', { p: creditor.id }, '.']);
+      if (!silent) this.log([{ p: pid }, ' went bankrupt. Their properties will be auctioned to the remaining players.']);
+      else this.log([{ p: pid }, ' was removed. Their properties will be auctioned.']);
       this.emit({ type: 'bankrupt', pid });
       if (this.alive().length <= 1) { this.endGame('last'); return true; }
       if (this.cur.id === pid && s.turn.phase !== 'auction') {

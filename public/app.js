@@ -60,7 +60,7 @@
   };
   const icon = (n, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
   const MARK = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="17" width="10" height="20" rx="2" style="fill:var(--brass)" opacity=".5"/><rect x="15" y="5" width="11" height="32" rx="2" style="fill:var(--brass)"/><rect x="28" y="12" width="9" height="25" rx="2" style="fill:var(--brass)" opacity=".78"/><g style="fill:var(--ink)"><rect x="18" y="10" width="2" height="3"/><rect x="21.5" y="10" width="2" height="3"/><rect x="18" y="16" width="2" height="3"/><rect x="21.5" y="16" width="2" height="3"/><rect x="18" y="22" width="2" height="3"/><rect x="21.5" y="22" width="2" height="3"/><rect x="18" y="29" width="5.5" height="8"/></g></svg>';
-  const WORDMARK = `<span class="brand">${MARK}<span class="wordmark">Boom<em>town</em></span></span>`;
+  const WORDMARK = `<span class="brand">${MARK}<span class="wordmark">Rich<em>Down</em></span></span>`;
 
   // ------------------------------------------------------------ sound
   const Sound = {
@@ -129,7 +129,7 @@
     { key: 'private', type: 'toggle', label: 'Private room', desc: 'Hidden from the open rooms list. Only people with the link can join.' },
     { group: 'Money' },
     { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
-    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [200, '£200'], [300, '£300'], [400, '£400']] },
+    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [150, '£150'], [200, '£200'], [300, '£300'], [400, '£400']] },
     { key: 'doubleOnStart', type: 'toggle', label: 'Double salary on Start', desc: 'Land exactly on Start to collect twice the salary.' },
     { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Taxes, fines and bail pile up on Free Parking. Whoever lands there collects the lot.' },
     { group: 'Property' },
@@ -299,7 +299,7 @@
       scheduleRender();
     }
     renderVote();
-    if (first) document.title = `Boomtown · room ${r.id}`;
+    if (first) document.title = `RichDown · room ${r.id}`;
   }
   window.addEventListener('popstate', () => {
     const id = (location.pathname.match(/^\/room\/([a-z0-9]{3,12})/i) || [])[1];
