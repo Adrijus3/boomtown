@@ -1555,11 +1555,11 @@
     if (!ui.autoRoll || screen !== 'game' || !game || game.s.over) return;
     const s = game.s, p = game.cur, t = s.turn, mine = myPid();
     if (p.id !== mine || t.phase !== 'roll' || ui.busy || ui.modal) return;
-    const key = String(t.n);
+    const key = `${t.n}:${t.doubles || 0}`;
     if (ui.autoRollTurn === key) return;
     ui.autoRollTurn = key;
     setTimeout(() => {
-      if (!ui.autoRoll || screen !== 'game' || !game || game.s.over || ui.modal || ui.busy || game.cur.id !== myPid() || game.s.turn.phase !== 'roll' || String(game.s.turn.n) !== key) {
+      if (!ui.autoRoll || screen !== 'game' || !game || game.s.over || ui.modal || ui.busy || game.cur.id !== myPid() || game.s.turn.phase !== 'roll' || `${game.s.turn.n}:${game.s.turn.doubles || 0}` !== key) {
         if (ui.autoRollTurn === key) ui.autoRollTurn = null;
         return;
       }
@@ -1613,11 +1613,13 @@
       case 'roll':
         if (p.jail) {
           return `<div class="note">${icon('lock')} In Prison · attempt ${p.jailTurns + 1} of 3</div>
-            <div class="row">
+            <div class="row roll-controls">
               <button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll for doubles</button>
+              <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
               <button class="btn" data-a="bail" ${dis || (p.money < st.bail ? 'disabled' : '')}>Pay ${fmt(st.bail)} bail</button>
               ${p.pardons.length ? `<button class="btn" data-a="pardon" ${dis}>${icon('key')} Use Pardon</button>` : ''}
-            </div>`;
+            </div>
+            <div class="hint">Auto-roll will attempt your prison dice roll too. It will not pay bail or use a Pardon.</div>`;
         }
         return `${t.again ? '<div class="note">Doubles! Roll again.</div>' : ''}
           <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>
