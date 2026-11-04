@@ -2498,3 +2498,45 @@ textarea:focus-visible {
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
+
+
+/* Property tile price chips: separate the purchase price and rent into matching
+   compact rectangles so both figures are immediately distinguishable. */
+.board .tile.prop .body > .tprice {
+  background: transparent !important;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  gap: 3px;
+}
+.board .tile.prop .body > .tprice .tile-buy,
+.board .tile.prop .body > .tprice .tile-rent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--tile-2);
+  color: var(--text);
+  white-space: nowrap;
+}
+.board .tile.prop .body > .tprice .tile-rent {
+  font-size: .82em;
+  line-height: 1.05;
+  font-weight: 750;
+  background: var(--tile-3);
+  border-color: color-mix(in srgb, var(--line) 75%, var(--own, var(--brass)));
+}
+@container board (max-width: 600px) {
+  .board .tile.prop .body > .tprice {
+    gap: 2px;
+  }
+  .board .tile.prop .body > .tprice .tile-buy,
+  .board .tile.prop .body > .tprice .tile-rent {
+    padding: 1px 3px;
+    border-radius: 3px;
+  }
+}
