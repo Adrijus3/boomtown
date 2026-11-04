@@ -1427,8 +1427,6 @@ button, .tile, [role="button"], a, label.switch, select { -webkit-tap-highlight-
 
 /* Lightweight rendering profile for laptop-sized screens and lower-memory devices. */
 html.performance-lite .pcard.turn .pdot { animation: none !important; }
-html.performance-lite .flag.wave,
-html.performance-lite .flag.wave::after { animation: none !important; }
 html.performance-lite .tic,
 html.performance-lite .corner .cbig { filter: none !important; }
 html.performance-lite .token .tk { box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), 0 0 0 2px var(--token-ring) !important; }
