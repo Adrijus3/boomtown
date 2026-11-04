@@ -1024,7 +1024,7 @@
         if (price.dataset.v !== key) {
           price.dataset.v = key;
           ui.badgeDirty = true;
-          const body = label === 'lock' ? icon('lock') : `<span class="rt">${label}</span>`;
+          const body = label === 'lock' ? icon('lock') : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
           price.innerHTML = owner ? body : label;
         }
         price.title = '';
