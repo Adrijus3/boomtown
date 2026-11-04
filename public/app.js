@@ -164,6 +164,7 @@
     return {
       busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
       view: null, tab: 'portfolio', modal: null, draft: null, renderQueued: false, lastHTML: {}, lastTurn: null,
+      autoRoll: false, autoRollTurn: null,
     };
   }
   const myPid = () => (meta && meta.me != null ? meta.me : null);
@@ -681,6 +682,7 @@
   }
   setInterval(() => {
     if (screen !== 'game' || !game || !meta) return;
+    syncAutoRoll();
     const ring = $('#timerRing'), clock = $('#turnClock'), badge = $('#nowBadge');
     const T = curClock(), on = !!T;
     if (ring) ring.hidden = !on;
@@ -1549,6 +1551,21 @@
     const myp = mine != null ? game.player(mine) : null;
     $('#resignBtn').hidden = !(myp && !myp.bankrupt && !s.over);
   }
+  function syncAutoRoll() {
+    if (!ui.autoRoll || screen !== 'game' || !game || game.s.over) return;
+    const s = game.s, p = game.cur, t = s.turn, mine = myPid();
+    if (p.id !== mine || t.phase !== 'roll' || ui.busy || ui.modal) return;
+    const key = String(t.n);
+    if (ui.autoRollTurn === key) return;
+    ui.autoRollTurn = key;
+    setTimeout(() => {
+      if (!ui.autoRoll || screen !== 'game' || !game || game.s.over || ui.modal || ui.busy || game.cur.id !== myPid() || game.s.turn.phase !== 'roll' || String(game.s.turn.n) !== key) {
+        if (ui.autoRollTurn === key) ui.autoRollTurn = null;
+        return;
+      }
+      doAction('roll');
+    }, 450);
+  }
   function countMoney() {
     for (const p of game.s.players) {
       const to = p.bankrupt ? 0 : p.money, from = ui.moneyShown[p.id];
@@ -1603,8 +1620,8 @@
             </div>`;
         }
         return `${t.again ? '<div class="note">Doubles! Roll again.</div>' : ''}
-          <button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button>
-          <div class="hint">Space or Enter rolls. Build, mortgage and trade from your portfolio first.</div>`;
+          <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>
+          <div class="hint">Auto-roll rolls automatically whenever it is your turn to roll. It does not make buying or end-turn decisions.</div>`;
       case 'moving': return '<div class="wait"><span>Moving<span class="dots"></span></span></div>';
       case 'buy': {
         const i = p.pos, tile = BOARD[i], short = tile.price - p.money;
@@ -2072,6 +2089,12 @@
     switch (a) {
       case 'roll': case 'end': case 'buy': case 'decline':
         if (!ui.busy) act(a); return;
+      case 'autoroll':
+        ui.autoRoll = !ui.autoRoll;
+        ui.autoRollTurn = null;
+        render();
+        if (ui.autoRoll) syncAutoRoll();
+        return;
       case 'bail': case 'pardon': case 'pay': act(a); return;
       case 'details': openModal('tile', { i: +el.dataset.i }); return;
       case 'results': openModal('over'); return;
