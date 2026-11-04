@@ -1214,8 +1214,9 @@
     const t = BOARD[i];
     const note = setNote(i, who);
     const rent = t.type === 'prop' ? `Rent ${fmt(t.rent[0])} · ${fmt(t.rent[1])} with a house` : t.type === 'airport' ? 'Rent $25 to $200' : 'Rent 4× or 10× the dice';
+    const longName = t.name.length > 14;
     return `<div class="postcard" style="--g:${groupColor(i)}" data-a="details" data-i="${i}" role="button" tabindex="0" aria-label="${esc(t.name)} details">${emblemHTML(i, 'big wave')}
-      <div class="pc-text"><div class="pc-country">${esc(placeLabel(i))}${note ? `<span class="pc-note"> · ${esc(note)}</span>` : ''}</div><div class="pc-city">${esc(t.name)}</div><div class="pc-meta">${rent}</div></div>
+      <div class="pc-text"><div class="pc-country">${esc(placeLabel(i))}${note ? `<span class="pc-note"> · ${esc(note)}</span>` : ''}</div><div class="pc-city ${longName ? 'long' : ''}">${esc(t.name)}</div><div class="pc-meta">${rent}</div></div>
       <div class="pc-price">${fmt(t.price)}</div></div>`;
   }
   function miniDeed(i, o) {
@@ -1958,7 +1959,19 @@
         chest: 'Open a Treasure card. Mostly good news, with the occasional bill.',
         tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Free Parking jackpot)' : ''}.`,
       }[t.type] || '';
-      setModal(`<div class="sheet deed plain space-${t.type}" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}<p>${desc}</p></div></div>`);
+      const spaceContent = t.type === 'jail'
+        ? `<div class="jail-info">
+            <div class="jail-status"><span class="jail-status-icon">${icon('lock')}</span><span><b>Just visiting</b><small>Landing here is a free visit. Prisoners have three ways to get out.</small></span></div>
+            <div class="jail-routes">
+              <div class="jail-route"><span class="jail-route-icon">${icon('receipt')}</span><span><b>${fmt(st.bail)}</b><small>Pay bail to leave immediately</small></span></div>
+              <div class="jail-route"><span class="jail-route-icon">${icon('gift')}</span><span><b>Pardon card</b><small>Use a card to leave Prison</small></span></div>
+              <div class="jail-route"><span class="jail-route-icon">${icon('dice')}</span><span><b>Roll doubles</b><small>Try to roll a matching pair</small></span></div>
+            </div>
+            <p class="jail-reminder">Fail to roll doubles after three attempts and bail is paid automatically.</p>
+            ${st.noRentInPrison ? `<div class="jail-rule">Players in Prison do not collect rent while detained.</div>` : ''}
+          </div>`
+        : `<p>${desc}</p>`;
+      setModal(`<div class="sheet deed plain space-${t.type}" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}${spaceContent}</div></div>`);
       return;
     }
     let table = '';
