@@ -1,4 +1,4 @@
-# Render Blueprint: one free web service running the Boomtown game server.
+# Render Blueprint: one free web service running the RichDown game server.
 services:
   - type: web
     name: PoorDown
