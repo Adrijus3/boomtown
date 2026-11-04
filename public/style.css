@@ -2133,3 +2133,67 @@ textarea:focus-visible {
   .modal .sheet-h [data-close],
   .modal .deed-head [data-close] { transition: none; }
 }
+
+
+/* ---------------------------------------------------------------- PoorDown follow-up: full-height card gradients and laptop legibility */
+.deedcard {
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-origin: border-box;
+  align-self: stretch;
+}
+.deedcard.small {
+  background-size: 100% 100%;
+}
+
+/* The previous compact tile rule unintentionally forced every property label
+   to 6.5px. Restore a readable board-relative size with a safe long-name scale. */
+.board .tile .body > .tname {
+  font-size: clamp(8px, 1.58cqi, 15px);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.board .tile .body > .tname.long {
+  font-size: clamp(7.5px, 1.38cqi, 13.5px);
+  line-height: 1.08;
+  letter-spacing: -.01em;
+}
+.board .tile .body > .tprice {
+  font-size: clamp(8px, 1.32cqi, 13px);
+  line-height: 1.15;
+  padding: 2px 4px;
+}
+.board .tile .body > .tname,
+.board .tile .body > .tprice {
+  max-width: 100%;
+  min-width: 0;
+}
+.board .tile.fit-tight .body > .tname,
+.board .tile.fit-tight .body > .tname.long {
+  font-size: clamp(7.5px, 1.25cqi, 12px);
+  line-height: 1.04;
+}
+.board .tile .body > .flag {
+  width: clamp(11px, 2.8cqi, 27px);
+}
+.corner .tname {
+  font-size: clamp(9px, 1.95cqi, 19px);
+  line-height: 1.1;
+}
+.corner .sub {
+  font-size: clamp(7.5px, 1.3cqi, 13px);
+  line-height: 1.15;
+}
+.jail-corner .visit,
+.jail-corner .cell .tname {
+  font-size: clamp(7.5px, 1.45cqi, 14px);
+}
+@container board (max-width: 600px) {
+  .board .tile .body > .tname { font-size: clamp(7.5px, 1.55cqi, 10px); }
+  .board .tile .body > .tname.long { font-size: clamp(7px, 1.3cqi, 9px); }
+  .board .tile .body > .tprice { font-size: clamp(7.5px, 1.25cqi, 9px); }
+  .corner .tname { font-size: clamp(8px, 1.8cqi, 11px); }
+}
