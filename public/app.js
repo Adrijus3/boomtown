@@ -1115,11 +1115,16 @@
   function fitBadges() {
     if (!game || !ui.tileEls.length) return;
     const board = $('#board');
-    const steps = board && board.clientWidth <= 612 ? ['fit-snug', 'fit-dot', 'fit-min'] : FIT_STEPS;
+    const compactBoard = board && board.clientWidth <= 612;
     BOARD.forEach((t, i) => {
       const el = ui.tileEls[i];
       if (!el || !el.querySelector('.body')) return;
       const pill = el.querySelector('.tprice');
+      const keepOwnedRent = t.type === 'prop' && el.classList.contains('owned');
+      // Never hide the rent label on an owned property. Tighten its layout instead.
+      const steps = compactBoard
+        ? (keepOwnedRent ? ['fit-snug', 'fit-tight'] : ['fit-snug', 'fit-dot', 'fit-min'])
+        : FIT_STEPS;
       el.classList.remove(...FIT_STEPS);
       fitName(el);
       for (const step of steps) {
