@@ -1120,7 +1120,7 @@
       const el = ui.tileEls[i];
       if (!el || !el.querySelector('.body')) return;
       const pill = el.querySelector('.tprice');
-      const keepOwnedRent = t.type === 'prop' && el.classList.contains('owned');
+      const keepOwnedRent = ['prop', 'airport', 'utility'].includes(t.type) && el.classList.contains('owned');
       // Never hide the rent label on an owned property. Tighten its layout instead.
       const steps = compactBoard
         ? (keepOwnedRent ? ['fit-snug', 'fit-tight'] : ['fit-snug', 'fit-dot', 'fit-min'])
