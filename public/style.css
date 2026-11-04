@@ -2465,3 +2465,36 @@ textarea:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+
+/* Compact-board UX: keep auction controls readable and prevent action buttons
+   from being forced into a single clipped row on very small boards. */
+@container board (max-width: 612px) {
+  .auction-bid-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .auction-leader {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+@container board (max-width: 400px) {
+  .actions .row {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+  .actions .row > .btn {
+    max-width: 100%;
+  }
+}
+
+/* Keep scrollable panels visually consistent without changing theme colours. */
+.sidebody,
+.players,
+#modal > .sheet,
+#auctionBox {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
