@@ -25,7 +25,7 @@ const BOT_NAMES = ['Baroness Bly', 'Otto Vance', 'Mila Sterling', 'Rex Holloway'
 const SETTING_RULES = {
   maxPlayers: [2, 3, 4, 5, 6, 7, 8],
   startingCash: [1000, 1500, 2000, 2500, 3000],
-  salary: [100, 200, 300, 400],
+  salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
   roundLimit: [0, 10, 15, 20, 30, 50],
   rollTimer: [0, 30, 60, 90, 120],
