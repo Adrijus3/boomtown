@@ -972,6 +972,13 @@
         const a = (k / n) * Math.PI * 2 - Math.PI / 2;
         x += Math.cos(a) * r; y += Math.sin(a) * r;
       }
+      // Tokens are board-level overlays, not children of their property tile.
+      // Keep each token's centre far enough inside its tile for the full circle and ring.
+      const halfToken = (el.offsetWidth || 0) / 2;
+      const insetX = Math.min(w / 2, halfToken + 5);
+      const insetY = Math.min(h / 2, halfToken + 5);
+      x = Math.max(tile.offsetLeft + insetX, Math.min(tile.offsetLeft + w - insetX, x));
+      y = Math.max(tile.offsetTop + insetY, Math.min(tile.offsetTop + h - insetY, y));
       x = Math.round(x); y = Math.round(y);
       ui.tokenXY[p.id] = { x, y };
       el.style.transition = instant || ui.moving[p.id] ? 'none' : '';
