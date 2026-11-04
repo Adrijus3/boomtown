@@ -1,4 +1,4 @@
-// Boomtown themes: how the game looks on this device. Each theme is a set of colours, fonts and a few
+// PoorDown themes: how the game looks on this device. Each theme is a set of colours, fonts and a few
 // drawing effects in themes.css, switched with <html data-theme="...">. The three sketch themes (Crayon,
 // Chalkboard and Blueprint) also get hand-drawn outlines, scribbled colouring-in and paper grain. Those are
 // drawn here as small SVG pictures in the theme's own ink colour and handed to the stylesheet as
