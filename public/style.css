@@ -2334,3 +2334,79 @@ textarea:focus-visible {
   box-shadow: none !important;
   background: rgba(0,0,0,.3);
 }
+
+
+/* Responsive property labels: laptop/tablet/mobile should show rent as text,
+   not as the oversized ownership-price capsule used on desktop. */
+@media (max-width: 1180px) {
+  .board .tile.prop.owned .body > .tprice,
+  .board .tile.airport.owned .body > .tprice,
+  .board .tile.utility.owned .body > .tprice {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    max-width: 100%;
+    padding: 1px 2px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--text) !important;
+    font-size: clamp(7px, 1.12cqi, 11px) !important;
+    line-height: 1.05;
+  }
+  .board .tile.prop.owned .body > .tprice .rt {
+    white-space: nowrap;
+    font-size: 1em;
+    font-weight: 750;
+  }
+  .board .tile.prop .body > .tname {
+    font-size: clamp(8px, 1.42cqi, 13px) !important;
+    line-height: 1.06;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .board .tile.prop .body > .tname.long {
+    font-size: clamp(7px, 1.18cqi, 11px) !important;
+    letter-spacing: -.025em;
+  }
+}
+@media (max-width: 760px) {
+  .board .tile.prop .body {
+    gap: 1px;
+    padding-inline: 1px;
+  }
+  .board .tile.prop .body > .tname {
+    font-size: clamp(7px, 1.5cqi, 10px) !important;
+    line-height: 1;
+  }
+  .board .tile.prop .body > .tname.long {
+    font-size: clamp(6px, 1.22cqi, 8px) !important;
+  }
+  .board .tile.prop .body > .tprice {
+    padding: 0 !important;
+    font-size: clamp(6px, 1.12cqi, 8px) !important;
+  }
+}
+
+/* Auction postcard city names must stay on one line, including Westminster. */
+.auction-property .pc-text {
+  min-width: 0;
+  overflow: hidden;
+}
+.auction-property .pc-city {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  font-size: clamp(14px, 3.1cqi, 32px);
+  letter-spacing: -.045em;
+  line-height: 1.05;
+}
