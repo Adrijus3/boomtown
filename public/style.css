@@ -2360,7 +2360,7 @@ textarea:focus-visible {
 
 /* Responsive property labels: laptop/tablet/mobile should show rent as text,
    not as the oversized ownership-price capsule used on desktop. */
-@media (max-width: 1180px) {
+@container app (max-width: 1180px) {
   .board .tile.prop.owned .body > .tprice,
   .board .tile.airport.owned .body > .tprice,
   .board .tile.utility.owned .body > .tprice {
@@ -2394,7 +2394,7 @@ textarea:focus-visible {
     letter-spacing: -.025em;
   }
 }
-@media (max-width: 760px) {
+@container app (max-width: 760px) {
   .board .tile.prop .body {
     gap: 1px;
     padding-inline: 1px;
