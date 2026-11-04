@@ -1423,3 +1423,18 @@ button, .tile, [role="button"], a, label.switch, select { -webkit-tap-highlight-
 #room .rejoin { align-items: flex-start; text-align: left; margin: 0 0 14px; }
 #room .rejoin-btns { justify-content: flex-start; }
 
+
+
+/* Lightweight rendering profile for laptop-sized screens and lower-memory devices. */
+html.performance-lite .pcard.turn .pdot { animation: none !important; }
+html.performance-lite .flag.wave,
+html.performance-lite .flag.wave::after { animation: none !important; }
+html.performance-lite .tic,
+html.performance-lite .corner .cbig { filter: none !important; }
+html.performance-lite .token .tk { box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), 0 0 0 2px var(--token-ring) !important; }
+html.performance-lite .token.current .tk { box-shadow: inset 0 -2px 0 rgba(0,0,0,.2), 0 0 0 2px var(--token-ring), 0 0 0 3px var(--pc) !important; }
+html.performance-lite .tile,
+html.performance-lite .pcard,
+html.performance-lite .token { transition-duration: .12s !important; }
+html.performance-lite .tile.owned .tprice { box-shadow: 0 0 0 1px var(--own) !important; }
+html.performance-lite .token.ghost .tk { filter: none !important; }
