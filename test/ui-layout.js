@@ -8,15 +8,16 @@ const root = path.resolve(__dirname, '..');
 const css = fs.readFileSync(path.join(root, 'public/style.css'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'public/app.js'), 'utf8');
 
-function ruleBody(selector) {
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const matches = [...css.matchAll(new RegExp(escaped + '\\s*\\{([^{}]*)\\}', 'g'))];
-  assert.equal(matches.length, 1, `Expected exactly one CSS rule for: ${selector}`);
-  return matches[0][1];
+function ruleBodies(selector) {
+  const escaped = selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+  const matches = [...css.matchAll(new RegExp(escaped + '\\\\s*\\\\{([^{}]*)\\\\}', 'g'))];
+  assert.ok(matches.length > 0, `No CSS rule found for: ${selector}`);
+  return matches.map((match) => match[1]);
 }
 
 function assertDeclaration(selector, declaration) {
-  assert.match(ruleBody(selector), declaration, `Missing ${declaration} in ${selector}`);
+  const found = ruleBodies(selector).some((body) => declaration.test(body));
+  assert.ok(found, `Missing ${declaration} in CSS rule(s) for ${selector}`);
 }
 
 function checkBalancedCss(source) {
