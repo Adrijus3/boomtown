@@ -1554,16 +1554,17 @@
   function syncAutoRoll() {
     if (!ui.autoRoll || screen !== 'game' || !game || game.s.over) return;
     const s = game.s, p = game.cur, t = s.turn, mine = myPid();
-    if (p.id !== mine || t.phase !== 'roll' || ui.busy || ui.modal) return;
-    const key = `${t.n}:${t.doubles || 0}`;
+    if (p.id !== mine || !['roll', 'end'].includes(t.phase) || ui.busy || ui.modal) return;
+    const action = t.phase;
+    const key = `${t.n}:${action}:${t.doubles || 0}`;
     if (ui.autoRollTurn === key) return;
     ui.autoRollTurn = key;
     setTimeout(() => {
-      if (!ui.autoRoll || screen !== 'game' || !game || game.s.over || ui.modal || ui.busy || game.cur.id !== myPid() || game.s.turn.phase !== 'roll' || `${game.s.turn.n}:${game.s.turn.doubles || 0}` !== key) {
+      if (!ui.autoRoll || screen !== 'game' || !game || game.s.over || ui.modal || ui.busy || game.cur.id !== myPid() || game.s.turn.phase !== action || `${game.s.turn.n}:${game.s.turn.phase}:${game.s.turn.doubles || 0}` !== key) {
         if (ui.autoRollTurn === key) ui.autoRollTurn = null;
         return;
       }
-      doAction('roll');
+      doAction(action);
     }, 450);
   }
   function countMoney() {
