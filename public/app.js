@@ -961,9 +961,18 @@
       const pos = where(p), tile = ui.tileEls[pos];
       const w = tile.offsetWidth, h = tile.offsetHeight;
       let x = tile.offsetLeft + w / 2, y = tile.offsetTop + h / 2;
-      if (pos === 10) {
+      if (pos === 0) {
+        x = tile.offsetLeft + w * 0.22;
+        y = tile.offsetTop + h * 0.22;
+      } else if (pos === 10) {
         if (inCell(p)) { x = tile.offsetLeft + w * 0.33; y = tile.offsetTop + h * 0.745; }
         else { x = tile.offsetLeft + w * 0.83; y = tile.offsetTop + h * 0.64; }
+      } else if (pos === 20) {
+        x = tile.offsetLeft + w * 0.78;
+        y = tile.offsetTop + h * 0.78;
+      } else if (pos === 30) {
+        x = tile.offsetLeft + w * 0.22;
+        y = tile.offsetTop + h * 0.78;
       }
       const list = groups[pos + (inCell(p) ? ':cell' : '')] || [p];
       const n = list.length, k = list.indexOf(p);
