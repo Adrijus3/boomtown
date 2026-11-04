@@ -2480,3 +2480,301 @@ textarea:focus-visible {
     border-radius: 3px !important;
   }
 }
+
+/* Physical UI finish: shared surface depth, ownership clarity and auction hierarchy.
+   Visual-only pass: no breakpoints, sizing rules, game behaviour or dice styling. */
+:root {
+  --ui-shadow-panel: 0 10px 26px -18px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.035);
+  --ui-shadow-card: 0 5px 14px -10px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+/* A single material language for every panel and control surface. */
+.panel {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--tile) 94%, var(--tile-top)), var(--tile) 72%);
+  border: 1px solid var(--line);
+  box-shadow: var(--ui-shadow-panel);
+}
+.panel-h {
+  border-bottom: 1px solid var(--line-soft);
+}
+.panel-h h2 {
+  color: var(--text);
+  letter-spacing: -.015em;
+}
+.sidebody {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tile) 96%, var(--tile-top)), var(--tile));
+}
+.ov-sec {
+  border-top-color: color-mix(in srgb, var(--line) 75%, transparent);
+}
+.ov-sec > h4,
+.ov-sec > h2 {
+  color: var(--muted);
+}
+.offer-card,
+.action-bar {
+  box-shadow: var(--ui-shadow-card);
+}
+
+/* Player list: make the active player unmistakable without a floating oval label. */
+.players.panel {
+  padding: 9px;
+  gap: 7px;
+}
+.pcard {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tile-2) 30%, transparent);
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+}
+.pcard.viewing:not(.turn) {
+  border-color: var(--line);
+  background: var(--tile-2);
+}
+.pcard.turn {
+  border-color: color-mix(in srgb, var(--brass) 58%, var(--line));
+  background: linear-gradient(105deg, rgba(var(--brass-rgb),.16), rgba(var(--brass-rgb),.045) 72%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 5px 16px -13px rgba(var(--brass-rgb),.75);
+}
+.pcard.turn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brass);
+}
+.pcard .now {
+  top: 6px;
+  right: 8px;
+  padding: 4px 7px;
+  border: 1px solid rgba(var(--brass-rgb),.28);
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.16);
+}
+.pcard .pdot {
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 2px var(--tile);
+}
+.pcard.turn .pdot {
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 2px var(--tile), 0 0 0 3px var(--brass);
+}
+.pmoney {
+  color: var(--mint);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Bank figures become compact stat tiles rather than loose text in a panel. */
+.bankbox {
+  gap: 8px;
+  padding: 10px;
+}
+.bankbox > div {
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 9px;
+  background: linear-gradient(145deg, var(--tile-2), color-mix(in srgb, var(--tile-2) 78%, var(--tile)));
+}
+.bankbox .k {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.bankbox .v {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Board finish: clearer cell separation and a consistent ownership treatment. */
+.board {
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 22px 48px -30px rgba(0,0,0,.82), 0 0 0 1px rgba(0,0,0,.16);
+}
+.board > .tile {
+  border: 1px solid rgba(var(--hi),.075);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+.board > .tile:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brass) 46%, transparent), 0 2px 8px rgba(0,0,0,.12);
+}
+.tile .band {
+  background-image: linear-gradient(180deg, rgba(255,255,255,.12), rgba(0,0,0,.08));
+  background-blend-mode: soft-light;
+}
+.tile.owned .band {
+  background-color: var(--own);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.23), rgba(0,0,0,.12));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.12);
+}
+.tile.owned .own-mark {
+  color: rgba(8,12,24,.92);
+  font-weight: 850;
+  letter-spacing: .025em;
+  text-shadow: 0 1px 0 rgba(255,255,255,.16);
+}
+.board .tile:is(.prop, .airport, .utility) .body > .tprice {
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--text) 18%) !important;
+  border-radius: 4px !important;
+  background: linear-gradient(180deg, var(--tile-3), var(--tile-2)) !important;
+  color: var(--text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.24) !important;
+  font-weight: 800;
+}
+.board .tile:is(.prop, .airport, .utility).owned .body > .tprice {
+  border-color: color-mix(in srgb, var(--own) 52%, var(--line)) !important;
+}
+.board .tile.mortgaged .body > .tprice {
+  background: linear-gradient(180deg, var(--tile-3), var(--tile)) !important;
+  border-color: var(--line) !important;
+  color: var(--muted) !important;
+}
+.tile .body > .tname {
+  text-shadow: 0 1px 1px rgba(0,0,0,.12);
+}
+
+/* Property postcards: one strong title, one quiet descriptor and a tidy value plate. */
+.postcard {
+  border: 1px solid color-mix(in srgb, var(--g) 44%, var(--line));
+  border-radius: 11px;
+  background: linear-gradient(125deg, color-mix(in srgb, var(--g) 24%, var(--tile-2)), var(--tile) 68%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 7px 18px -14px rgba(0,0,0,.8);
+}
+.postcard::before {
+  width: 4px;
+  box-shadow: 1px 0 0 rgba(255,255,255,.06);
+}
+.postcard .flag.big,
+.postcard .emblem.big {
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,.22));
+}
+.pc-country {
+  color: color-mix(in srgb, var(--g) 68%, var(--text));
+  font-size: 10px;
+  letter-spacing: .12em;
+}
+.pc-city {
+  color: var(--text);
+  letter-spacing: -.035em;
+}
+.pc-meta {
+  color: var(--muted);
+  line-height: 1.3;
+}
+.pc-price {
+  justify-self: end;
+  padding: 6px 9px;
+  border: 1px solid color-mix(in srgb, var(--brass) 34%, var(--line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--brass) 10%, var(--tile-2));
+  color: var(--brass);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Auction: sharpen the hierarchy between the item, live bid and bidding controls. */
+.auction {
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brass));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tile) 92%, var(--tile-top)), var(--tile) 66%);
+}
+.auction-h {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.auction-h h3 {
+  color: var(--text);
+  letter-spacing: -.025em;
+}
+.auction-h h3 .ic {
+  color: var(--brass);
+}
+.auction-countdown {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--tile-2);
+  color: var(--text);
+  font-weight: 750;
+}
+.auction-bid-summary {
+  border: 1px solid color-mix(in srgb, var(--brass) 42%, var(--line));
+  background: linear-gradient(115deg, rgba(var(--brass-rgb),.14), rgba(var(--brass-rgb),.035) 72%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 8px 18px -16px rgba(var(--brass-rgb),.75);
+}
+.auction-bid-label {
+  color: var(--muted);
+}
+.auction-bid-summary .v {
+  color: var(--brass);
+  text-shadow: 0 2px 14px rgba(var(--brass-rgb),.12);
+}
+.auction-leader {
+  padding: 7px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tile-2) 88%, transparent);
+}
+.auction-bar {
+  height: 7px;
+  border: 1px solid rgba(0,0,0,.18);
+  background: color-mix(in srgb, var(--tile-3) 75%, var(--ink));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.22);
+}
+.auction-note {
+  padding-top: 9px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+
+/* Buttons, tabs and deed cards get the same restrained depth and active feedback. */
+.btn {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  font-weight: 700;
+}
+.btn:not(.primary):not(.danger):not(.ghost) {
+  background: linear-gradient(180deg, var(--tile-3), var(--tile-2));
+}
+.btn.primary {
+  background: linear-gradient(180deg, var(--brass-hi), var(--brass));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 5px 14px -10px rgba(var(--brass-rgb),.88);
+}
+.icon-btn {
+  background: linear-gradient(180deg, var(--tile-2), var(--tile));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.tabs {
+  background: var(--tile);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+.tabs button.on {
+  color: var(--text);
+  background: linear-gradient(180deg, var(--tile-3), var(--tile-2));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 1px 3px rgba(0,0,0,.16);
+}
+.deedcard {
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 5px 14px -12px rgba(0,0,0,.72);
+}
+button.deedcard:hover:not(:disabled) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 18px -12px rgba(0,0,0,.78);
+}
+.deedcard.on {
+  border-color: var(--brass);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px var(--brass), 0 8px 18px -12px rgba(var(--brass-rgb),.75);
+}
+.sheet {
+  border: 1px solid var(--line);
+  box-shadow: 0 28px 70px -34px rgba(0,0,0,.82), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.sheet-h {
+  background: linear-gradient(180deg, var(--tile-2), var(--tile));
+}
