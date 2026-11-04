@@ -922,7 +922,7 @@
       ui.tokenEls[p.id] = el;
     }
     if (dice3d) { dice3d.dispose(); dice3d = null; }
-    try { dice3d = !PERF_LITE && window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
+    try { dice3d = window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
     $('#dice').classList.toggle('gl', !!dice3d);
   }
   function layoutJailBars() {
