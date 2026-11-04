@@ -1,4 +1,4 @@
-/* Boomtown board art: hand-drawn two-tone "sticker" icons on a 32-unit grid.
+/* PoorDown board art: hand-drawn two-tone "sticker" icons on a 32-unit grid.
    Each icon has a darker base for depth, a main fill and a small highlight. */
 (function (root) {
   'use strict';
