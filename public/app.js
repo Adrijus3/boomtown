@@ -455,7 +455,6 @@
   }
 
   // ------------------------------------------------------------ game messages & animation
-  // ------------------------------------------------------------ game messages & animation
   async function pumpGame() {
     if (ui.busy) return;
     const mine = ui;
