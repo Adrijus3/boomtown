@@ -1621,10 +1621,17 @@
   }
   function renderAuction() {
     const box = $('#auctionBox'), a = game.s.auction, inner = $('.center-inner');
-    if (!a || game.s.turn.phase !== 'auction') { box.hidden = true; ui.lastHTML.auction = ''; if (inner) inner.style.visibility = ''; return; }
+    if (!a || game.s.turn.phase !== 'auction') {
+      box.hidden = true;
+      ui.lastHTML.auction = '';
+      if (inner) { inner.hidden = false; inner.style.visibility = ''; }
+      return;
+    }
     box.hidden = false;
     camOut();
-    if (inner) inner.style.visibility = 'hidden';
+    // Remove the normal turn/buy interface from layout while the auction owns the board centre.
+    // visibility:hidden alone can leave its children participating in layout/overlapping on some browsers.
+    if (inner) { inner.hidden = true; inner.style.visibility = ''; }
     const bidder = a.bidder != null ? game.player(a.bidder) : null;
     const mine = myPid(), p = mine != null ? game.player(mine) : null;
     const M = (meta && meta.auction) || {};
