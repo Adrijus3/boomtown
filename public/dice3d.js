@@ -1,4 +1,4 @@
-/* Boomtown 3D dice: two rounded cubes rendered with three.js (r128), lit by a key light, a warm rim
+/* PoorDown 3D dice: two rounded cubes rendered with three.js (r128), lit by a key light, a warm rim
    light and a soft fill, casting shadows onto the board. Falls back to null when WebGL is unavailable. */
 (function (root) {
   'use strict';
