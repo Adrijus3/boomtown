@@ -1440,7 +1440,7 @@ button, .tile, [role="button"], a, label.switch, select { -webkit-tap-highlight-
 #room .rejoin-btns { justify-content: flex-start; }
 
 /* Short laptop screens: keep the board visible and let the management panel use the page scroll. */
-@media (min-width: 1181px) and (max-width: 1600px) and (max-height: 850px) and (orientation: landscape) {
+@media (min-width: 1181px) and (max-width: 1600px) and (max-height: 950px) and (orientation: landscape) {
   html, body, #app { height: auto; min-height: 100%; }
   #app { overflow: visible; }
   .game {
@@ -1454,4 +1454,24 @@ button, .tile, [role="button"], a, label.switch, select { -webkit-tap-highlight-
   .side.right { grid-column: 2; grid-row: 2; min-height: 360px; align-self: stretch; }
   .sidebody { max-height: none; overflow: visible; }
   .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+}
+
+
+/* Laptop board sizing: give the size-contained stage a real square footprint.
+   The board must not depend on cqh when its parent is intrinsically sized. */
+@media (min-width: 560px) and (max-width: 1600px) and (max-height: 950px) and (orientation: landscape) {
+  .game { grid-template-rows: auto auto; align-items: start; }
+  .stage {
+    grid-row: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 1;
+    container-type: inline-size;
+    align-self: start;
+  }
+  .stage .board { width: 100%; }
+  .side.left { grid-row: 1; }
+  .side.right { grid-row: 2; }
+  .sidebody { max-height: none; overflow: visible; }
 }
