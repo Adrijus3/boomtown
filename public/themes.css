@@ -529,3 +529,53 @@ html.th-open { overflow: hidden; }
     margin: 2px;
   }
 }
+
+
+/* ---------------------------------------------------------------- PoorDown theme-aware board containment */
+[data-sketch] .tile .body > .flag {
+  border: 1px solid rgba(20,20,20,.22);
+  box-shadow: 0 1px 2px rgba(0,0,0,.22);
+}
+[data-sketch] .tile .band {
+  margin: 2px;
+  flex-basis: calc(23% - 4px);
+}
+[data-sketch] .tile .band::after { inset: 0; }
+[data-theme="contrast"] .tile .body > .flag {
+  outline: 1px solid #FFFFFF;
+  outline-offset: 1px;
+  box-shadow: none;
+}
+[data-theme="contrast"] .modal .sheet-h [data-close] {
+  color: #FFFFFF;
+  background: #111111;
+  border: 2px solid #FFFFFF;
+}
+[data-theme="contrast"] .modal .deed-head [data-close] {
+  color: #FFFFFF;
+  background: #000000;
+  border: 2px solid #FFFFFF;
+}
+[data-theme="contrast"] .modal [data-close]:focus-visible {
+  outline-color: #FFE600;
+}
+[data-theme="blueprint"] .tile .body > .flag {
+  box-shadow: 0 0 0 1px rgba(143,218,255,.55), 0 0 8px rgba(67,173,229,.18);
+}
+[data-theme="crayon"] .tile .body > .flag {
+  border: 1px solid rgba(43,39,51,.35);
+  box-shadow: 1px 2px 0 rgba(43,39,51,.2);
+}
+[data-theme="daylight"] .modal .sheet-h [data-close],
+[data-theme="rose"] .modal .sheet-h [data-close] {
+  box-shadow: 0 1px 3px rgba(20,27,45,.12);
+}
+@container board (max-width: 600px) {
+  .tile .body > .flag {
+    width: clamp(9px, 2.8cqi, 18px);
+    max-height: 18px;
+  }
+  .tile .body { gap: 1px; padding: 2px; }
+  .tile .body > .tname { line-height: 1.05; }
+  [data-sketch] .tile .band { margin: 1px; flex-basis: calc(23% - 2px); }
+}
