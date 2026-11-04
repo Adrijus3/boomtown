@@ -9,6 +9,10 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const initial = (n) => (String(n || '?').trim()[0] || '?').toUpperCase();
   document.documentElement.lang = document.documentElement.lang || 'en-GB'; // British English for screen readers
+  const PERF_LITE = !!(window.matchMedia && window.matchMedia('(max-width: 1600px) and (max-height: 1000px)').matches)
+    || (navigator.hardwareConcurrency || 8) <= 4
+    || (navigator.deviceMemory || 8) <= 4;
+  if (PERF_LITE) document.documentElement.classList.add('performance-lite');
   const PROF_KEY = 'boomtown.online.v1';
   const store = {
     get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
@@ -699,7 +703,7 @@
   // of the screen (or as near as the board's edges allow).
   function camFollow(pts, dist, total, ms, easing) {
     const board = $('#board');
-    if (!board || board.clientWidth >= 600 || reduceMotion() || total < 1) return;
+    if (!board || board.clientWidth >= 600 || reduceMotion() || PERF_LITE || total < 1) return;
     const W = board.clientWidth, H = board.clientHeight, s = 1.7;
     const at = (p) => {
       const tx = Math.min(0, Math.max(W - W * s, W / 2 - p.x * s)), ty = Math.min(0, Math.max(H - H * s, H / 2 - p.y * s));
@@ -918,7 +922,7 @@
       ui.tokenEls[p.id] = el;
     }
     if (dice3d) { dice3d.dispose(); dice3d = null; }
-    try { dice3d = window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
+    try { dice3d = !PERF_LITE && window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
     $('#dice').classList.toggle('gl', !!dice3d);
   }
   function layoutJailBars() {
