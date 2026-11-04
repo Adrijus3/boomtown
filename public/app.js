@@ -864,7 +864,7 @@
     const st = game.st, A = window.BoomArt;
     const art = (k) => `<span class="tic">${A[k]}</span>`;
     switch (t.type) {
-      case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
+      case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice"><span class="tile-buy">${fmt(t.price)}</span><span class="tile-rent">Rent ${fmt(t.rent[0])}</span></div></div>`;
       case 'airport': return `<div class="band"></div><div class="body">${art('airport')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'utility': return `<div class="band"></div><div class="body">${art(i === 12 ? 'power' : 'water')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'chance': return `<div class="body">${art('surprise')}<div class="tname">Surprise</div></div>`;
@@ -1933,7 +1933,7 @@
         chest: 'Open a Treasure card. Mostly good news, with the occasional bill.',
         tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Free Parking jackpot)' : ''}.`,
       }[t.type] || '';
-      setModal(`<div class="sheet deed plain" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}<p>${desc}</p></div></div>`);
+      setModal(`<div class="sheet deed plain space-${t.type}" role="dialog" aria-modal="true" aria-label="${esc(t.name)}"><div class="deed-head"><div class="eyebrow">Board space</div><div class="deed-name">${esc(t.name)}</div>${close}</div><div class="sheet-b">${dangerNote(i)}<p>${desc}</p></div></div>`);
       return;
     }
     let table = '';
