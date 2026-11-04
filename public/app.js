@@ -1126,11 +1126,12 @@
       const el = ui.tileEls[i];
       if (!el || !el.querySelector('.body')) return;
       const pill = el.querySelector('.tprice');
-      const keepOwnedRent = ['prop', 'airport', 'utility'].includes(t.type) && el.classList.contains('owned');
-      // Never hide the rent label on an owned property. Tighten its layout instead.
-      const steps = compactBoard
-        ? (keepOwnedRent ? ['fit-snug', 'fit-tight'] : ['fit-snug', 'fit-dot', 'fit-min'])
-        : FIT_STEPS;
+      const keepTilePrice = ['prop', 'airport', 'utility'].includes(t.type);
+      // Purchase price and rent are essential board information: compress these badges,
+      // but never switch them to the dot/hide states at any board size.
+      const steps = keepTilePrice
+        ? ['fit-snug', 'fit-tight']
+        : (compactBoard ? ['fit-snug', 'fit-dot', 'fit-min'] : FIT_STEPS);
       el.classList.remove(...FIT_STEPS);
       fitName(el);
       for (const step of steps) {
