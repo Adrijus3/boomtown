@@ -1,4 +1,4 @@
-# Boomtown
+# RichDown
 
 An online property-trading board game. Create a room, send the link to friends, fill the empty seats with bots and play in the browser. No accounts needed.
 
@@ -18,11 +18,11 @@ To play with people on the same Wi-Fi, give them your computer's local address i
 
 ## Put it on the internet for free
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Adrijus3/boomtown)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Adrijus3/richdown)
 
 1. Press the **Deploy to Render** button above and sign in to Render with your GitHub account. No credit card is needed for the free plan.
 2. Render reads `render.yaml` from this repository and sets everything up: a free Node.js web service with `npm install` and `npm start`. Press **Deploy Blueprint**.
-3. After two or three minutes you get an address like `https://boomtown-xxxx.onrender.com`. Open it, press **Create a private game** and send the room link to your friends.
+3. After two or three minutes you get an address like `https://richdown-xxxx.onrender.com`. Open it, press **Create a private game** and send the room link to your friends.
 
 Free services fall asleep after 15 minutes with nobody connected. The next visit wakes the server, which takes about a minute, then it's quick again. Games keep the server awake while anyone is playing.
 
@@ -33,8 +33,8 @@ The game is one small Node.js server, so any host that runs Node.js and supports
 **Any server with Docker**
 
 ```
-docker build -t boomtown .
-docker run -d -p 3000:3000 --restart unless-stopped boomtown
+docker build -t richdown .
+docker run -d -p 3000:3000 --restart unless-stopped richdown
 ```
 
 Railway, Fly.io and a basic VPS all work the same way. The server reads the `PORT` environment variable if your host sets one.
