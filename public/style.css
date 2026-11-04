@@ -1937,3 +1937,75 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .btn, .icon-btn, .tabs button { transition: none !important; }
 }
+
+
+/* Board containment repair: keep tile content inside its own box and reserve
+   the corner's outer pocket for the player token overlay. */
+.board > .tile {
+  box-sizing: border-box;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.tile .band {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+}
+.corner {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  gap: .45cqi;
+  padding: 1.2cqi;
+}
+.corner .cbig {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: clamp(18px, 5.2cqi, 48px);
+  height: clamp(18px, 5.2cqi, 48px);
+  max-width: 100%;
+  max-height: 44%;
+}
+.corner .cbig svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.corner .tname {
+  max-width: 100%;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+.jail-corner .cell {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 3px;
+}
+.tile.gotojail .corner .cbig {
+  width: clamp(16px, 4.8cqi, 42px);
+  height: clamp(16px, 4.8cqi, 42px);
+}
+
+/* Keep the end-turn border image clear of its explanatory copy. */
+.center-inner {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  gap: 2.5cqi;
+}
+.center-inner .actions {
+  flex: 0 0 auto;
+  min-height: 0;
+  gap: 2.2cqi;
+}
+.center-inner .actions > .hint {
+  margin-top: 1.1cqi;
+  max-width: 42ch;
+  line-height: 1.35;
+}
