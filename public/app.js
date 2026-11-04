@@ -129,7 +129,7 @@
     { key: 'private', type: 'toggle', label: 'Private room', desc: 'Hidden from the open rooms list. Only people with the link can join.' },
     { group: 'Money' },
     { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
-    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [200, '£200'], [300, '£300'], [400, '£400']] },
+    { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [150, '£150'], [200, '£200'], [300, '£300'], [400, '£400']] },
     { key: 'doubleOnStart', type: 'toggle', label: 'Double salary on Start', desc: 'Land exactly on Start to collect twice the salary.' },
     { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Taxes, fines and bail pile up on Free Parking. Whoever lands there collects the lot.' },
     { group: 'Property' },
