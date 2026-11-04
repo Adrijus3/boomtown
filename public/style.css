@@ -2414,7 +2414,7 @@ textarea:focus-visible {
 
 /* Final compact-board fix: preserve owned property rent text instead of replacing it
    with a dot or hiding it when the badge fitter runs on laptop-sized boards. */
-@media (max-width: 1180px) {
+@container board (max-width: 612px) {
   .board .tile.prop.owned .body > .tprice,
   .board .tile.prop.owned.fit-dot .body > .tprice,
   .board .tile.prop.owned.fit-min .body > .tprice {
