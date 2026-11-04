@@ -500,18 +500,20 @@
       return true;
     }
 
+    startBankruptcyAuction() {
+      const s = this.s;
+      if (!s.bankruptcyAuctionQueue || !s.bankruptcyAuctionQueue.length) return false;
+      const idx = s.bankruptcyAuctionQueue.shift();
+      s.auction = { tile: idx, high: 0, bidder: null, seq: 0, bankruptcy: true };
+      this.log(['Bankruptcy property ', { t: idx }, ' goes to auction.']);
+      this.setPhase('auction');
+      this.emit({ type: 'auction', idx });
+      return true;
+    }
+
     advanceTurn() {
       const s = this.s, ps = s.players, n = ps.length;
       if (this.alive().length <= 1) return this.endGame('last');
-      if (s.bankruptcyAuctionQueue && s.bankruptcyAuctionQueue.length) {
-        if (s.bankruptcyAuctionFrom == null) s.bankruptcyAuctionFrom = s.turn.idx;
-        const idx = s.bankruptcyAuctionQueue.shift();
-        s.auction = { tile: idx, high: 0, bidder: null, seq: 0, bankruptcy: true };
-        this.log(['Bankruptcy property ', { t: idx }, ' goes to auction.']);
-        this.setPhase('auction');
-        this.emit({ type: 'auction', idx });
-        return;
-      }
       let i = s.turn.idx, wrapped = false;
       for (let k = 0; k < n; k++) {
         i = (i + 1) % n;
@@ -528,7 +530,7 @@
       }
       s.turn = { idx: i, phase: 'roll', dice: null, doubles: 0, again: false, n: s.turn.n + 1 };
       this.emit({ type: 'turn', pid: ps[i].id });
-      this.setPhase('roll');
+      if (!this.startBankruptcyAuction()) this.setPhase('roll');
     }
 
     // ---- buying & auctions
@@ -585,14 +587,7 @@
         this.log(['Nobody bid on ', { t: a.tile }, '. It stays with the bank.']);
       }
       if (a.bankruptcy) {
-        if (this.s.bankruptcyAuctionQueue && this.s.bankruptcyAuctionQueue.length) this.advanceTurn();
-        else {
-          if (this.s.bankruptcyAuctionFrom != null) {
-            this.s.turn.idx = this.s.bankruptcyAuctionFrom;
-            this.s.bankruptcyAuctionFrom = null;
-          }
-          this.advanceTurn();
-        }
+        if (!this.startBankruptcyAuction()) this.setPhase('roll');
       } else this.finishAction();
       return true;
     }
