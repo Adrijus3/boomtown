@@ -38,30 +38,36 @@ const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
-// A fingerprint of the game's files. The page asks for "/app.js?v=<BUILD>", so a phone can never mix an
-// old cached file with a new one, and an open tab that reconnects after an update sees a different BUILD
-// in the welcome message and reloads itself.
+// Keep a content fingerprint per asset. A deployment changes BUILD so open tabs can
+// detect updates, but unchanged files keep the same URL and remain cached in the browser.
+const ASSET_VERSIONS = new Map();
 const BUILD = (() => {
   const h = crypto.createHash('sha256');
   const walk = (dir) => {
     for (const name of fs.readdirSync(dir).sort()) {
       const f = path.join(dir, name);
       if (fs.statSync(f).isDirectory()) walk(f);
-      else if (/\.(js|css|html|svg|woff2)$/.test(name)) h.update(name).update(fs.readFileSync(f));
+      else if (/\.(js|css|html|svg|woff2)$/.test(name)) {
+        const content = fs.readFileSync(f);
+        const assetPath = '/' + path.relative(PUBLIC, f).split(path.sep).join('/');
+        ASSET_VERSIONS.set(assetPath, crypto.createHash('sha256').update(content).digest('hex').slice(0, 12));
+        h.update(name).update(content);
+      }
     }
   };
   walk(PUBLIC);
   return h.digest('hex').slice(0, 12);
 })();
 const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
-  .replace(/(<(?:script|link)\b[^>]*?\s(?:src|href)="\/[^"?]+\.(?:js|css))"/g, `$1?v=${BUILD}"`)
+  .replace(/((?:src|href)=")(\/[^"?]+\.(?:js|css))(?:\?[^"]*)?(")/g, (match, attr, assetPath, quote) =>
+    `${attr}${assetPath}?v=${ASSET_VERSIONS.get(assetPath) || BUILD}${quote}`)
   .replace('<head>', `<head>\n<script>window.BOOMTOWN_BUILD = ${JSON.stringify(BUILD)};</script>`);
 const server = http.createServer((req, res) => {
   let p, versioned;
   try {
     const u = new URL(req.url, 'http://local');
     p = decodeURIComponent(u.pathname);
-    versioned = u.searchParams.get('v') === BUILD;
+    versioned = u.searchParams.get('v') === ASSET_VERSIONS.get(p);
   } catch (e) { res.writeHead(400); return res.end(); }
   if (p === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
   if (p === '/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
