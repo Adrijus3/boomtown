@@ -1,4 +1,4 @@
-name: RichDown checks
+name: PoorDown checks
 
 on:
   push:
