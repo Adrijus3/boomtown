@@ -84,6 +84,8 @@ body {
   overflow-y: auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
+  container-type: inline-size;
+  container-name: app;
 }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
@@ -623,14 +625,27 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 }
 
 /* ---------------------------------------------------------------- responsive */
-@media (max-width: 1440px) and (min-width: 1181px) {
-  .game { grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(280px, 330px); gap: 14px; }
+/* The game layout responds to the width it is actually given, not the
+   browser viewport. This also works when the game is embedded or side-constrained. */
+@container app (min-width: 1181px) and (max-width: 1440px) {
+  .game {
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(280px, 330px);
+    gap: 14px;
+  }
 }
-@media (max-width: 1180px) {
-  html, body, #app { height: auto; }
-  #app { overflow: visible; }
-  .game { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; max-width: 780px; margin: 0 auto; }
-  .stage { container-type: normal; display: block; order: 1; }
+@container app (max-width: 1180px) {
+  .game {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    max-width: 780px;
+    margin: 0 auto;
+  }
+  .stage {
+    container-type: normal;
+    display: block;
+    order: 1;
+  }
   .stage .board { width: 100%; }
   .side.left { display: contents; }
   .side-top { order: 0; }
@@ -640,6 +655,10 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
   .side-foot { order: 6; }
   .players { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
   .sidebody { max-height: 70vh; }
+}
+@media (max-width: 1180px) {
+  html, body, #app { height: auto; }
+  #app { overflow: visible; }
 }
 @media (max-width: 860px) {
   .lobby-grid, .home-grid, .room-grid { grid-template-columns: minmax(0, 1fr); }
