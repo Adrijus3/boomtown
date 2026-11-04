@@ -266,6 +266,7 @@
   }
 
   // ------------------------------------------------------------ screens
+  document.title = 'PoorDown';
   function show(name) {
     screen = name;
     for (const id of ['home', 'room', 'game']) $('#' + id).hidden = id !== name;
@@ -295,7 +296,7 @@
       scheduleRender();
     }
     renderVote();
-    if (first) document.title = `PoorDown · room ${r.id}`;
+    document.title = `PoorDown · room ${r.id}`;
   }
   window.addEventListener('popstate', () => {
     const id = (location.pathname.match(/^\/room\/([a-z0-9]{3,12})/i) || [])[1];
