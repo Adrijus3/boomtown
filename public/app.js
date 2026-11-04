@@ -295,7 +295,7 @@
       scheduleRender();
     }
     renderVote();
-    if (first) document.title = `RichDown · room ${r.id}`;
+    if (first) document.title = `PoorDown · room ${r.id}`;
   }
   window.addEventListener('popstate', () => {
     const id = (location.pathname.match(/^\/room\/([a-z0-9]{3,12})/i) || [])[1];
