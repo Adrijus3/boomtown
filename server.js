@@ -1,5 +1,5 @@
 'use strict';
-/* RichDown online server: static files + WebSocket rooms. The server runs the rules engine for every
+/* PoorDown online server: static files + WebSocket rooms. The server runs the rules engine for every
    room, so clients only send intentions ("roll", "bid 120") and receive the authoritative state. */
 const http = require('http');
 const fs = require('fs');
@@ -916,7 +916,7 @@ setInterval(() => {
   }
 }, 60000);
 
-server.listen(PORT, () => console.log(`RichDown is running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`PoorDown is running on http://localhost:${PORT}`));
 
 // Before an update shuts this server down, hand every player the latest copy of their room and tell them.
 let stopping = false;
