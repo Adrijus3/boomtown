@@ -466,9 +466,15 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .bar { height: 6px; border-radius: 99px; background: rgba(var(--hi),.08); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 100%; background: var(--brass); border-radius: inherit; transform-origin: left; }
 .bidders { display: flex; flex-direction: column; gap: .6em; }
-.bidder { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .7em; align-items: center; padding: .55em .7em; border-radius: 10px; background: rgba(var(--hi),.035); }
-.bidder .pdot { width: 1.9em; height: 1.9em; font-size: .78em; }
-.bidder .row { display: flex; gap: .4em; flex-wrap: wrap; justify-content: flex-end; }
+.bidder { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .7em 1em; min-width: 0; padding: .65em .8em; border-radius: 10px; background: rgba(var(--hi),.035); }
+.bidder-profile { display: flex; flex: 1 1 110px; min-width: 0; align-items: center; gap: .65em; }
+.bidder-profile > span { min-width: 0; overflow-wrap: anywhere; }
+.bidder-profile .pdot { width: 1.9em; height: 1.9em; flex: 0 0 1.9em; font-size: .78em; }
+.bidder .bidder-actions { display: flex; flex: 2 1 230px; min-width: 0; max-width: 100%; gap: .4em; flex-wrap: wrap; justify-content: flex-end; }
+.bidder-actions .btn { flex: 0 1 auto; min-width: 0; max-width: 100%; white-space: nowrap; }
+@container board (max-width: 600px) {
+  .bidder .bidder-actions { justify-content: flex-start; }
+}
 
 /* ---------------------------------------------------------------- side panel */
 .tabs { display: flex; gap: 4px; padding: 5px; border-radius: 12px; background: var(--tile); border: 1px solid var(--line-soft); }
