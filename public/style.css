@@ -1706,123 +1706,233 @@ html.performance-lite .flag.wave::after {
 }
 
 
-/* PoorDown interface refinement: practical board-game controls, without changing
-   board artwork, property cards, dice, or the theme token palettes. */
+/* PoorDown UI consistency pass.
+   Scope: interface wrappers and controls only. Board artwork, property cards,
+   dice, themes and game mechanics are intentionally untouched. */
+:root {
+  --ui-radius-small: 6px;
+  --ui-radius: 9px;
+  --ui-radius-panel: 12px;
+  --ui-shadow-panel: 0 4px 14px rgba(0,0,0,.14);
+  --ui-shadow-modal: 0 20px 48px -26px rgba(0,0,0,.78);
+  --ui-transition: 140ms ease;
+}
+
+/* Shared containment */
+.panel, .sheet, .side, .sidebody, .actions,
+.action-bar, .home-grid, .room-grid {
+  min-width: 0;
+}
+.panel, .sheet { box-sizing: border-box; }
 .panel {
   border-color: var(--line);
-  border-radius: 12px;
-  box-shadow: 0 3px 12px rgba(0,0,0,.12);
+  border-radius: var(--ui-radius-panel);
+  box-shadow: var(--ui-shadow-panel);
 }
+
+/* Consistent panel headings */
 .panel-h {
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 16px 16px 8px;
 }
 .panel-h h2 {
+  min-width: 0;
   font-family: var(--font-ui);
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.3;
   letter-spacing: 0;
 }
+.panel-h .hint { color: var(--muted); }
+
+/* Buttons retain their existing label behaviour and variants */
 .btn {
-  min-height: 36px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 38px;
   padding: 9px 13px;
-  border-radius: 8px;
+  border-radius: var(--ui-radius);
   border-color: var(--line);
-  box-shadow: none;
   font-size: 14px;
   font-weight: 650;
+  line-height: 1.2;
 }
-.btn.primary {
-  border-color: color-mix(in srgb, var(--brass-ink) 18%, transparent);
-  box-shadow: none;
+.btn.lg, .btn.xl { border-radius: var(--ui-radius); }
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.tabs button:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 3px;
 }
-.btn.primary:hover:not(:disabled) {
-  filter: brightness(1.04);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) { filter: brightness(1.04); }
 }
-.btn.lg { border-radius: 9px; }
-.btn.xl { border-radius: 9px; }
+
+/* More usable icon controls; preserve compact deed-management controls */
 .icon-btn {
-  border-radius: 8px;
+  box-sizing: border-box;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  flex: 0 0 auto;
+  border-radius: var(--ui-radius);
   background: var(--tile);
   border-color: var(--line);
 }
+.icon-btn svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+.side-top .tools .icon-btn {
+  width: 38px;
+  height: 38px;
+}
+.ctl .icon-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+}
+@media (pointer: coarse) {
+  .icon-btn,
+  .side-top .tools .icon-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+  }
+  .ctl .icon-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+  }
+}
+
+/* Tabs */
 .tabs {
-  gap: 3px;
+  gap: 4px;
   padding: 4px;
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   border-color: var(--line);
 }
 .tabs button {
-  min-height: 36px;
-  padding: 8px 9px;
-  border-radius: 6px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px;
+  border-radius: var(--ui-radius-small);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 .tabs button.on {
   background: var(--tile-3);
   box-shadow: inset 0 0 0 1px var(--line-hi);
 }
-.sidebody { padding: 0; }
-.ov-sec { padding: 14px; }
+
+/* Modal and form consistency */
 .sheet {
   border-radius: 14px;
   border-color: var(--line);
-  box-shadow: 0 18px 42px -24px rgba(0,0,0,.8);
+  box-shadow: var(--ui-shadow-modal);
 }
 .sheet-h {
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 14px 16px;
   background: var(--tile);
   border-bottom: 1px solid var(--line-soft);
 }
 .sheet-h h2, .sheet-h h3 {
+  min-width: 0;
   font-family: var(--font-ui);
   font-size: 17px;
   font-weight: 700;
   letter-spacing: 0;
 }
+#modal > .sheet {
+  max-width: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .text-in, input[type="number"], select, textarea {
-  min-height: 38px;
-  border-radius: 8px;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: var(--ui-radius);
   border-color: var(--line);
 }
-.text-in, textarea {
-  padding: 9px 11px;
+.text-in:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
 }
-.actions { gap: 10px; }
-.actions .row { gap: 7px; }
+
+/* Improve supporting-text legibility without changing theme palettes */
+.eyebrow, .log-r, .panel-h .hint { color: var(--muted); }
+.hint, .muted { overflow-wrap: anywhere; }
+
+/* Responsive controls: wrap rather than squeeze or crop */
+.actions { min-width: 0; }
+.actions .row {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bidder, .bidder-profile, .bidder-actions { min-width: 0; }
+.bidder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.bidder-profile { flex: 1 1 110px; }
+.bidder .bidder-actions {
+  flex: 2 1 230px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bidder-actions .btn {
+  min-width: 0;
+  max-width: 100%;
+}
 .action-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
   min-width: 0;
+  gap: 8px;
   padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--ui-radius-panel);
   background: var(--tile);
 }
+
+/* Keep auction surfaces visually consistent without touching their contents */
 .auction {
-  border-radius: 12px;
+  border-radius: var(--ui-radius-panel);
   box-shadow: 0 14px 34px -22px rgba(0,0,0,.75);
 }
 .auction-bid-summary {
-  border-radius: 9px;
+  border-radius: var(--ui-radius);
   background: var(--tile-2);
   border-color: var(--line);
 }
-@media (hover: hover) and (pointer: fine) {
-  .btn:hover:not(:disabled) {
-    box-shadow: none;
-  }
-  .icon-btn:hover:not(:disabled) {
-    border-color: var(--line-hi);
-  }
+
+@media (max-width: 860px) {
+  .actions { width: min(100%, 92%); }
+  .actions .row { justify-content: center; }
+  .panel-h { padding-inline: 13px; }
 }
 @media (max-width: 600px) {
   .panel-h { padding: 13px 13px 7px; }
   .btn { min-height: 40px; }
   .action-bar { gap: 7px; padding: 8px; }
+  .sheet-h { padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn, .icon-btn, .tabs button { transition: none !important; }
