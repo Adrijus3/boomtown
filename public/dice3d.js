@@ -87,9 +87,10 @@
     if (!supported()) return null;
     const THREE = root.THREE;
     let renderer;
-    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' }); }
+    const lowPower = (root.navigator.hardwareConcurrency || 8) <= 6 || (root.navigator.deviceMemory || 8) <= 6 || (root.matchMedia && root.matchMedia('(max-width: 1600px)').matches);
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !lowPower, alpha: true, powerPreference: 'low-power' }); }
     catch (e) { return null; }
-    renderer.setPixelRatio(Math.min(2.5, root.devicePixelRatio || 1));
+    renderer.setPixelRatio(Math.min(lowPower ? 1.35 : 1.75, root.devicePixelRatio || 1));
     renderer.setClearColor(0x000000, 0);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -103,7 +104,7 @@
     const key = new THREE.DirectionalLight(0xFFFFFF, 1.3);
     key.position.set(-2.4, 6.5, 3.4);
     key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.mapSize.set(lowPower ? 512 : 768, lowPower ? 512 : 768);
     Object.assign(key.shadow.camera, { left: -4, right: 4, top: 3, bottom: -3, near: 1, far: 16 });
     key.shadow.radius = 5;
     key.shadow.bias = -0.0006;
@@ -119,7 +120,7 @@
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const geo = roundedBox(THREE, 1, RADIUS, 22);
+    const geo = roundedBox(THREE, 1, RADIUS, lowPower ? 16 : 20);
     const mats = FACES.map((v) => new THREE.MeshPhysicalMaterial({ map: faceTexture(THREE, v), roughness: 0.32, metalness: 0, clearcoat: 0.75, clearcoatRoughness: 0.16 }));
     const UP = new THREE.Vector3(0, 1, 0);
     const dice = [0, 1].map((k) => {
