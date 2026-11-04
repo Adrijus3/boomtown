@@ -117,7 +117,6 @@
     bid() { this.tone(740, 0.06, 'square', 0.02); },
     tick() { this.tone(1046, 0.05, 'square', 0.018); },
     turn() { this.tone(523, 0.08, 'sine', 0.03); this.tone(784, 0.14, 'sine', 0.03, 0.08); },
-    chat() { if (!this.throttle('chat', 400)) return; this.tone(880, 0.06, 'sine', 0.02); },
     jail() { this.tone(220, 0.25, 'sawtooth', 0.025); this.tone(147, 0.4, 'sawtooth', 0.025, 0.15); },
     win() { [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.4, 'triangle', 0.045, i * 0.11)); },
   };
@@ -242,13 +241,6 @@
       // The turn clock is applied as soon as it arrives; game updates wait for their animations to play.
       case 'game': setClock(m.meta.turn, m.meta.now); ui.gq.push(m); pumpGame(); break;
       case 'timer': setClock(m.turn, m.now); break;
-      case 'chat':
-        if (!room) break;
-        room.chat.push(m.msg);
-        if (room.chat.length > 80) room.chat.shift();
-        renderChats();
-        if (!m.msg.sys && m.msg.from !== me) Sound.chat();
-        break;
       case 'error': {
         // After a server update the room is gone from memory; hand back our copy so it can be rebuilt.
         const snap = m.code === 'noroom' ? store.get(SNAP_KEY) : null;
@@ -296,7 +288,6 @@
       if (screen !== 'room') { game = null; meta = null; ui = freshUI(); closeModal(); show('room'); }
       renderRoom();
     } else if (screen === 'game') {
-      renderChats();
       scheduleRender();
     }
     renderVote();
@@ -396,7 +387,7 @@
     let ctl = '';
     if (mySeat < 0) {
       const taken = r.seats.map((s) => s.color);
-      ctl = rejoinHTML() + (full ? '<span class="muted">All seats are taken. You can watch the game and chat.</span>'
+      ctl = rejoinHTML() + (full ? '<span class="muted">All seats are taken. You can watch the game.</span>'
         : `<form class="seat-form" id="seatForm" autocomplete="off">
           <div class="photo-row"><span class="photo-prev ${prof.avatar ? 'has-img' : ''}" style="--pc:${prof.color}" aria-hidden="true">${prof.avatar ? imgHTML(prof.avatar) : esc(initial(prof.name || '?'))}</span>
             <div class="photo-txt"><div class="field-label">Profile photo</div><div class="photo-btns">${photoCtl()}</div></div></div>
@@ -426,7 +417,6 @@
     $('#roomCta').innerHTML = host
       ? `<button class="btn primary xl" data-act="start" ${r.seats.length < 2 ? 'disabled' : ''}>Start game</button><span class="room-cta-note">${r.seats.length < 2 ? 'You need at least two players. Share the link or add a bot.' : 'Everyone seated will play. People who join later can watch.'}</span>`
       : `<span class="room-cta-note">${icon('eye')} Waiting for ${esc(r.hostName || 'the host')} to start the game.</span>`;
-    renderChats();
   }
   function bindRoom() {
     const sec = $('#room');
@@ -464,35 +454,7 @@
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done, fallback); else fallback();
   }
 
-  // ------------------------------------------------------------ chat
-  function chatHTML() {
-    const msgs = (room ? room.chat : []).slice(-60).map((m) => m.sys
-      ? `<div class="chat-msg sys">${esc(m.text)}</div>`
-      : `<div class="chat-msg" style="--pc:${m.color}"><b>${esc(m.name)}</b> ${esc(m.text)}</div>`).join('');
-    return msgs || '<div class="chat-empty">Say hello to the table.</div>';
-  }
-  function renderChats() {
-    for (const id of ['#roomChat', '#gameChat']) {
-      const box = $(id);
-      if (!box.firstElementChild) {
-        box.innerHTML = `<div class="chat-h eyebrow">Chat</div><div class="chat-log" aria-live="polite"></div><form class="chat-form" autocomplete="off"><input maxlength="280" placeholder="Message the table" aria-label="Chat message"><button class="icon-btn" type="submit" aria-label="Send">${icon('send')}</button></form>`;
-        box.querySelector('form').addEventListener('submit', (e) => {
-          e.preventDefault();
-          const inp = e.target.querySelector('input');
-          const t = inp.value.trim();
-          if (t) { net.send({ type: 'chat', text: t }); inp.value = ''; }
-        });
-      }
-      const log = box.querySelector('.chat-log');
-      const html = chatHTML();
-      if (log.dataset.h !== html) {
-        const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
-        log.innerHTML = html; log.dataset.h = html;
-        if (atBottom || !log.dataset.init) { log.scrollTop = log.scrollHeight; log.dataset.init = 1; }
-      }
-    }
-  }
-
+  // ------------------------------------------------------------ game messages & animation
   // ------------------------------------------------------------ game messages & animation
   async function pumpGame() {
     if (ui.busy) return;
@@ -536,7 +498,6 @@
     buildBoard();
     setDice(game.s.turn.dice || [5, 3], true);
     requestAnimationFrame(() => { positionTokens(true); drawRosette($('#rosette'), { rings: 4, alpha: 0.1 }); });
-    renderChats();
     if (game.s.over && !m.events.length) setTimeout(() => openModal('over'), 300);
   }
   function syncPositions() {
@@ -2153,7 +2114,7 @@
     const d = game.s.debt && game.s.debt.pid === mine ? game.s.debt : null;
     openModal('confirm', {
       title: 'Declare bankruptcy?',
-      body: `You leave the game. ${d && typeof d.to === 'number' ? `Everything goes to ${esc(pname(d.to))}.` : 'All your properties go back to the bank.'} You can keep watching and chatting. This can’t be undone.`,
+      body: `You leave the game. ${d && typeof d.to === 'number' ? `Everything goes to ${esc(pname(d.to))}.` : 'All your properties go back to the bank.'} You can keep watching. This can’t be undone.`,
       confirm: 'Declare bankruptcy', danger: true,
       onConfirm: () => act('bankrupt'),
     });
