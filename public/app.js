@@ -864,7 +864,7 @@
     const st = game.st, A = window.BoomArt;
     const art = (k) => `<span class="tic">${A[k]}</span>`;
     switch (t.type) {
-      case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice"><span class="tile-buy">${fmt(t.price)}</span><span class="tile-rent">Rent ${fmt(t.rent[0])}</span></div></div>`;
+      case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'airport': return `<div class="band"></div><div class="body">${art('airport')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'utility': return `<div class="band"></div><div class="body">${art(i === 12 ? 'power' : 'water')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'chance': return `<div class="body">${art('surprise')}<div class="tname">Surprise</div></div>`;
@@ -1024,14 +1024,8 @@
         if (price.dataset.v !== key) {
           price.dataset.v = key;
           ui.badgeDirty = true;
-          if (t.type === 'prop' && !owner) {
-            price.innerHTML = `<span class="tile-buy">${fmt(t.price)}</span><span class="tile-rent">Rent ${fmt(t.rent[0])}</span>`;
-          } else if (t.type === 'prop' && owner) {
-            price.innerHTML = `<span class="rt">${label === 'lock' ? icon('lock') : `Rent ${label}`}</span>`;
-          } else {
-            const body = label === 'lock' ? icon('lock') : `<span class="rt">${label}</span>`;
-            price.innerHTML = owner ? body : label;
-          }
+          const body = label === 'lock' ? icon('lock') : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
+          price.innerHTML = owner ? body : label;
         }
         price.title = '';
       }
@@ -1118,6 +1112,20 @@
     const cur = parseFloat(getComputedStyle(nm).fontSize) || 8;
     nm.style.fontSize = `${Math.max(5, Math.floor((cur * avail / need) * 2) / 2)}px`;
   }
+  // Scale the single price badge to the inner width of its tile instead of letting
+  // the label clip or hiding the price when the board gets smaller.
+  function fitPrice(el, pill) {
+    if (!pill) return;
+    pill.style.fontSize = '';
+    const body = el.querySelector('.body');
+    if (!body || !body.clientWidth) return;
+    const cs = getComputedStyle(body);
+    const available = Math.max(12, body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 3);
+    const needed = pill.scrollWidth;
+    if (needed <= available + 0.5) return;
+    const current = parseFloat(getComputedStyle(pill).fontSize) || 8;
+    pill.style.fontSize = `${Math.max(5, current * available / needed * 0.96)}px`;
+  }
   function fitBadges() {
     if (!game || !ui.tileEls.length) return;
     const board = $('#board');
@@ -1134,10 +1142,13 @@
         : (compactBoard ? ['fit-snug', 'fit-dot', 'fit-min'] : FIT_STEPS);
       el.classList.remove(...FIT_STEPS);
       fitName(el);
+      fitPrice(el, pill);
       for (const step of steps) {
         if (!badgeOverflows(el, pill)) break;
         el.classList.add(step);
+        fitPrice(el, pill);
       }
+      fitPrice(el, pill);
     });
   }
 
