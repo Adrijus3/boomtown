@@ -1662,3 +1662,45 @@ html.performance-lite .flag.wave::after {
   .auction-bid-summary { align-items: flex-start; flex-direction: column; }
   .auction-leader { text-align: left; }
 }
+
+
+/* Auction layout corrections: keep the leader inline and prevent hidden overlays leaking into view. */
+#auctionBox[hidden] { display: none !important; }
+#auctionBox:not([hidden]) {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.auction-bid-label::after { content: " "; }
+.auction-leader {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  white-space: normal;
+}
+.auction-leader > .pdot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+}
+.auction-leader > span:not(.pdot) {
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+.auction-bid-summary { min-width: 0; }
+.auction-bid-main { flex: 1 1 auto; }
+@media (max-width: 560px) {
+  .auction-leader { justify-content: flex-start; }
+}
