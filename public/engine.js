@@ -504,6 +504,7 @@
       const s = this.s, ps = s.players, n = ps.length;
       if (this.alive().length <= 1) return this.endGame('last');
       if (s.bankruptcyAuctionQueue && s.bankruptcyAuctionQueue.length) {
+        if (s.bankruptcyAuctionFrom == null) s.bankruptcyAuctionFrom = s.turn.idx;
         const idx = s.bankruptcyAuctionQueue.shift();
         s.auction = { tile: idx, high: 0, bidder: null, seq: 0, bankruptcy: true };
         this.log(['Bankruptcy property ', { t: idx }, ' goes to auction.']);
@@ -583,8 +584,16 @@
       } else {
         this.log(['Nobody bid on ', { t: a.tile }, '. It stays with the bank.']);
       }
-      if (a.bankruptcy) this.advanceTurn();
-      else this.finishAction();
+      if (a.bankruptcy) {
+        if (this.s.bankruptcyAuctionQueue && this.s.bankruptcyAuctionQueue.length) this.advanceTurn();
+        else {
+          if (this.s.bankruptcyAuctionFrom != null) {
+            this.s.turn.idx = this.s.bankruptcyAuctionFrom;
+            this.s.bankruptcyAuctionFrom = null;
+          }
+          this.advanceTurn();
+        }
+      } else this.finishAction();
       return true;
     }
 
