@@ -85,7 +85,7 @@ for (const c of configs) {
     stats.auctions += g.s.log.filter((l) => l.parts.some((x) => typeof x === 'string' && x.includes('at auction'))).length;
     total++;
   }
-  stats.avgRound = Math.round(stats.avgRound / 120); stats.firstBuild = Math.round(stats.firstBuild / 120); rs.sort((a,b)=>a-b); stats.medRound = rs[60];
+  stats.avgRound = Math.round(stats.avgRound / 120); stats.firstBuild = Math.round(stats.firstBuild / 120); rs.sort((a,b)=>a-b); stats.medRound = Math.round((rs[59] + rs[60]) / 2);
   console.log(c.name.padEnd(36), JSON.stringify(stats));
 }
 console.log(`${total} games OK in ${Date.now() - t0} ms`);
