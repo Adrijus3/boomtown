@@ -2410,3 +2410,55 @@ textarea:focus-visible {
   letter-spacing: -.045em;
   line-height: 1.05;
 }
+
+
+/* Final compact-board fix: preserve owned property rent text instead of replacing it
+   with a dot or hiding it when the badge fitter runs on laptop-sized boards. */
+@media (max-width: 1180px) {
+  .board .tile.prop.owned .body > .tprice,
+  .board .tile.prop.owned.fit-dot .body > .tprice,
+  .board .tile.prop.owned.fit-min .body > .tprice {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    padding: 0 1px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: var(--text) !important;
+    white-space: nowrap;
+    line-height: 1.05;
+  }
+  .board .tile.prop.owned .body > .tprice .rt,
+  .board .tile.prop.owned.fit-dot .body > .tprice .rt,
+  .board .tile.prop.owned.fit-min .body > .tprice .rt {
+    display: block !important;
+    visibility: visible !important;
+    font-size: inherit;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+}
+
+/* Give long auction city names the actual space they need before truncating. */
+.auction-property .postcard {
+  grid-template-columns: clamp(34px, 8cqi, 64px) minmax(0, 1fr) max-content;
+  gap: clamp(6px, 1.2cqi, 12px);
+}
+.auction-property .pc-text {
+  min-width: 0;
+  width: 100%;
+}
+.auction-property .pc-city {
+  font-size: clamp(12px, 2.5cqi, 25px);
+  letter-spacing: -.055em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
