@@ -18,7 +18,7 @@ To play with people on the same Wi-Fi, give them your computer's local address i
 
 ## Put it on the internet for free
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Adrijus3/richdown)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Adrijus3/boomtown)
 
 1. Press the **Deploy to Render** button above and sign in to Render with your GitHub account. No credit card is needed for the free plan.
 2. Render reads `render.yaml` from this repository and sets everything up: a free Node.js web service with `npm install` and `npm start`. Press **Deploy Blueprint**.
