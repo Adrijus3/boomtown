@@ -75,11 +75,11 @@ const configs = [
 let total = 0;
 const t0 = Date.now();
 for (const c of configs) {
-  const stats = { last: 0, rounds: 0, avgRound: 0, medRound: 0, trades: 0, auctions: 0, firstBuild: 0 }; const rs = [];
+  const stats = { endReasons: {}, avgRound: 0, medRound: 0, trades: 0, auctions: 0, firstBuild: 0 }; const rs = [];
   for (let seed = 1; seed <= 120; seed++) {
     const n = 2 + (seed % 7);
     const g = play(seed * 7919 + c.name.length, c.settings, n);
-    stats[g.s.endReason]++;
+    stats.endReasons[g.s.endReason] = (stats.endReasons[g.s.endReason] || 0) + 1;
     stats.avgRound += g.s.round; rs.push(g.s.round); const fb = g.s.log.find((l) => l.parts.some((x) => typeof x === "string" && x.includes("built a"))); stats.firstBuild += fb ? fb.r : 0;
     stats.trades += g.s.trades.filter((t) => t.status === 'accepted').length;
     stats.auctions += g.s.log.filter((l) => l.parts.some((x) => typeof x === 'string' && x.includes('at auction'))).length;
