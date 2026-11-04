@@ -1410,7 +1410,7 @@
     else if (st.proxy) ctl = `<span class="tag good">Auto-bidding up to ${fmt(st.proxy)}</span><button type="button" class="btn sm ghost" data-autooff="${p.id}">Stop</button>`;
     else ctl = (lead ? '<span class="tag good">You lead</span>' : `<button type="button" class="btn sm primary" data-bid="${p.id}" data-amt="${next}" ${next > p.money ? 'disabled' : ''}>Bid ${fmt(next)}</button><button type="button" class="btn sm" data-bid="${p.id}" data-amt="${jump}" ${jump > p.money ? 'disabled' : ''}>${fmt(jump)}</button>`)
       + `<button type="button" class="btn sm" data-auto="${p.id}" data-amt="${cap}" ${cap <= a.high ? 'disabled' : ''} title="Raises for you each time you're outbid">Auto to ${fmt(cap)}</button><button type="button" class="btn sm ghost" data-pass="${p.id}">Pass</button>`;
-    return `<div class="bidder">${dotHTML(p)}<span><b>${esc(p.name)}</b><br><span class="muted num">${fmt(p.money)}</span></span><span class="row">${ctl}</span></div>`;
+    return `<div class="bidder"><div class="bidder-profile">${dotHTML(p)}<span><b>${esc(p.name)}</b><br><span class="muted num">${fmt(p.money)}</span></span></div><div class="row bidder-actions">${ctl}</div></div>`;
   }
 
   function bindDeals() {
