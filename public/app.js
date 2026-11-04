@@ -1646,7 +1646,7 @@
       <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">–</b></span></div>
       <div class="auction-property"><span class="auction-property-label">PROPERTY VALUE</span>${postcardHTML(a.tile, mine)}</div>
       <div class="auction-bid-summary">
-        <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID</span><span class="v">${fmt(a.high)}</span></div>
+        <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID:</span><span class="v">${fmt(a.high)}</span></div>
         <div class="auction-leader">${bidder ? `${dotHTML(bidder)}<span>Leading: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b></span>` : '<span>No bids yet</span>'}</div>
       </div>
       <div class="bar auction-bar"><i id="auctionBar"></i></div>
