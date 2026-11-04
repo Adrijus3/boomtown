@@ -2236,7 +2236,7 @@ textarea:focus-visible {
 }
 
 
-/* PoorDown readability pass: restore visible base rent on property tiles. */
+/* Property names retain their own responsive scale; price sizing is unified below. */
 .board .tile.prop .body > .tname {
   font-size: clamp(10px, 1.78cqi, 16px) !important;
   line-height: 1.12;
@@ -2245,37 +2245,10 @@ textarea:focus-visible {
 .board .tile.prop .body > .tname.long {
   font-size: clamp(9px, 1.55cqi, 14px) !important;
 }
-.board .tile.prop .body > .tprice {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  min-width: 0;
-  padding: 2px 5px;
-  font-size: clamp(9px, 1.42cqi, 13px) !important;
-  line-height: 1.08;
-  white-space: nowrap;
-}
-.board .tile.prop .body > .tprice .tile-buy {
-  font-size: 1em;
-  font-weight: 800;
-}
-.board .tile.prop .body > .tprice .tile-rent {
-  display: block;
-  font-size: .86em;
-  font-weight: 700;
-  line-height: 1.05;
-  opacity: .96;
-}
 .board .tile.airport .body > .tname,
 .board .tile.utility .body > .tname {
   font-size: clamp(9px, 1.58cqi, 14px) !important;
   line-height: 1.1;
-}
-.board .tile.airport .body > .tprice,
-.board .tile.utility .body > .tprice {
-  font-size: clamp(9px, 1.4cqi, 13px) !important;
 }
 
 /* Prison information card: force the monochrome header to fill the whole sheet width. */
@@ -2361,28 +2334,6 @@ textarea:focus-visible {
 /* Responsive property labels: laptop/tablet/mobile should show rent as text,
    not as the oversized ownership-price capsule used on desktop. */
 @container app (max-width: 1180px) {
-  .board .tile.prop.owned .body > .tprice,
-  .board .tile.airport.owned .body > .tprice,
-  .board .tile.utility.owned .body > .tprice {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    width: auto;
-    max-width: 100%;
-    padding: 1px 2px !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    color: var(--text) !important;
-    font-size: clamp(7px, 1.12cqi, 11px) !important;
-    line-height: 1.05;
-  }
-  .board .tile.prop.owned .body > .tprice .rt {
-    white-space: nowrap;
-    font-size: 1em;
-    font-weight: 750;
-  }
   .board .tile.prop .body > .tname {
     font-size: clamp(8px, 1.42cqi, 13px) !important;
     line-height: 1.06;
@@ -2434,39 +2385,7 @@ textarea:focus-visible {
 }
 
 
-/* Final compact-board fix: preserve owned property rent text instead of replacing it
-   with a dot or hiding it when the badge fitter runs on laptop-sized boards. */
-@container board (max-width: 612px) {
-  .board .tile:is(.prop, .airport, .utility).owned .body > .tprice,
-  .board .tile:is(.prop, .airport, .utility).owned.fit-dot .body > .tprice,
-  .board .tile:is(.prop, .airport, .utility).owned.fit-min .body > .tprice {
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
-    width: auto;
-    max-width: 100%;
-    min-width: 0;
-    padding: 0 1px !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    color: var(--text) !important;
-    white-space: nowrap;
-    line-height: 1.05;
-  }
-  .board .tile:is(.prop, .airport, .utility).owned .body > .tprice .rt,
-  .board .tile:is(.prop, .airport, .utility).owned.fit-dot .body > .tprice .rt,
-  .board .tile:is(.prop, .airport, .utility).owned.fit-min .body > .tprice .rt {
-    display: block !important;
-    visibility: visible !important;
-    font-size: inherit;
-    font-weight: 750;
-    white-space: nowrap;
-  }
-}
+
 
 /* Give long auction city names the actual space they need before truncating. */
 .auction-property .postcard {
@@ -2519,60 +2438,45 @@ textarea:focus-visible {
 }
 
 
-/* Property tile price chips: separate the purchase price and rent into matching
-   compact rectangles so both figures are immediately distinguishable. */
-.board .tile.prop .body > .tprice {
-  background: transparent !important;
-  border: 0;
-  box-shadow: none;
-  padding: 0;
-  gap: 3px;
-}
-.board .tile.prop .body > .tprice .tile-buy,
-.board .tile.prop .body > .tprice .tile-rent {
-  display: inline-flex;
+/* One price badge for every property asset: purchase price when unowned,
+   current rent when owned. Ownership never changes the badge shape. */
+.board .tile:is(.prop, .airport, .utility) .body > .tprice {
+  display: inline-flex !important;
+  flex-direction: row !important;
   align-items: center;
   justify-content: center;
+  align-self: center;
+  flex: 0 1 auto;
   box-sizing: border-box;
+  width: fit-content;
+  min-width: 0;
   max-width: 100%;
-  padding: 2px 5px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--tile-2);
-  color: var(--text);
+  padding: 2px 4px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  background: var(--tile-2) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  font-size: clamp(7px, 1.2cqi, 12px);
+  font-weight: 750;
+  line-height: 1.05;
   white-space: nowrap;
 }
-.board .tile.prop .body > .tprice .tile-rent {
-  font-size: .82em;
-  line-height: 1.05;
-  font-weight: 750;
-  background: var(--tile-3);
-  border-color: color-mix(in srgb, var(--line) 75%, var(--own, var(--brass)));
-}
-.board .tile.prop .body > .tprice .rt {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  max-width: 100%;
-  padding: 2px 5px;
-  border: 1px solid color-mix(in srgb, var(--line) 75%, var(--own, var(--brass)));
-  border-radius: 4px;
-  background: var(--tile-3);
-  color: var(--text);
-  font-size: .86em;
-  font-weight: 750;
-  line-height: 1.05;
+.board .tile:is(.prop, .airport, .utility) .body > .tprice .rt {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
   white-space: nowrap;
 }
 @container board (max-width: 600px) {
-  .board .tile.prop .body > .tprice {
-    gap: 2px;
-  }
-  .board .tile.prop .body > .tprice .tile-buy,
-  .board .tile.prop .body > .tprice .tile-rent,
-  .board .tile.prop .body > .tprice .rt {
-    padding: 1px 3px;
-    border-radius: 3px;
+  .board .tile:is(.prop, .airport, .utility) .body > .tprice {
+    padding: 1px 3px !important;
+    border-radius: 3px !important;
   }
 }
