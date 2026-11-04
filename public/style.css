@@ -1508,3 +1508,86 @@ html.performance-lite .token.ghost .tk { filter: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .btn, .icon-btn, .tabs button { transition: none !important; }
 }
+
+
+/* Laptop viewport fixes: keep property actions reachable on short screens. */
+#modal {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-items: center;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+}
+#modal > .sheet {
+  min-height: 0;
+  max-height: calc(100dvh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+#modal .sheet-b {
+  min-width: 0;
+}
+#modal .manage {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#modal .manage .btn {
+  min-width: 0;
+  min-height: 42px;
+  white-space: normal;
+  line-height: 1.2;
+}
+#modal .deed-head.has-flag > div {
+  min-width: 0;
+}
+#modal .deed-name {
+  overflow-wrap: anywhere;
+}
+
+/* The board centre must scroll rather than crop the buy card or its controls. */
+.center-inner {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.postcard {
+  grid-template-columns: clamp(42px, 10cqi, 76px) minmax(0, 1fr) auto;
+  min-width: 0;
+}
+.postcard .pc-text {
+  min-width: 0;
+}
+.postcard .pc-city {
+  overflow-wrap: anywhere;
+  line-height: 1.08;
+}
+.postcard .pc-price {
+  white-space: nowrap;
+}
+.actions {
+  min-width: 0;
+}
+.actions .row {
+  max-width: 100%;
+}
+@media (max-height: 820px) and (min-width: 1181px) {
+  #modal { padding-block: 10px; }
+  #modal > .sheet { max-height: calc(100dvh - 20px); }
+  .center-inner { gap: 1.1cqi; padding: 1.8cqi; }
+  .postcard { padding-block: 1.1cqi; }
+}
+@media (max-width: 1180px) {
+  #modal { align-items: flex-start; }
+  #modal > .sheet { max-height: calc(100dvh - 24px); }
+}
+
+/* Keep the flag flutter and moving highlight on laptop performance mode too. */
+html.performance-lite .flag.wave,
+html.performance-lite .flag.wave::after {
+  animation-play-state: running !important;
+  animation-duration: 3.8s !important;
+}
