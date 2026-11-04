@@ -1438,3 +1438,21 @@ html.performance-lite .pcard,
 html.performance-lite .token { transition-duration: .12s !important; }
 html.performance-lite .tile.owned .tprice { box-shadow: 0 0 0 1px var(--own) !important; }
 html.performance-lite .token.ghost .tk { filter: none !important; }
+
+
+/* UX polish: keep board labels readable at laptop and compact board sizes. */
+.tile .body { gap: max(2px, .45cqi); padding: .5cqi .35cqi; }
+.tname { font-size: clamp(7px, 1.48cqi, 15px); line-height: 1.12; font-weight: 650; }
+.tname.long { font-size: clamp(7px, 1.3cqi, 13.5px); line-height: 1.12; }
+.tprice { font-size: clamp(7px, 1.25cqi, 13px); line-height: 1.15; }
+.corner .tname { font-size: clamp(8px, 1.8cqi, 18px); line-height: 1.12; }
+.corner .sub { font-size: clamp(7px, 1.25cqi, 12px); line-height: 1.2; }
+.jail-corner .visit {
+  top: 5%; right: 5%; max-width: 58%; padding: .28em .5em; border-radius: 5px;
+  background: var(--tile-2); color: var(--text); font: 700 clamp(7px, 1.3cqi, 12px)/1.2 var(--font-ui);
+  letter-spacing: .035em; text-align: center;
+}
+@media (max-width: 760px) {
+  .tname { overflow-wrap: anywhere; }
+  .tprice { padding: 2px 4px; }
+}
