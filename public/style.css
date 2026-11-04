@@ -2549,12 +2549,29 @@ textarea:focus-visible {
   background: var(--tile-3);
   border-color: color-mix(in srgb, var(--line) 75%, var(--own, var(--brass)));
 }
+.board .tile.prop .body > .tprice .rt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, var(--own, var(--brass)));
+  border-radius: 4px;
+  background: var(--tile-3);
+  color: var(--text);
+  font-size: .86em;
+  font-weight: 750;
+  line-height: 1.05;
+  white-space: nowrap;
+}
 @container board (max-width: 600px) {
   .board .tile.prop .body > .tprice {
     gap: 2px;
   }
   .board .tile.prop .body > .tprice .tile-buy,
-  .board .tile.prop .body > .tprice .tile-rent {
+  .board .tile.prop .body > .tprice .tile-rent,
+  .board .tile.prop .body > .tprice .rt {
     padding: 1px 3px;
     border-radius: 3px;
   }
