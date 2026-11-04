@@ -496,3 +496,18 @@ html.th-open { overflow: hidden; }
 [data-theme="blueprint"] .jail-corner .cell { background: rgba(7,35,60,.82); }
 [data-theme="crayon"] .jail-corner .cell { background: linear-gradient(180deg,#F8E8C9,#E8D6B7); color:#2B2733; }
 [data-theme="crayon"] .jail-corner .cell .tname { color:#A32119; }
+
+
+/* Sketch-theme containment: keep ownership fills inside the hand-drawn tile frame.
+   The border image is intentionally painted outside the tile box; inset the fill so
+   its colour cannot visually leak beyond the inner edge of that frame. */
+[data-sketch] .tile.owned .band {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+[data-sketch] .tile.owned .band::after {
+  inset: 3px;
+  max-width: calc(100% - 6px);
+  max-height: calc(100% - 6px);
+}
