@@ -934,13 +934,15 @@
     $('#dice').classList.toggle('gl', !!dice3d);
   }
   function layoutJailBars() {
-    const bars = $('#jailBars'), tile = ui.tileEls[10];
+    const bars = $('#jailBars'), board = $('#board'), tile = ui.tileEls[10];
     const cell = tile && tile.querySelector('.cell');
-    if (!bars || !cell) return;
-    bars.style.left = `${tile.offsetLeft + cell.offsetLeft}px`;
-    bars.style.top = `${tile.offsetTop + cell.offsetTop}px`;
-    bars.style.width = `${cell.offsetWidth}px`;
-    bars.style.height = `${cell.offsetHeight}px`;
+    if (!bars || !board || !cell) return;
+    const boardRect = board.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    bars.style.left = `${cellRect.left - boardRect.left}px`;
+    bars.style.top = `${cellRect.top - boardRect.top}px`;
+    bars.style.width = `${cellRect.width}px`;
+    bars.style.height = `${cellRect.height}px`;
   }
   function positionTokens(instant) {
     if (!game || !ui.tileEls.length) return;
