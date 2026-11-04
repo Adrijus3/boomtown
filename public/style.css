@@ -1595,3 +1595,18 @@ html.performance-lite .flag.wave::after {
   animation-play-state: running !important;
   animation-duration: 3.8s !important;
 }
+
+/* Keep property-card flags inside their own grid column and card padding. */
+.postcard > .flag.big {
+  box-sizing: border-box;
+  justify-self: center;
+  width: min(12.5cqi, 100%);
+  max-width: 100%;
+  margin-inline: 0;
+}
+.postcard > .emblem.big {
+  box-sizing: border-box;
+  justify-self: center;
+  max-width: 100%;
+  margin-inline: 0;
+}
