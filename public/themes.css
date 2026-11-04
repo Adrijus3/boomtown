@@ -464,3 +464,35 @@ html.th-open { overflow: hidden; }
 .lobby-top .theme-btn { flex: none; margin-top: .5em; }
 .room-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .theme-btn .ic { width: 1.15em; height: 1.15em; }
+
+
+/* ---------------------------------------------------------------- UX consistency and readable board corners */
+.jail-corner .cell {
+  background:
+    repeating-linear-gradient(90deg, rgba(var(--hi),.11) 0 2px, transparent 2px 1.3cqi),
+    linear-gradient(180deg, var(--tile-3), var(--tile-2));
+  color: var(--text);
+  border: 1px solid var(--line-hi);
+  box-shadow: inset 0 0 0 1px rgba(var(--coral-rgb),.22);
+}
+.jail-corner .cell .tname { color: var(--coral-text); text-shadow: none; }
+.jail-corner .visit { z-index: 2; }
+[data-scheme="light"] .jail-corner .visit {
+  background: rgba(255,255,255,.88);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(30,20,30,.12);
+}
+[data-theme="contrast"] .jail-corner .cell {
+  background: #111; border: 2px solid #FFF; color: #FFF;
+}
+[data-theme="contrast"] .jail-corner .visit {
+  background: #000; color: #FFF; border: 1px solid #FFF;
+}
+/* Sketch fonts remain part of the theme, but small functional labels stay easy to scan. */
+[data-sketch] :is(.tname, .tprice, .corner .sub, .jail-corner .visit, .hint, .eyebrow, .tag) {
+  font-family: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+}
+[data-sketch] .corner .tname { font-family: var(--font-sketch); }
+[data-theme="blueprint"] .jail-corner .cell { background: rgba(7,35,60,.82); }
+[data-theme="crayon"] .jail-corner .cell { background: linear-gradient(180deg,#F8E8C9,#E8D6B7); color:#2B2733; }
+[data-theme="crayon"] .jail-corner .cell .tname { color:#A32119; }
