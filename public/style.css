@@ -1456,3 +1456,55 @@ html.performance-lite .token.ghost .tk { filter: none !important; }
   .tname { overflow-wrap: anywhere; }
   .tprice { padding: 2px 4px; }
 }
+
+
+/* PoorDown usability and responsiveness refinements */
+.btn, .icon-btn, .link, .pcard, .tile, .tabs button {
+  -webkit-tap-highlight-color: transparent;
+}
+.btn, .icon-btn, .tabs button {
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.btn:active:not(:disabled), .icon-btn:active:not(:disabled), .tabs button:active {
+  transform: translateY(1px) scale(.985);
+}
+.btn:disabled, button:disabled {
+  cursor: not-allowed;
+}
+.btn:disabled {
+  opacity: .48;
+  filter: saturate(.65);
+}
+.text-in, input[type="number"], input[type="range"], select, textarea {
+  accent-color: var(--brass);
+}
+.text-in:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+.pcard:focus-visible, .tabs button:focus-visible, .tile:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+  z-index: 4;
+}
+.sidebody, .players, .sheet-b, .room-list {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pcard:hover:not(.out) { border-color: var(--line); background: var(--tile-2); }
+  .btn:hover:not(:disabled) { box-shadow: 0 4px 14px -9px rgba(0,0,0,.65); }
+}
+@media (pointer: coarse) {
+  .btn { min-height: 42px; }
+  .icon-btn { width: 42px; height: 42px; }
+  .tile { -webkit-tap-highlight-color: transparent; }
+}
+@media (max-width: 1180px) {
+  .side.right { min-height: 0; }
+  .sidebody { max-height: none; overflow: visible; }
+  .side.right .tabs { position: sticky; top: 0; z-index: 8; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .icon-btn, .tabs button { transition: none !important; }
+}
