@@ -111,6 +111,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .btn.danger { background: transparent; color: var(--coral); border-color: rgba(var(--coral-rgb),.35); }
 .btn.danger:hover:not(:disabled) { background: rgba(var(--coral-rgb),.1); border-color: rgba(var(--coral-rgb),.6); }
 .btn.ghost { background: transparent; }
+.btn[aria-pressed="true"] { background: rgba(var(--brass-rgb),.14); border-color: var(--brass); color: var(--brass-hi); }
 .btn.sm { padding: .4em .7em; font-size: 13px; border-radius: 8px; gap: .35em; }
 .btn.lg { padding: .75em 1.4em; font-size: 1.05em; border-radius: 12px; }
 .btn.xl { padding: .85em 1.8em; font-size: 18px; border-radius: 14px; }
