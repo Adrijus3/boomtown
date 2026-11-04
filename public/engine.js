@@ -1,4 +1,4 @@
-/* RichDown rules engine. Pure JavaScript, no dependencies; runs in the browser and in Node. */
+/* PoorDown rules engine. Pure JavaScript, no dependencies; runs in the browser and in Node. */
 (function (root) {
   'use strict';
 
