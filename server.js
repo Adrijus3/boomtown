@@ -787,7 +787,8 @@ function handle(ws, msg) {
       if (!s || s.bot) return fail('That seat is not a player.');
       if (seatOf(room, c.id) >= 0 || pidOf(room, c.id) != null) return fail('You already have a seat in this game.');
       const old = room.game ? room.pidClient[i] : s.clientId;
-      if (room.game && room.game.s.players[i] && room.game.s.players[i].bankrupt) return fail(`${s.name} is out of the game.`);
+      const gamePlayer = room.game ? room.game.s.players.find((p) => p.id === i) : null;
+      if (gamePlayer && gamePlayer.bankrupt) return fail(`${s.name} is out of the game.`);
       if (online(room, old)) return fail(`${s.name} is still connected on another device. Close the game there first, then try again.`);
       s.clientId = c.id;
       delete s.key;
