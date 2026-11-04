@@ -2197,3 +2197,82 @@ textarea:focus-visible {
   .board .tile .body > .tprice { font-size: clamp(7.5px, 1.25cqi, 9px); }
   .corner .tname { font-size: clamp(8px, 1.8cqi, 11px); }
 }
+
+
+/* PoorDown readability pass: restore visible base rent on property tiles. */
+.board .tile.prop .body > .tname {
+  font-size: clamp(10px, 1.78cqi, 16px) !important;
+  line-height: 1.12;
+  font-weight: 750;
+}
+.board .tile.prop .body > .tname.long {
+  font-size: clamp(9px, 1.55cqi, 14px) !important;
+}
+.board .tile.prop .body > .tprice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 2px 5px;
+  font-size: clamp(9px, 1.42cqi, 13px) !important;
+  line-height: 1.08;
+  white-space: nowrap;
+}
+.board .tile.prop .body > .tprice .tile-buy {
+  font-size: 1em;
+  font-weight: 800;
+}
+.board .tile.prop .body > .tprice .tile-rent {
+  display: block;
+  font-size: .86em;
+  font-weight: 700;
+  line-height: 1.05;
+  opacity: .96;
+}
+.board .tile.airport .body > .tname,
+.board .tile.utility .body > .tname {
+  font-size: clamp(9px, 1.58cqi, 14px) !important;
+  line-height: 1.1;
+}
+.board .tile.airport .body > .tprice,
+.board .tile.utility .body > .tprice {
+  font-size: clamp(9px, 1.4cqi, 13px) !important;
+}
+
+/* Prison information card: force the monochrome header to fill the whole sheet width. */
+#modal > .sheet.deed.plain {
+  width: min(560px, 100%);
+  box-sizing: border-box;
+}
+#modal > .sheet.deed.plain .deed-head {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 100%;
+  align-self: stretch;
+}
+#modal > .sheet.deed.plain.space-jail .deed-head {
+  background: linear-gradient(112deg, #111111 0%, #454545 48%, #f4f4f4 100%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #ffffff;
+}
+#modal > .sheet.deed.plain.space-jail .deed-head .eyebrow {
+  color: rgba(255,255,255,.78);
+}
+#modal > .sheet.deed.plain.space-jail .deed-head .deed-name {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.55);
+}
+#modal > .sheet.deed.plain.space-jail .deed-head [data-close] {
+  color: #171717;
+  background: #ffffff;
+  border-color: rgba(0,0,0,.35);
+}
+#modal > .sheet.deed.plain.space-jail .deed-head [data-close]:hover,
+#modal > .sheet.deed.plain.space-jail .deed-head [data-close]:focus-visible {
+  color: #000000;
+  background: #ffffff;
+  border-color: #000000;
+}
