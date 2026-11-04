@@ -1686,8 +1686,11 @@ html.performance-lite .flag.wave::after {
   min-width: 0;
   min-height: 0;
   max-height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 .auction-bid-label::after { content: " "; }
 .auction-leader {
@@ -2415,9 +2418,9 @@ textarea:focus-visible {
 /* Final compact-board fix: preserve owned property rent text instead of replacing it
    with a dot or hiding it when the badge fitter runs on laptop-sized boards. */
 @container board (max-width: 612px) {
-  .board .tile.prop.owned .body > .tprice,
-  .board .tile.prop.owned.fit-dot .body > .tprice,
-  .board .tile.prop.owned.fit-min .body > .tprice {
+  .board .tile:is(.prop, .airport, .utility).owned .body > .tprice,
+  .board .tile:is(.prop, .airport, .utility).owned.fit-dot .body > .tprice,
+  .board .tile:is(.prop, .airport, .utility).owned.fit-min .body > .tprice {
     display: flex !important;
     flex-direction: column;
     align-items: center;
@@ -2435,9 +2438,9 @@ textarea:focus-visible {
     white-space: nowrap;
     line-height: 1.05;
   }
-  .board .tile.prop.owned .body > .tprice .rt,
-  .board .tile.prop.owned.fit-dot .body > .tprice .rt,
-  .board .tile.prop.owned.fit-min .body > .tprice .rt {
+  .board .tile:is(.prop, .airport, .utility).owned .body > .tprice .rt,
+  .board .tile:is(.prop, .airport, .utility).owned.fit-dot .body > .tprice .rt,
+  .board .tile:is(.prop, .airport, .utility).owned.fit-min .body > .tprice .rt {
     display: block !important;
     visibility: visible !important;
     font-size: inherit;
