@@ -2363,31 +2363,7 @@ textarea:focus-visible {
   }
 }
 
-/* Auction postcard city names must stay on one line, including Westminster. */
-.auction-property .pc-text {
-  min-width: 0;
-  overflow: hidden;
-}
-.auction-property .pc-city {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  overflow-wrap: normal;
-  word-break: normal;
-  hyphens: none;
-  font-size: clamp(14px, 3.1cqi, 32px);
-  letter-spacing: -.045em;
-  line-height: 1.05;
-}
-
-
-
-
-/* Give long auction city names the actual space they need before truncating. */
+/* Auction property card: allow natural word wrapping and keep every word intact. */
 .auction-property .postcard {
   grid-template-columns: clamp(34px, 8cqi, 64px) minmax(0, 1fr) max-content;
   gap: clamp(6px, 1.2cqi, 12px);
@@ -2395,13 +2371,23 @@ textarea:focus-visible {
 .auction-property .pc-text {
   min-width: 0;
   width: 100%;
+  overflow: visible;
 }
 .auction-property .pc-city {
-  font-size: clamp(12px, 2.5cqi, 25px);
-  letter-spacing: -.055em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(12px, 2.2cqi, 22px);
+  letter-spacing: -.045em;
+  line-height: 1.08;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  text-wrap: pretty;
 }
 
 
@@ -2783,19 +2769,23 @@ button.deedcard:hover:not(:disabled) {
 /* Airport, utility and city names need a deliberate long-name scale.
    Keep whole words where possible and let two-word names use two clean lines. */
 .board .tile.prop .body > .tname.long {
-  font-size: clamp(8px, 1.18cqi, 11px) !important;
-  line-height: 1.04;
+  font-size: clamp(8px, 1.12cqi, 10.5px) !important;
+  line-height: 1.06;
   letter-spacing: -.025em;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
   hyphens: none;
+  text-wrap: balance;
 }
 .board .tile:is(.airport, .utility) .body > .tname.long {
-  font-size: clamp(7px, 1.05cqi, 10px) !important;
-  line-height: 1.02;
-  letter-spacing: -.035em;
+  font-size: clamp(6px, .95cqi, 9px) !important;
+  line-height: 1.06;
+  letter-spacing: -.025em;
   font-weight: 750;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
   hyphens: none;
+  text-wrap: balance;
 }
 .board .tile:is(.airport, .utility) .body > .tic {
   width: clamp(12px, 2.4cqi, 18px);
@@ -2804,20 +2794,28 @@ button.deedcard:hover:not(:disabled) {
 
 /* Long names in property cards wrap naturally instead of being clipped. */
 .postcard .pc-city.long {
-  font-size: clamp(15px, 2.8cqi, 28px);
-  line-height: 1.04;
-  letter-spacing: -.045em;
-  overflow-wrap: break-word;
-  text-wrap: balance;
-}
-.auction-property .pc-city.long {
-  font-size: clamp(13px, 2.1cqi, 21px);
-  line-height: 1.06;
+  font-size: clamp(13px, 2.3cqi, 23px);
+  line-height: 1.08;
   letter-spacing: -.04em;
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  text-wrap: pretty;
+}
+.auction-property .pc-city.long {
+  font-size: clamp(10px, 1.65cqi, 16px);
+  line-height: 1.1;
+  letter-spacing: -.035em;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  text-wrap: pretty;
 }
 
 /* A title should never run underneath the deed close button. */
@@ -2923,16 +2921,16 @@ button.deedcard:hover:not(:disabled) {
 }
 .jail-routes {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .jail-route {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: linear-gradient(155deg, var(--tile-2), color-mix(in srgb, var(--tile-2) 78%, var(--tile)));
@@ -2972,4 +2970,36 @@ button.deedcard:hover:not(:disabled) {
   border: 1px solid var(--line-soft);
   background: var(--tile-2);
   color: var(--muted);
+}
+
+/* Final containment pass: the prison dialog remains readable and scrollable,
+   and text wraps at word boundaries instead of losing its final characters. */
+#modal > .sheet.deed.plain.space-jail {
+  max-height: calc(100dvh - 48px);
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+#modal > .sheet.deed.plain.space-jail .deed-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+#modal > .sheet.deed.plain.space-jail .sheet-b {
+  min-width: 0;
+  padding: 16px;
+  gap: 10px;
+}
+.jail-status,
+.jail-route {
+  min-width: 0;
+}
+.jail-status small,
+.jail-route small,
+.jail-reminder,
+.jail-rule {
+  overflow-wrap: normal;
+  word-break: normal;
 }
