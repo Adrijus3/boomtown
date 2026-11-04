@@ -1024,8 +1024,14 @@
         if (price.dataset.v !== key) {
           price.dataset.v = key;
           ui.badgeDirty = true;
-          const body = label === 'lock' ? icon('lock') : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
-          price.innerHTML = owner ? body : label;
+          if (t.type === 'prop' && !owner) {
+            price.innerHTML = `<span class="tile-buy">${fmt(t.price)}</span><span class="tile-rent">Rent ${fmt(t.rent[0])}</span>`;
+          } else if (t.type === 'prop' && owner) {
+            price.innerHTML = `<span class="rt">${label === 'lock' ? icon('lock') : `Rent ${label}`}</span>`;
+          } else {
+            const body = label === 'lock' ? icon('lock') : `<span class="rt">${label}</span>`;
+            price.innerHTML = owner ? body : label;
+          }
         }
         price.title = '';
       }
