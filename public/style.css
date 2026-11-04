@@ -957,7 +957,22 @@ button.deedcard:hover:not(:disabled) { transform: translateY(-3px); border-color
   font: 800 clamp(7px, 1.18cqi, 12px)/1.1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
 .token.jailed .tk { filter: saturate(.75) brightness(.92); }
 @container board (max-width: 600px) {
-  .jail-corner .visit, .jail-bars .plate { display: none; }
+  .jail-corner .visit {
+    display: block;
+    top: 7%;
+    left: 0;
+    right: 0;
+    font-size: clamp(6px, 1.05cqi, 8px);
+    letter-spacing: .045em;
+    line-height: 1;
+  }
+  .jail-bars .plate {
+    display: block;
+    top: 8%;
+    padding: 1px 3px;
+    font-size: clamp(6px, 1.05cqi, 8px);
+    letter-spacing: .06em;
+  }
   .jail-corner .cell { outline: 0; }
 }
 
@@ -2275,4 +2290,47 @@ textarea:focus-visible {
   color: #000000;
   background: #ffffff;
   border-color: #000000;
+}
+
+
+/* PoorDown prison geometry and tile-price cleanup.
+   Keep the visiting label and cell plate visible at every board size. */
+.jail-corner {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+.jail-corner .cell {
+  width: 66%;
+  height: 66%;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, var(--cell), var(--cell-2));
+}
+.jail-corner .visit {
+  z-index: 8;
+  display: block;
+  white-space: nowrap;
+}
+.jail-bars {
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.jail-bars .plate {
+  display: block;
+  z-index: 2;
+  white-space: nowrap;
+}
+.board .tile.prop .body > .tprice,
+.board .tile.airport .body > .tprice,
+.board .tile.utility .body > .tprice {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+.board .tile.prop:not(.owned) .body > .tprice {
+  background: rgba(0,0,0,.24);
+}
+.board .tile.owned .body > .tprice {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+  background: rgba(0,0,0,.3);
 }
