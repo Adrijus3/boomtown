@@ -35,9 +35,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check server.js
-          node --check public/engine.js
-          node --check public/app.js
-          node --check public/themes.js
+          find public test -type f -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Run game simulation tests
         run: npm test
