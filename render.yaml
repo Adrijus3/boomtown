@@ -1,4 +1,4 @@
-# Render Blueprint: one free web service running the RichDown game server.
+# Render Blueprint: one free web service running the PoorDown game server.
 services:
   - type: web
     name: PoorDown
