@@ -2009,3 +2009,127 @@ textarea:focus-visible {
   max-width: 42ch;
   line-height: 1.35;
 }
+
+
+/* ---------------------------------------------------------------- PoorDown UI polish: property containment and modal controls */
+.tile {
+  isolation: isolate;
+  contain: paint;
+}
+.tile .body {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  gap: clamp(1px, .35cqi, 4px);
+  padding: clamp(2px, .4cqi, 5px);
+}
+.tile .body > .flag {
+  box-sizing: border-box;
+  width: clamp(10px, 2.55cqi, 26px);
+  max-width: 100%;
+  max-height: 26px;
+  flex: 0 1 auto;
+  aspect-ratio: 3 / 2;
+  border-radius: clamp(2px, .32cqi, 5px);
+}
+.tile .body > .flag svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.tile .body > .tname,
+.tile .body > .tprice {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.tile .body > .tname {
+  width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.tile .band {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.tile .band::after { pointer-events: none; }
+.tile.owned::after { pointer-events: none; }
+
+/* The close control must read as a control, not a disabled grey decoration. */
+.modal .sheet-h [data-close],
+.modal .deed-head [data-close] {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  border: 1px solid var(--line-hi);
+  border-radius: 10px;
+  background: var(--tile-2);
+  color: var(--text);
+  opacity: 1;
+  box-shadow: 0 1px 3px rgba(0,0,0,.16);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.modal .sheet-h [data-close] .ic,
+.modal .deed-head [data-close] .ic {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.6;
+}
+.modal .sheet-h [data-close]:hover,
+.modal .sheet-h [data-close]:focus-visible {
+  color: var(--text);
+  background: var(--tile-3);
+  border-color: var(--brass);
+}
+.modal .deed-head [data-close] {
+  color: #172033;
+  background: rgba(255,255,255,.88);
+  border-color: rgba(23,32,51,.35);
+}
+.modal .deed-head [data-close]:hover,
+.modal .deed-head [data-close]:focus-visible {
+  color: #0B1220;
+  background: #FFFFFF;
+  border-color: #0B1220;
+}
+.modal [data-close]:active { transform: scale(.96); }
+.modal [data-close]:focus-visible {
+  outline: 3px solid var(--brass);
+  outline-offset: 2px;
+}
+.modal {
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+.modal .sheet {
+  min-width: 0;
+  max-width: 100%;
+  max-height: calc(100dvh - 32px);
+  overscroll-behavior: contain;
+}
+@media (max-width: 600px) {
+  .modal { place-items: center; padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px)); }
+  .modal .sheet { width: 100%; border-radius: 16px; }
+  .modal .sheet-h { padding: 14px 16px; }
+  .modal .sheet-b { padding: 16px; }
+  .modal .sheet-f { padding: 12px 16px 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal .sheet-h [data-close],
+  .modal .deed-head [data-close] { transition: none; }
+}
