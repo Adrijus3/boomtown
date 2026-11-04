@@ -676,8 +676,15 @@
     const bar = $('#auctionBar'), secs = $('#auctionSecs');
     if (A && bar) {
       const left = A.deadline - serverNow();
-      bar.style.transform = `scaleX(${Math.max(0, Math.min(1, left / A.span))})`;
-      if (secs) secs.textContent = Math.max(0, Math.ceil(left / 1000)) + 's';
+      const fraction = Math.max(0, Math.min(1, left / A.span));
+      const remaining = Math.max(0, Math.ceil(left / 1000));
+      bar.style.transform = `scaleX(${fraction})`;
+      const auctionBox = $('#auctionBox');
+      const countdown = $('#auctionCountdown');
+      const urgency = remaining <= 5 ? 'critical' : remaining <= 10 ? 'urgent' : 'normal';
+      if (auctionBox && auctionBox.dataset.urgency !== urgency) auctionBox.dataset.urgency = urgency;
+      if (countdown) countdown.classList.toggle('is-critical', urgency === 'critical');
+      if (secs) secs.textContent = remaining + 's';
     }
   }, 200);
 
@@ -1636,12 +1643,15 @@
     const mine = myPid(), p = mine != null ? game.player(mine) : null;
     const M = (meta && meta.auction) || {};
     setHTML(box, 'auction', `
-      <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip">Ends in <b id="auctionSecs">–</b></span></div>
-      ${postcardHTML(a.tile, mine)}
-      <div class="auction-big"><span class="v">${fmt(a.high)}</span><span class="muted">${bidder ? `Highest bid: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b>` : 'No bids yet'}</span></div>
-      <div class="bar"><i id="auctionBar"></i></div>
+      <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">–</b></span></div>
+      <div class="auction-property"><span class="auction-property-label">PROPERTY VALUE</span>${postcardHTML(a.tile, mine)}</div>
+      <div class="auction-bid-summary">
+        <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID</span><span class="v">${fmt(a.high)}</span></div>
+        <div class="auction-leader">${bidder ? `${dotHTML(bidder)}<span>Leading: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b></span>` : '<span>No bids yet</span>'}</div>
+      </div>
+      <div class="bar auction-bar"><i id="auctionBar"></i></div>
       ${p && !p.bankrupt ? `<div class="bidders">${bidderHTML(p, a, { proxy: M.proxy || 0, passed: !!M.passed })}</div>` : ''}
-      <div class="hint" style="text-align:left">Auto-bid raises for you each time you're outbid. Pass to let the clock run down.</div>`);
+      <div class="hint auction-note">Auto-bid raises for you each time you're outbid. Pass to let the clock run down.</div>`);
   }
 
   // ------------------------------------------------------------ side panel
