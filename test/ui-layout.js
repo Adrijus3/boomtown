@@ -9,15 +9,16 @@ const css = fs.readFileSync(path.join(root, 'public/style.css'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'public/app.js'), 'utf8');
 
 function ruleBodies(selector) {
-  const escaped = [...selector].map((ch) => '.*+?^\${}()|[]\\'.includes(ch) ? '\\' + ch : ch).join('');
+  const special = '.*+?^' + String.fromCharCode(36) + '{}()|[]\\';
+  const escaped = [...selector].map((ch) => special.includes(ch) ? '\\' + ch : ch).join('');
   const matches = [...css.matchAll(new RegExp(escaped + '\\s*\\{([^{}]*)\\}', 'g'))];
-  assert.ok(matches.length > 0, \`No CSS rule found for: \${selector}\`);
+  assert.ok(matches.length > 0, 'No CSS rule found for: ' + selector);
   return matches.map((match) => match[1]);
 }
 
 function assertDeclaration(selector, declaration) {
   const found = ruleBodies(selector).some((body) => declaration.test(body));
-  assert.ok(found, \`Missing \${declaration} in CSS rule(s) for \${selector}\`);
+  assert.ok(found, 'Missing ' + declaration + ' in CSS rule(s) for ' + selector);
 }
 
 function checkBalancedCss(source) {
