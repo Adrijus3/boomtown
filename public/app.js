@@ -594,6 +594,9 @@
     setTimeout(() => ghosts.forEach((g) => g.remove()), 5 * 26 + 60);
   }
   async function teleport(pid, to) {
+    // round the edge of the board via the corners (the shorter way), never straight across the middle
+    const p = game.player(pid), from = ui.displayPos[pid] != null ? ui.displayPos[pid] : p ? p.pos : to;
+    if (from !== to) { await walk({ jump: true, pid, from, to }); if (to === 10) Sound.jail(); return; }
     await travel(pid, to, [], speed().jump, true);
     if (to === 10) Sound.jail();
   }
