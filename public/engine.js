@@ -4,11 +4,11 @@
 
   // ---------------------------------------------------------------- board data
   const GROUPS = {
-    wa: { name: 'Wales', color: '#B8754F', house: 20 },
-    dv: { name: 'Devon', color: '#5EC2E6', house: 60 },
+    wa: { name: 'Wales', color: '#B8754F', house: 25 },
+    dv: { name: 'Devon', color: '#5EC2E6', house: 70 },
     lc: { name: 'Lancashire', color: '#E35DA6', house: 85 },
     md: { name: 'The Midlands', color: '#F28B3A', house: 100 },
-    yk: { name: 'Yorkshire', color: '#E5484D', house: 110 },
+    yk: { name: 'Yorkshire', color: '#E5484D', house: 100 },
     sc: { name: 'Scotland', color: '#E9C246', house: 115 },
     li: { name: 'Lincolnshire', color: '#2EB673', house: 125 },
     ln: { name: 'London', color: '#4C6FFF', house: 140 },
