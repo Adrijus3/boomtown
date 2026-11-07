@@ -571,7 +571,7 @@
     const total = dist[dist.length - 1];
     if (total < 1) { done(); return; }
     const lift = jump ? 1.25 : 1.1;
-    const frames = pts.map((p, k) => ({ transform: `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) scale(${k === 0 || k === pts.length - 1 ? 1 : lift})`, offset: dist[k] / total }));
+    const frames = pts.map((p, k) => ({ transform: `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) scale(${k === 0 ? start.s || 1 : k === pts.length - 1 ? end.s || 1 : lift})`, offset: dist[k] / total }));
     const easing = jump ? 'cubic-bezier(.55,0,.25,1)' : 'cubic-bezier(.42,0,.28,1)';
     const ghosts = [];
     [0.18, 0.07].forEach((op, g) => {
@@ -982,25 +982,32 @@
       }
       const list = groups[pos + (inCell(p) ? ':cell' : '')] || [p];
       const n = list.length, k = list.indexOf(p);
+      let sc = 1;
       if (n > 1) {
-        // Players sharing a square cluster round the middle along the tile's long side, overlapping a
-        // little when there are many, so they stay together and clear of the edges.
+        // Players sharing a square sit in a tidy grid (e.g. 3 + 2 for five), centred in the square, and
+        // shrink a little when the square is too small for them all, so nobody covers anybody else.
         const tk = el.offsetWidth || Math.min(w, h) * 0.4;
-        const along = pos === 10 ? 'y' : w >= h ? 'x' : 'y';
-        const room = (along === 'x' ? w : h) - tk - 6;
-        const gap = Math.max(0, Math.min(tk * 0.78, room / (n - 1)));
-        const shift = (k - (n - 1) / 2) * gap;
-        if (along === 'x') x += shift; else y += shift;
-        // a second, perpendicular nudge for crowded squares so faces stay visible
-        if (n > 3) { const nudge = (k % 2 ? 1 : -1) * tk * 0.18; if (along === 'x') y += nudge; else x += nudge; }
+        const areaW = pos === 10 ? w * (inCell(p) ? 0.56 : 0.3) : w - 6;
+        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : h - 6;
+        let best = null;
+        for (let cols = 1; cols <= n; cols++) {
+          const rows = Math.ceil(n / cols), cell = Math.min(areaW / cols, areaH / rows);
+          if (!best || cell > best.cell + 0.5) best = { cols, rows, cell };
+        }
+        sc = Math.max(0.55, Math.min(1, best.cell / (tk * 1.06)));
+        const step = Math.min(best.cell, tk * sc * 1.1);
+        const row = Math.floor(k / best.cols), col = k % best.cols;
+        const inRow = row === best.rows - 1 ? n - row * best.cols : best.cols;
+        x += (col - (inRow - 1) / 2) * step;
+        y += (row - (best.rows - 1) / 2) * step;
       }
-      const halfToken = (el.offsetWidth || 0) / 2;
+      const halfToken = ((el.offsetWidth || 0) * sc) / 2;
       x = Math.max(tile.offsetLeft + Math.min(w / 2, halfToken + 2), Math.min(tile.offsetLeft + w - Math.min(w / 2, halfToken + 2), x));
       y = Math.max(tile.offsetTop + Math.min(h / 2, halfToken + 2), Math.min(tile.offsetTop + h - Math.min(h / 2, halfToken + 2), y));
       x = Math.round(x); y = Math.round(y);
-      ui.tokenXY[p.id] = { x, y };
+      ui.tokenXY[p.id] = { x, y, s: sc };
       el.style.transition = instant || ui.moving[p.id] ? 'none' : '';
-      el.style.transform = `translate(${x}px, ${y}px)`;
+      el.style.transform = `translate(${x}px, ${y}px)${sc < 1 ? ` scale(${sc.toFixed(3)})` : ''}`;
       el.classList.toggle('current', !!cur && cur.id === p.id);
       el.classList.toggle('jailed', inCell(p));
       if (instant && !ui.moving[p.id]) { void el.offsetWidth; el.style.transition = ''; }

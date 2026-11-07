@@ -3076,3 +3076,6 @@ body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; 
 .modal.calm, .modal.calm .sheet, .modal.calm .dc-check { animation: none !important; }
 .trade-lock { display: flex; align-items: center; gap: 6px; margin: 10px 2px 0; font-size: 13px; }
 .trade-lock .ic { width: 15px; height: 15px; flex: none; }
+
+/* primary buttons keep a solid colour under their gradient, so hovering never fades through black */
+.btn.primary { background-color: var(--brass); }
