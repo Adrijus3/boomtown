@@ -119,34 +119,6 @@
 }
 
 /* ---------------------------------------------------------------- new colour sets */
-:root[data-theme="ocean"] {
-  color-scheme: dark;
-  --ink:#071D2B; --felt:#0A2636; --tile:#103247; --tile-2:#174157; --tile-3:#20536A;
-  --line:#2E6278; --line-soft:#214B60; --line-hi:#4A8295;
-  --text:#EAF8FC; --muted:#B9D6DF; --faint:#9DBEC9;
-  --brass:#4DD0C8; --brass-hi:#78E2D8; --brass-ink:#062A2B; --brass-rgb:77,208,200;
-  --mint:#8BE0B0; --mint-rgb:139,224,176; --coral:#FF9B87; --coral-rgb:255,155,135; --rose:#F3A8C9; --rose-rgb:243,168,201;
-  --tile-top:#103247; --board:#061722; --token-ring:#EAF8FC; --pop:#174157; --pop-line:#2E6278; --tip:#174157; --tip-line:#2E6278;
-  --glow:#123849; --centre-1:#123849; --centre-2:#0D2D40; --centre-3:#082333; --cell:#103247; --cell-2:#0A2636;
-  --hi:255,255,255; --shade:0,15,25;
-  --sky:#75DDF2; --steel:#B9D6DF; --coral-text:#FFB6A8; --chance-text:#F3A8C9; --chest-text:#FFE09A; --violet-text:#C8B9FF;
-  --danger-text:#FFC8BE; --danger-strong:#FFE4DF; --danger-ic:#FF9B87; --house:#EAF8FC; --house-ink:#D4EAF0; --knob:#EAF8FC; --mix-hi:#fff;
-  --rosette-rgb:77,208,200|117,221,242;
-}
-:root[data-theme="forest"] {
-  color-scheme:dark;
-  --ink:#101F19; --felt:#172A21; --tile:#1D3529; --tile-2:#284434; --tile-3:#34533F;
-  --line:#42634D; --line-soft:#304C3A; --line-hi:#63836A;
-  --text:#F0F4E9; --muted:#C4D0BE; --faint:#AEBDA7;
-  --brass:#D69A58; --brass-hi:#E8B779; --brass-ink:#2B1B0D; --brass-rgb:214,154,88;
-  --mint:#A8D58D; --mint-rgb:168,213,141; --coral:#E98D78; --coral-rgb:233,141,120; --rose:#DFA0B8; --rose-rgb:223,160,184;
-  --tile-top:#1D3529; --board:#0D1913; --token-ring:#F0F4E9; --pop:#284434; --pop-line:#42634D; --tip:#284434; --tip-line:#42634D;
-  --glow:#243D2C; --centre-1:#243D2C; --centre-2:#1A3023; --centre-3:#14271D; --cell:#1D3529; --cell-2:#172A21;
-  --hi:255,255,255; --shade:5,15,8;
-  --sky:#9ACFE0; --steel:#C4D0BE; --coral-text:#F2AA98; --chance-text:#E9B0CA; --chest-text:#E8BD83; --violet-text:#C8B8E8;
-  --danger-text:#FFC5B9; --danger-strong:#FFE5DE; --danger-ic:#E98D78; --house:#F0F4E9; --house-ink:#DDE7D5; --knob:#F0F4E9; --mix-hi:#fff;
-  --rosette-rgb:168,213,141|214,154,88;
-}
 :root[data-theme="sunset"] {
   color-scheme:dark;
   --ink:#281522; --felt:#321B29; --tile:#3B2030; --tile-2:#4A293A; --tile-3:#5A3345;
@@ -394,10 +366,6 @@
 [data-theme="contrast"] :is(.flag, .tic, .corner .cbig) { filter: none; }
 
 /* ---------------------------------------------------------------- extra theme character */
-[data-theme="ocean"] .board { box-shadow:0 0 0 1px rgba(77,208,200,.35),0 24px 55px -30px rgba(0,0,0,.75); }
-[data-theme="ocean"] .btn.primary { box-shadow:0 0 0 1px rgba(77,208,200,.45),0 5px 18px -10px rgba(77,208,200,.7); }
-[data-theme="forest"] .board { box-shadow:0 0 0 1px rgba(168,213,141,.22),0 24px 55px -30px rgba(0,0,0,.7); }
-[data-theme="forest"] .panel { border-color:rgba(168,213,141,.2); }
 [data-theme="sunset"] .board { box-shadow:0 0 0 1px rgba(255,154,98,.3),0 24px 55px -30px rgba(0,0,0,.7); }
 [data-theme="sunset"] .btn.primary { box-shadow:0 5px 18px -10px rgba(255,154,98,.75); }
 [data-theme="rose"] .board { box-shadow:0 0 0 1px rgba(165,45,98,.2),0 25px 55px -32px rgba(80,30,55,.35); }
@@ -601,3 +569,14 @@ html.th-open { overflow: hidden; }
 /* Sketch themes: the paper colour stops inside the card's 1px edge, where the hand-drawn outline is,
    so a coloured header doesn't get a pale rim. */
 [data-sketch] :is(#modal > .sheet, .th-sheet, .pp-sheet) { background-clip: padding-box !important; }
+
+/* Theme picker groups: Hand-drawn, Light and Dark. */
+.th-groups { margin: 0; padding: 0; border: 0; min-width: 0; }
+.th-group + .th-group { margin-top: 6px; }
+.th-gh { margin: 0; padding: 14px 22px 0; font: 700 11px/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+@media (max-width: 520px) { .th-gh { padding-inline: 14px; } }
+/* Red tags on the highlighted (current-turn) player card sit on a plain backing so they stay readable. */
+.pcard.turn :is(.tag.bad, .tag.away) { background: color-mix(in srgb, var(--tile) 85%, transparent); }
+/* High contrast: the turn clock is yellow on black, with an outline. */
+[data-theme="contrast"] .turn-clock { background: #000000; color: #FFE600; box-shadow: inset 0 0 0 1px #FFE600; animation: none; }
+[data-theme="contrast"] .turn-clock.low { color: #FF9C9C; box-shadow: inset 0 0 0 1px #FF9C9C; }

@@ -9,9 +9,10 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const initial = (n) => (String(n || '?').trim()[0] || '?').toUpperCase();
   document.documentElement.lang = document.documentElement.lang || 'en-GB'; // British English for screen readers
-  const PERF_LITE = !!(window.matchMedia && window.matchMedia('(max-width: 1600px) and (max-height: 1000px)').matches)
-    || (navigator.hardwareConcurrency || 8) <= 4
-    || (navigator.deviceMemory || 8) <= 4;
+  // Lighter effects only for slow devices (few processor cores and little memory, such as a basic
+  // classroom Chromebook), not for every laptop-sized screen.
+  const CORES = navigator.hardwareConcurrency || 8, MEMORY = navigator.deviceMemory || 8;
+  const PERF_LITE = CORES <= 2 || MEMORY <= 2 || (CORES <= 4 && MEMORY <= 4);
   if (PERF_LITE) document.documentElement.classList.add('performance-lite');
   const PROF_KEY = 'boomtown.online.v1';
   const store = {
@@ -1641,15 +1642,13 @@
           return `<div class="note">${icon('lock')} In Prison · attempt ${p.jailTurns + 1} of 3</div>
             <div class="row roll-controls">
               <button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll for doubles</button>
-              <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls for you at the start of each turn. It never buys, pays or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
+              <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls the dice for you each turn, including prison rolls. It never buys, pays bail or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
               <button class="btn" data-a="bail" ${dis || (p.money < st.bail ? 'disabled' : '')}>Pay ${fmt(st.bail)} bail</button>
               ${p.pardons.length ? `<button class="btn" data-a="pardon" ${dis}>${icon('key')} Use Pardon</button>` : ''}
-            </div>
-            <div class="hint autoroll-hint">Auto-roll will attempt your prison dice roll too. It will not pay bail or use a Pardon.</div>`;
+            </div>`;
         }
         return `${t.again ? '<div class="note">Doubles! Roll again.</div>' : ''}
-          <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls for you at the start of each turn. It never buys, pays or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>
-          <div class="hint autoroll-hint">Auto-roll rolls automatically whenever it is your turn to roll. It does not make buying or end-turn decisions.</div>`;
+          <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls the dice for you each turn, including prison rolls. It never buys, pays bail or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>`;
       case 'moving': return '<div class="wait"><span>Moving<span class="dots"></span></span></div>';
       case 'buy': {
         const i = p.pos, tile = BOARD[i], short = tile.price - p.money;

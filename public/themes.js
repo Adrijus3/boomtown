@@ -13,32 +13,28 @@
   };
   // p = the colours and font used for the little preview in the picker.
   const THEMES = [
-    { id: 'midnight', name: 'Midnight', note: 'Deep navy and brass. The original.', scheme: 'dark', meta: '#0A0F1E',
+    { id: 'midnight', group: 'Dark', name: 'Midnight', note: 'Deep navy and brass. The original.', scheme: 'dark', meta: '#0A0F1E',
       p: { bg: '#0A0F1E', tile: '#151E35', line: '#2A3758', text: '#EDF0F8', acc: '#F1B94B', on: '#241600', font: FONT.bricolage } },
-    { id: 'crayon', name: 'Crayon', note: 'Scribbled in wax crayon on drawing paper.', scheme: 'light', meta: '#F3EBDA',
+    { id: 'crayon', group: 'Hand-drawn', name: 'Crayon', note: 'Scribbled in wax crayon on drawing paper.', scheme: 'light', meta: '#F3EBDA',
       sketch: { ink: '#34303B', grain: '#8A6A3C', jitter: 2.6, width: 3.4, speck: 0.55, fill: 'scribble', primary: '#F6C343' },
       p: { bg: '#F3EBDA', tile: '#FFFCF4', line: '#34303B', text: '#2B2733', acc: '#F6C343', on: '#2B2733', font: FONT.sketch } },
-    { id: 'chalk', name: 'Chalkboard', note: 'Chalk doodles on a classroom board.', scheme: 'dark', meta: '#1E2B24',
+    { id: 'chalk', group: 'Hand-drawn', name: 'Chalkboard', note: 'Chalk doodles on a classroom board.', scheme: 'dark', meta: '#1E2B24',
       sketch: { ink: '#F3F1E7', grain: '#FFFFFF', jitter: 2.8, width: 3.6, speck: 0.95, fill: 'scribble', primary: '#F4D35E', outline: true },
       p: { bg: '#1E2B24', tile: '#2A3B31', line: '#F3F1E7', text: '#F3F1E7', acc: '#F4D35E', on: '#1E2B24', font: FONT.sketch } },
-    { id: 'blueprint', name: 'Blueprint', note: 'Drawn up by an architect in white pencil.', scheme: 'dark', meta: '#0D3B66',
+    { id: 'blueprint', group: 'Hand-drawn', name: 'Blueprint', note: 'Drawn up by an architect in white pencil.', scheme: 'dark', meta: '#0D3B66',
       sketch: { ink: '#E8F3FF', grain: '', jitter: 0.9, width: 2, speck: 0, fill: 'hatch', primary: '#FFD66B' },
       p: { bg: '#0D3B66', tile: '#104A7E', line: '#E8F3FF', text: '#F2F8FF', acc: '#FFD66B', on: '#0D2A47', font: FONT.architect } },
-    { id: 'daylight', name: 'Daylight', note: 'Bright and clean, for a sunny room.', scheme: 'light', meta: '#EEF1F6',
+    { id: 'daylight', group: 'Light', name: 'Daylight', note: 'Bright and clean, for a sunny room.', scheme: 'light', meta: '#EEF1F6',
       p: { bg: '#EEF1F6', tile: '#FFFFFF', line: '#C9D1DF', text: '#141B2D', acc: '#A35F00', on: '#FFFFFF', font: FONT.bricolage } },
-    { id: 'classic', name: 'Classic', note: 'The family board game on the kitchen table.', scheme: 'light', meta: '#CFE3CC',
+    { id: 'classic', group: 'Light', name: 'Classic', note: 'The family board game on the kitchen table.', scheme: 'light', meta: '#CFE3CC',
       p: { bg: '#CFE3CC', tile: '#FBFAF3', line: '#1A1A1A', text: '#111111', acc: '#C8102E', on: '#FFFFFF', font: FONT.bricolage } },
-    { id: 'neon', name: 'Neon', note: 'Glowing signs in a late-night arcade.', scheme: 'dark', meta: '#08050F',
+    { id: 'neon', group: 'Dark', name: 'Neon', note: 'Glowing signs in a late-night arcade.', scheme: 'dark', meta: '#08050F',
       p: { bg: '#08050F', tile: '#130C24', line: '#FF4FB3', text: '#F6F0FF', acc: '#FF4FB3', on: '#1A0010', font: FONT.bricolage, glow: true } },
-    { id: 'ocean', name: 'Ocean', note: 'Cool coastal blues with sea-glass accents.', scheme: 'dark', meta: '#071D2B',
-      p: { bg: '#071D2B', tile: '#103247', line: '#2E6278', text: '#EAF8FC', acc: '#4DD0C8', on: '#062A2B', font: FONT.bricolage } },
-    { id: 'forest', name: 'Forest', note: 'Deep woodland green and warm copper.', scheme: 'dark', meta: '#101F19',
-      p: { bg: '#101F19', tile: '#1D3529', line: '#42634D', text: '#F0F4E9', acc: '#D69A58', on: '#2B1B0D', font: FONT.bricolage } },
-    { id: 'sunset', name: 'Sunset', note: 'Warm dusk tones, coral and amber.', scheme: 'dark', meta: '#281522',
+    { id: 'sunset', group: 'Dark', name: 'Sunset', note: 'Warm dusk tones, coral and amber.', scheme: 'dark', meta: '#281522',
       p: { bg: '#281522', tile: '#3B2030', line: '#704052', text: '#FFF0E8', acc: '#FF9A62', on: '#351708', font: FONT.bricolage } },
-    { id: 'rose', name: 'Rose', note: 'Soft blush, plum and berry accents.', scheme: 'light', meta: '#F5E8ED',
+    { id: 'rose', group: 'Light', name: 'Rose', note: 'Soft blush, plum and berry accents.', scheme: 'light', meta: '#F5E8ED',
       p: { bg: '#F5E8ED', tile: '#FFF9FB', line: '#D9B9C7', text: '#352331', acc: '#A52D62', on: '#FFFFFF', font: FONT.bricolage } },
-    { id: 'contrast', name: 'High contrast', note: 'Black, white and yellow. The easiest to read.', scheme: 'dark', meta: '#000000',
+    { id: 'contrast', group: 'Dark', name: 'High contrast', note: 'Black, white and yellow. The easiest to read.', scheme: 'dark', meta: '#000000',
       p: { bg: '#000000', tile: '#000000', line: '#FFFFFF', text: '#FFFFFF', acc: '#FFE600', on: '#000000', font: FONT.bricolage } },
   ];
   const byId = {};
@@ -155,7 +151,9 @@
     try { root.dispatchEvent(new CustomEvent('boomtown:theme', { detail: { id: t.id, theme: t } })); } catch (e) {}
     return t;
   }
-  const saved = store.get();
+  // Ocean and Forest were folded into the themes they resembled most.
+  const RENAMED = { ocean: 'blueprint', forest: 'chalk' };
+  const saved = RENAMED[store.get()] || store.get();
   const prefersContrast = (() => { try { return root.matchMedia('(prefers-contrast: more)').matches; } catch (e) { return false; } })();
   apply(byId[saved] ? saved : prefersContrast ? 'contrast' : 'midnight', { keep: true });
   if (!document.body) document.addEventListener('DOMContentLoaded', addDefs, { once: true });
@@ -183,8 +181,8 @@
     wrap.className = 'th-modal';
     wrap.innerHTML = `<div class="th-sheet" role="dialog" aria-modal="true" aria-labelledby="thTitle" aria-describedby="thNote">
       <div class="th-h"><h2 id="thTitle">Theme</h2><p id="thNote">Changes how the game looks on this device. Everyone else keeps their own.</p></div>
-      <fieldset class="th-grid"><legend class="th-sr">Choose a theme</legend>
-        ${THEMES.map((t) => `<label class="th-opt"><input type="radio" name="bt-theme" value="${t.id}"${t.id === current ? ' checked' : ''}>${previewHTML(t)}<span class="th-txt"><b>${esc(t.name)}</b><span>${esc(t.note)}</span></span></label>`).join('')}
+      <fieldset class="th-groups"><legend class="th-sr">Choose a theme</legend>
+        ${['Hand-drawn', 'Light', 'Dark'].map((g) => `<div class="th-group" role="presentation"><h3 class="th-gh">${g}</h3><div class="th-grid">${THEMES.filter((t) => t.group === g).map((t) => `<label class="th-opt"><input type="radio" name="bt-theme" value="${t.id}"${t.id === current ? ' checked' : ''}>${previewHTML(t)}<span class="th-txt"><b>${esc(t.name)}</b><span>${esc(t.note)}</span></span></label>`).join('')}</div></div>`).join('')}
       </fieldset>
       <div class="th-f"><button type="button" class="btn primary" data-th="done">Done</button></div>
     </div>`;

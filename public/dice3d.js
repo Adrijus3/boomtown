@@ -87,7 +87,8 @@
     if (!supported()) return null;
     const THREE = root.THREE;
     let renderer;
-    const lowPower = (root.navigator.hardwareConcurrency || 8) <= 6 || (root.navigator.deviceMemory || 8) <= 6 || (root.matchMedia && root.matchMedia('(max-width: 1600px)').matches);
+    const cores = root.navigator.hardwareConcurrency || 8, memory = root.navigator.deviceMemory || 8;
+    const lowPower = cores <= 2 || memory <= 2 || (cores <= 4 && memory <= 4);
     try { renderer = new THREE.WebGLRenderer({ canvas, antialias: !lowPower, alpha: true, powerPreference: 'low-power' }); }
     catch (e) { return null; }
     renderer.setPixelRatio(Math.min(lowPower ? 1.35 : 1.75, root.devicePixelRatio || 1));
@@ -192,6 +193,10 @@
         const t0 = performance.now();
         const frame = (now) => {
           let busy = false;
+          // The dice start outside the view, so their shadows fade in as they arrive instead of
+          // appearing on the table as dark blocks before the dice do.
+          const lead = Math.max(0, Math.min(1, (now - t0) / ms));
+          ground.material.opacity = 0.45 * Math.min(1, Math.max(0, (lead - 0.08) / 0.27));
           for (const p of plans) {
             const u = Math.max(0, Math.min(1, (now - t0) / ms - p.delay));
             if (u < 1) busy = true;
@@ -203,6 +208,7 @@
             p.d.mesh.position.set(x, halfHeight(p.d.mesh.quaternion) + p.lift * settle(u), z);
             if (u >= 1) { p.d.yaw = p.yaw; p.d.mesh.quaternion.copy(p.q1); p.d.mesh.position.set(p.to.x, halfHeight(p.q1), p.to.z); }
           }
+          if (!busy) ground.material.opacity = 0.45;
           draw();
           if (busy && alive) raf = requestAnimationFrame(frame);
           else resolve();

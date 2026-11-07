@@ -3104,3 +3104,10 @@ button.deedcard:hover:not(:disabled) {
 /* Pop-up cards don't keep an empty scrollbar strip: it showed as a band beside coloured headers
    (the property card's header stopped short of the right edge). */
 #modal > .sheet, #modal > .sheet.deed.plain.space-jail { scrollbar-gutter: auto; }
+
+/* ---------------------------------------------------------------- v14: lighter phone board
+   On a phone-sized board an owned tile shows its owner and name, not its rent: tap the tile to see
+   the rent. Unowned tiles keep their price, so you can still see what's for sale at a glance. */
+@container board (max-width: 600px) {
+  #board .tile.owned .body > .tprice { display: none !important; }
+}
