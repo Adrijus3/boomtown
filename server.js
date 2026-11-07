@@ -28,14 +28,14 @@ const SETTING_RULES = {
   startingCash: [1000, 1500, 2000, 2500, 3000],
   salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
-  roundLimit: [0, 10, 15, 20, 25, 30, 40, 50],
+  roundLimit: [25], // fixed: the game-length option was removed
   rollTimer: [0, 30, 60, 90, 120],
   turnTimer: [0, 60, 120, 180, 300],
   botSpeed: ['relaxed', 'normal', 'fast'],
 };
 const BOOL_SETTINGS = ['private', 'doubleOnStart', 'vacationCash', 'auctions', 'doubleRentSet', 'mortgages', 'evenBuild', 'limitedBuildings', 'noRentInPrison', 'randomOrder'];
 // Rooms default to 25 rounds, richest player wins: about the length of a lesson, and in testing the
-// leader after 25 rounds was the full-game winner 77% of the time. The host can change it.
+// leader after 25 rounds was the full-game winner 77% of the time. It's fixed, not a host option.
 const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120, roundLimit: 25 });
 const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 

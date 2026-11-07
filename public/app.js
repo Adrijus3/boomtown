@@ -144,7 +144,6 @@
     { key: 'limitedBuildings', type: 'toggle', label: 'Housing shortage', desc: 'The bank holds only 32 houses and 12 hotels.' },
     { key: 'noRentInPrison', type: 'toggle', label: 'No rent from Prison', desc: 'Owners serving time collect nothing.' },
     { group: 'Pace' },
-    { key: 'roundLimit', type: 'select', label: 'Game length', desc: 'With a limit, the highest net worth wins after the final round.', options: [[0, 'Last one standing'], [10, '10 rounds'], [15, '15 rounds'], [20, '20 rounds'], [25, '25 rounds (about a lesson)'], [30, '30 rounds'], [40, '40 rounds'], [50, '50 rounds']] },
     { key: 'rollTimer', type: 'select', label: 'Roll timer', desc: 'How long each player has to roll the dice. When it runs out, the dice are rolled for them.', options: [[0, 'Off'], [30, '30 seconds'], [60, '1 minute'], [90, '1½ minutes'], [120, '2 minutes']] },
     { key: 'turnTimer', type: 'select', label: 'Turn timer', desc: 'After rolling, how long to buy, build, trade and end the turn. When it runs out, the turn is finished and nothing is bought.', options: [[0, 'Off'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes']] },
     { key: 'bail', type: 'select', label: 'Prison bail', desc: 'What it costs to walk out early.', options: [[50, '£50'], [100, '£100'], [150, '£150']] },
