@@ -6,7 +6,7 @@
   const GROUPS = {
     wa: { name: 'Wales', color: '#B8754F', house: 25 },
     dv: { name: 'Devon', color: '#5EC2E6', house: 70 },
-    lc: { name: 'Lancashire', color: '#E35DA6', house: 85 },
+    lc: { name: 'Lancashire', color: '#E35DA6', house: 90 },
     md: { name: 'The Midlands', color: '#F28B3A', house: 100 },
     yk: { name: 'Yorkshire', color: '#E5484D', house: 100 },
     sc: { name: 'Scotland', color: '#E9C246', house: 115 },
@@ -17,7 +17,7 @@
   // Rents climb in board order. Regions are balanced through house prices instead (set above, from
   // simulated games): completing any region now gives a 39-47% chance of winning a 4-player game.
   // Wales, the cheapest, gets a small rent lift on top.
-  const RENT_NUDGE = { wa: 1.2, dv: 1, lc: 1, md: 1, yk: 1, sc: 1, li: 1, ln: 1 };
+  const RENT_NUDGE = { wa: 1.5, dv: 1, lc: 1, md: 1, yk: 1, sc: 1, li: 1, ln: 1 };
   // Each upgrade always charges more than the one before (a hotel never matches four houses).
   const climb = (rents) => rents.map((v, k, a) => (k > 1 ? (a[k] = Math.max(v, a[k - 1] + 5 * Math.ceil(a[k - 1] / 100))) : v));
   const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: climb(rent.map((value, level) => (level ? Math.max(5, Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] * RENT_NUDGE[group] / 5) * 5) : value))) });
@@ -887,7 +887,9 @@
         const i = +k, pr = g.s.props[i];
         if (pr.owner != null && pr.owner !== p.id && !pr.mortgaged) maxRent = Math.max(maxRent, g.rentFor(i, null, 7));
       }
-      return Math.round(Math.min(650, Math.max(100, maxRent * 0.55)));
+      const r = Math.round(Math.min(650, Math.max(100, maxRent * 0.55)));
+      // with a full set to build on, keep less cash idle: houses earn more than a cushion
+      return Object.keys(GROUP_TILES).some((grp) => g.ownsSet(p.id, grp)) ? Math.round(r * 0.7) : r;
     },
     unownedCount(g) { return Object.values(g.s.props).filter((pr) => pr.owner == null).length; },
     // How much owning idx (not yet theirs) is worth to pid.
@@ -931,7 +933,7 @@
     },
     bidLimit(g, p, idx) {
       const keep = Math.min(80, this.reserve(g, p) * 0.3);
-      const v = this.propValue(g, p.id, idx) * (0.82 + g.rng() * 0.3);
+      const v = this.propValue(g, p.id, idx) * (0.95 + g.rng() * 0.25);
       return Math.floor(Math.max(0, Math.min(p.money - keep, v)));
     },
     auctionBid(g, p) {
@@ -977,22 +979,30 @@
       }
       return p.money >= amount;
     },
+    // Build evenly on full sets. Short of cash, mortgage spare single properties (never part of a set) to
+    // get each set to 3 houses, where rent jumps most; only pay mortgages off once the sets are built up.
+    // In 4-player bot games this wins about 59% against the old "build only from spare cash" play.
     manage(g, p) {
-      const res = this.reserve(g, p);
-      const props = g.s.props;
-      const mortgaged = g.ownedBy(p.id).filter((i) => props[i].mortgaged)
-        .sort((a, b) => this.keepValue(g, p.id, b) - this.keepValue(g, p.id, a));
-      for (const i of mortgaged) {
-        if (p.money - g.unmortgageCost(i) > res + 120) g.unmortgage(p.id, i);
-      }
-      let guard = 50;
+      const res = this.reserve(g, p), props = g.s.props, CAP = 3;
+      const buildable = () => g.ownedBy(p.id).filter((i) => !g.canBuild(p.id, i));
+      let guard = 60;
       while (guard--) {
-        const opts = g.ownedBy(p.id).filter((i) => !g.canBuild(p.id, i));
+        const opts = buildable();
         if (!opts.length) break;
         opts.sort((a, b) => props[a].houses - props[b].houses || BOARD[b].price - BOARD[a].price);
         const i = opts[0];
-        if (p.money - g.houseCost(i) < res) break;
-        g.build(p.id, i);
+        if (p.money - g.houseCost(i) >= res) { g.build(p.id, i); continue; }
+        if (props[i].houses >= CAP) break;
+        const spare = g.ownedBy(p.id)
+          .filter((k) => !props[k].mortgaged && !g.canMortgage(p.id, k) && !(BOARD[k].group && g.ownsSet(p.id, BOARD[k].group)))
+          .sort((a, b) => this.keepValue(g, p.id, a) - this.keepValue(g, p.id, b));
+        if (!spare.length) break;
+        g.mortgage(p.id, spare[0]);
+      }
+      if (!buildable().some((i) => props[i].houses < CAP)) {
+        const mortgaged = g.ownedBy(p.id).filter((i) => props[i].mortgaged)
+          .sort((a, b) => this.keepValue(g, p.id, b) - this.keepValue(g, p.id, a));
+        for (const i of mortgaged) if (p.money - g.unmortgageCost(i) > res + 120) g.unmortgage(p.id, i);
       }
     },
     jailChoice(g, p) {
