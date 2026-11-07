@@ -166,7 +166,7 @@
   let dice3d = null; // WebGL dice; null means the CSS dice are used
   function freshUI() {
     return {
-      busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
+      busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, toCell: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
       view: null, tab: 'portfolio', modal: null, draft: null, renderQueued: false, lastHTML: {}, lastTurn: null,
       autoRoll: false, autoRollTurn: null,
     };
@@ -544,7 +544,6 @@
       const fwd = (ev.to - ev.from + 40) % 40, dir = fwd < 20 ? 1 : -1, n = dir > 0 ? fwd : 40 - fwd;
       const corners = [];
       for (let k = 1, pos = ev.from; k < n; k++) { pos = (pos + dir + 40) % 40; if (pos % 10 === 0) corners.push(tileCenter(pos)); }
-      if (BOARD[ev.to].type === 'jail') corners.push(tileCenter(ev.to)); // into the corner, then the cell
       return travel(ev.pid, ev.to, corners, speed().jump * (1 + corners.length * 0.6), false);
     }
     const n = Math.abs(ev.steps), dir = ev.steps < 0 ? -1 : 1;
@@ -594,6 +593,9 @@
     setTimeout(() => ghosts.forEach((g) => g.remove()), 5 * 26 + 60);
   }
   async function teleport(pid, to) {
+    // a teleport to Prison is always "go to Prison": aim for the token's place in the cell from the start,
+    // rather than landing outside and shuffling in when the new state arrives
+    if (BOARD[to].type === 'jail') ui.toCell[pid] = true;
     // round the edge of the board via the corners (the shorter way), never straight across the middle
     const p = game.player(pid), from = ui.displayPos[pid] != null ? ui.displayPos[pid] : p ? p.pos : to;
     if (from !== to) { await walk({ jump: true, pid, from, to }); if (to === 10) Sound.jail(); return; }
@@ -964,7 +966,8 @@
     layoutJailBars();
     const groups = {};
     const where = (p) => (ui.displayPos[p.id] != null ? ui.displayPos[p.id] : p.pos);
-    const inCell = (p) => p.jail && where(p) === 10;
+    for (const id of Object.keys(ui.toCell)) { const q = game.player(+id); if (!q || q.jail || where(q) !== 10) delete ui.toCell[id]; }
+    const inCell = (p) => (p.jail || ui.toCell[p.id]) && where(p) === 10;
     for (const p of game.s.players) {
       if (p.bankrupt) continue;
       const k = where(p) + (inCell(p) ? ':cell' : '');
@@ -1206,6 +1209,7 @@
     renderAuction();
     renderSide();
     if (ui.modal && ui.modal.kind === 'tile') renderTileModal();
+    checkTradeLock();
     if (ui.modal && ui.modal.kind === 'deal') renderDealBar();
     renderOfferDock();
     if (ui.modal && ui.modal.kind === 'over') renderOverModal();
@@ -1315,10 +1319,47 @@
   // Online, trading pauses for whoever is taking their turn, so offers don't interrupt play.
   function turnLocked() { const v = viewerPid(); return ONLINE && !!game && !game.s.over && v != null && game.cur && game.cur.id === v; }
   const TURN_LOCK_MSG = 'Trading opens again once your turn is over.';
+  // If your turn starts while you're building a trade, the trade is put aside (only that one) and
+  // handed back once your turn is over.
+  function checkTradeLock() {
+    if (!game || game.s.over) { ui.savedDraft = null; ui.wasLocked = false; return; }
+    const locked = turnLocked();
+    if (locked && ui.modal && ui.modal.kind === 'deal' && ui.draft) {
+      const d = ui.draft;
+      if (!isEmpty(d.give) || !isEmpty(d.get)) {
+        ui.savedDraft = JSON.parse(JSON.stringify(d));
+        closeModal();
+        toast("It's your turn, so your trade is saved. You can finish it after your turn.");
+      } else closeModal();
+    }
+    if (!locked && ui.wasLocked && ui.savedDraft && !(ui.modal && ui.modal.kind === 'deal')) {
+      toast('Your turn is over. Your saved trade is ready.', { action: 'Open trade', onAction: () => openDeal({ resume: true }) });
+    }
+    ui.wasLocked = locked;
+  }
+  // The saved trade, cleaned up for whatever changed meanwhile (sold cities, spent cash, players out).
+  function takeSavedDraft() {
+    const d = ui.savedDraft;
+    ui.savedDraft = null;
+    if (!d || !game) return null;
+    const from = game.player(d.from), to = game.player(d.to);
+    if (!from || !to || from.bankrupt || to.bankrupt || d.from !== viewerPid()) return null;
+    const fix = (sd, p) => ({
+      money: Math.max(0, Math.min(p.money, sd.money || 0)),
+      props: (sd.props || []).filter((i) => game.tradable(p.id, i)),
+      pardons: Math.max(0, Math.min(p.pardons.length, sd.pardons || 0)),
+    });
+    const tr = d.counterOf != null ? game.findTrade(d.counterOf) : null;
+    const out = { from: d.from, to: d.to, give: fix(d.give, from), get: fix(d.get, to), counterOf: tr && tr.status === 'pending' ? d.counterOf : null };
+    return isEmpty(out.give) && isEmpty(out.get) ? null : out;
+  }
   function openDeal(preset) {
     preset = preset || {};
     if (!game || game.s.over) return;
     if (turnLocked()) { toast(TURN_LOCK_MSG); return; }
+    const plain = preset.resume || (!preset.counterOf && !preset.give && !preset.get && (preset.to == null || (ui.savedDraft && preset.to === ui.savedDraft.to)));
+    const saved = ui.savedDraft && plain ? takeSavedDraft() : null;
+    if (saved) { ui.draft = saved; $('#modal').innerHTML = ''; openModal('deal'); return; }
     const from = preset.from != null ? preset.from : viewerPid();
     if (from == null) return;
     const others = game.alive().filter((p) => p.id !== from);
@@ -1997,7 +2038,7 @@
     const canTrade = p && !p.bankrupt && !game.s.over && game.alive().length >= 2 && !turnLocked();
     const pend = game.s.trades.filter((t) => t.status === 'pending').reverse();
     const done = game.s.trades.filter((t) => t.status !== 'pending').slice(-8).reverse();
-    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} Trade</button>${turnLocked() ? `<p class="muted trade-lock">${icon('dice')} ${TURN_LOCK_MSG}</p>` : suggestionsHTML()}`;
+    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} ${ui.savedDraft ? 'Resume trade' : 'Trade'}</button>${turnLocked() ? `<p class="muted trade-lock">${icon('dice')} ${TURN_LOCK_MSG}</p>` : suggestionsHTML()}`;
     if (!pend.length && !done.length) return h + '<div class="empty"><b>No trades yet</b>Swap properties, cash and Pardon cards with anyone between your turns. Bots also make offers when they need one city to finish a set.</div>';
     if (pend.length) h += '<div class="log-r" style="margin-top:16px">Open offers</div>' + pend.map(tradeCard).join('');
     if (done.length) h += '<div class="log-r" style="margin-top:16px">Recent</div>' + done.map(tradeCard).join('');
