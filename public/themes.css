@@ -598,3 +598,6 @@ html.th-open { overflow: hidden; }
 }
 /* Warning tags ("In prison", "Away") use each theme's readable red. */
 .tag.bad, .tag.away { color: var(--coral-text); }
+/* Sketch themes: the paper colour stops inside the card's 1px edge, where the hand-drawn outline is,
+   so a coloured header doesn't get a pale rim. */
+[data-sketch] :is(#modal > .sheet, .th-sheet, .pp-sheet) { background-clip: padding-box !important; }
