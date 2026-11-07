@@ -144,7 +144,7 @@
     { key: 'limitedBuildings', type: 'toggle', label: 'Housing shortage', desc: 'The bank holds only 32 houses and 12 hotels.' },
     { key: 'noRentInPrison', type: 'toggle', label: 'No rent from Prison', desc: 'Owners serving time collect nothing.' },
     { group: 'Pace' },
-    { key: 'roundLimit', type: 'select', label: 'Game length', desc: 'With a limit, the highest net worth wins after the final round.', options: [[0, 'Last one standing'], [10, '10 rounds'], [15, '15 rounds'], [20, '20 rounds'], [30, '30 rounds'], [50, '50 rounds']] },
+    { key: 'roundLimit', type: 'select', label: 'Game length', desc: 'With a limit, the highest net worth wins after the final round.', options: [[0, 'Last one standing'], [10, '10 rounds'], [15, '15 rounds'], [20, '20 rounds'], [25, '25 rounds (about a lesson)'], [30, '30 rounds'], [40, '40 rounds'], [50, '50 rounds']] },
     { key: 'rollTimer', type: 'select', label: 'Roll timer', desc: 'How long each player has to roll the dice. When it runs out, the dice are rolled for them.', options: [[0, 'Off'], [30, '30 seconds'], [60, '1 minute'], [90, '1½ minutes'], [120, '2 minutes']] },
     { key: 'turnTimer', type: 'select', label: 'Turn timer', desc: 'After rolling, how long to buy, build, trade and end the turn. When it runs out, the turn is finished and nothing is bought.', options: [[0, 'Off'], [60, '1 minute'], [120, '2 minutes'], [180, '3 minutes'], [300, '5 minutes']] },
     { key: 'bail', type: 'select', label: 'Prison bail', desc: 'What it costs to walk out early.', options: [[50, '£50'], [100, '£100'], [150, '£150']] },
@@ -1024,7 +1024,7 @@
         const key = (owner ? `${owner.id}:${tokenText(owner)}:${owner.color}` : '-') + '|' + label;
         if (price.dataset.v !== key) {
           price.dataset.v = key;
-          ui.badgeDirty = true;
+          (ui.dirtyTiles = ui.dirtyTiles || new Set()).add(i);
           const body = label === 'lock' ? icon('lock') : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
           price.innerHTML = owner ? body : label;
         }
@@ -1039,14 +1039,15 @@
           const houses = buildingsHTML(pr.houses);
           band.classList.toggle('has-b', !!(owner && pr.houses));
           band.innerHTML = !owner ? '' : pr.houses ? houses : `<b class="own-mark">${pr.mortgaged ? icon('lock') : esc(tokenText(owner))}</b>`;
-          ui.badgeDirty = true;
+          (ui.dirtyTiles = ui.dirtyTiles || new Set()).add(i);
         }
       }
       el.setAttribute('aria-label', `${t.name}${owner ? `, owned by ${owner.name}` : ', for sale'}`);
     });
     const pot = $('#potLabel');
     if (pot && game.st.vacationCash) pot.innerHTML = `<span class="pot">${fmt(s.pot)}</span>`;
-    if (ui.badgeDirty) { ui.badgeDirty = false; fitBadges(); }
+    // Only the tiles whose badge or buildings changed are measured again (resizing refits them all).
+    if (ui.dirtyTiles && ui.dirtyTiles.size) { const only = ui.dirtyTiles; ui.dirtyTiles = null; fitBadges(only); }
   }
   // Green houses and a red hotel, drawn rather than boxes.
   function buildingsHTML(n) {
@@ -1136,11 +1137,12 @@
     const current = parseFloat(getComputedStyle(pill).fontSize) || 8;
     pill.style.fontSize = `${Math.max(5, current * available / needed * 0.96)}px`;
   }
-  function fitBadges() {
+  function fitBadges(only) {
     if (!game || !ui.tileEls.length) return;
     const board = $('#board');
     const compactBoard = board && board.clientWidth <= 612;
     BOARD.forEach((t, i) => {
+      if (only && !only.has(i)) return;
       const el = ui.tileEls[i];
       if (!el || !el.querySelector('.body')) return;
       const pill = el.querySelector('.tprice');
@@ -1465,7 +1467,8 @@
   // ---- auctions: bid, auto-bid up to a cap, or pass
   function bidderHTML(p, a, st) {
     const lead = a.bidder === p.id, next = Math.max(10, a.high + 10), jump = a.high + 50;
-    const cap = Math.min(p.money, Math.max(BOARD[a.tile].price, Math.ceil((a.high + 60) / 10) * 10));
+    const lotPrice = (a.lot || [a.tile]).reduce((sum, i) => sum + BOARD[i].price, 0);
+    const cap = Math.min(p.money, Math.max(lotPrice, Math.ceil((a.high + 60) / 10) * 10));
     let ctl;
     if (st.passed) ctl = '<span class="tag">You passed</span>';
     else if (st.proxy) ctl = `<span class="tag good">Auto-bidding up to ${fmt(st.proxy)}</span><button type="button" class="btn sm ghost" data-autooff="${p.id}">Stop</button>`;
@@ -1696,7 +1699,7 @@
     const M = (meta && meta.auction) || {};
     setHTML(box, 'auction', `
       <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">–</b></span></div>
-      <div class="auction-property"><span class="auction-property-label">PROPERTY VALUE</span>${postcardHTML(a.tile, mine)}</div>
+      <div class="auction-property"><span class="auction-property-label">${(a.lot || []).length > 1 ? 'BANKRUPTCY LOT · WINNER TAKES ALL' : 'PROPERTY VALUE'}</span>${postcardHTML(a.tile, mine)}${(a.lot || []).length > 1 ? `<div class="auction-lot">${a.lot.map((i) => `<span>${emblemHTML(i, 'xs')}${esc(BOARD[i].name)} <b>${fmt(BOARD[i].price)}</b></span>`).join('')}<span class="auction-lot-total">${esc(BOARD[a.lot[0]].group ? GROUPS[BOARD[a.lot[0]].group].name : BOARD[a.lot[0]].type === 'airport' ? 'Airports' : 'Utilities')}: ${a.lot.length} places, together ${fmt(a.lot.reduce((sum, i) => sum + BOARD[i].price, 0))}</span></div>` : ''}</div>
       <div class="auction-bid-summary">
         <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID:</span><span class="v">${fmt(a.high)}</span></div>
         <div class="auction-leader">${bidder ? `${dotHTML(bidder)}<span>Leading: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b></span>` : '<span>No bids yet</span>'}</div>

@@ -50,6 +50,8 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back. On a different computer or phone, open the room link and press **That's me** next to your name. That works whenever your old device is no longer connected.
 - Press the palette button to pick a theme. They come in three groups: hand-drawn (Crayon, Chalkboard, Blueprint), light (Daylight, Classic, Rose) and dark (Midnight, Neon, Sunset, High contrast). Each person picks their own theme on their own device.
 - On a phone, owned properties show their owner rather than their rent, so names stay readable. Tap any square to see its full card.
+- Games last **25 rounds** by default, about the length of a lesson. After the last round the richest player (by net worth) wins, unless everyone else has already gone bankrupt. The host can pick a shorter or longer game, or play until one player is left.
+- When a player goes bankrupt, their properties are auctioned **one region at a time**, and the highest bidder takes the whole region.
 - Taxes, fines and bail pile up on **Free Parking**, and whoever lands there collects the lot. The host can switch this off in the house rules.
 - Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 
@@ -57,7 +59,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 
 | Path | What it does |
 | --- | --- |
-| `server.js` | Web server, rooms, seats, host controls, bots, auctions, turn timer and reconnects |
+| `server.js` | Web server (sends files compressed, about a quarter of their size), rooms, seats, host controls, bots, auctions, turn timer and reconnects |
 | `public/engine.js` | The rules: board, money, rent, building, mortgages, auctions, trades, Prison, cards, bankruptcy, bot strategy. The server and the browser share this file. |
 | `public/app.js` | The browser client: start screen, waiting room, board, animations, portfolio, trades, chat |
 | `public/art.js` | The hand-drawn board icons and country flags |

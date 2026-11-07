@@ -14,7 +14,11 @@
     ln: { name: 'London', color: '#4C6FFF', house: 160 },
   };
 
-  const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: rent.map((value, level) => Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] / 5) * 5) });
+  // Rent per region, nudged from simulated games so that completing any region gives a similar edge.
+  const RENT_NUDGE = { wa: 1.8, dv: 0.87, lc: 1.1, md: 0.85, yk: 0.96, sc: 0.94, li: 1.3, ln: 1 };
+  // Each upgrade always charges more than the one before (a hotel never matches four houses).
+  const climb = (rents) => rents.map((v, k, a) => (k > 1 ? (a[k] = Math.max(v, a[k - 1] + 5 * Math.ceil(a[k - 1] / 100))) : v));
+  const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: climb(rent.map((value, level) => (level ? Math.max(5, Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] * RENT_NUDGE[group] / 5) * 5) : value))) });
   const BOARD = [
     { type: 'start', name: 'Start' },
     P('Swansea', 'wa', 60, [2, 10, 30, 90, 160, 250]),
@@ -500,14 +504,19 @@
       return true;
     }
 
+    // A bankrupt player's properties are auctioned one region at a time: the winner takes the whole lot.
     startBankruptcyAuction() {
       const s = this.s;
       if (!s.bankruptcyAuctionQueue || !s.bankruptcyAuctionQueue.length) return false;
-      const idx = s.bankruptcyAuctionQueue.shift();
-      s.auction = { tile: idx, high: 0, bidder: null, seq: 0, bankruptcy: true };
-      this.log(['Bankruptcy property ', { t: idx }, ' goes to auction.']);
+      const next = s.bankruptcyAuctionQueue.shift();
+      const lot = (Array.isArray(next) ? next : [next]).filter((i) => s.props[i] && s.props[i].owner == null);
+      if (!lot.length) return this.startBankruptcyAuction();
+      s.auction = { tile: lot[0], lot, high: 0, bidder: null, seq: 0, bankruptcy: true };
+      const names = [];
+      lot.forEach((i, k) => { if (k) names.push(k === lot.length - 1 ? ' and ' : ', '); names.push({ t: i }); });
+      this.log([lot.length > 1 ? 'Bankruptcy lot: ' : 'Bankruptcy property ', ...names, lot.length > 1 ? ' go to auction together.' : ' goes to auction.']);
       this.setPhase('auction');
-      this.emit({ type: 'auction', idx });
+      this.emit({ type: 'auction', idx: lot[0] });
       return true;
     }
 
@@ -578,13 +587,13 @@
       if (a.bidder != null) {
         const w = this.player(a.bidder);
         if (w && !w.bankrupt && w.money >= a.high) {
+          const lot = a.lot || [a.tile];
           this.transfer(w, a.high, null, false);
-          this.s.props[a.tile].owner = w.id;
-          this.log([{ p: w.id }, ' won ', { t: a.tile }, ' at auction for ', { m: a.high }, '.']);
-          this.emit({ type: 'own', idx: a.tile, pid: w.id });
+          for (const i of lot) { this.s.props[i].owner = w.id; this.emit({ type: 'own', idx: i, pid: w.id }); }
+          this.log([{ p: w.id }, ' won ', { t: a.tile }, lot.length > 1 ? ` and ${lot.length - 1} more` : '', ' at auction for ', { m: a.high }, '.']);
         }
       } else {
-        this.log(['Nobody bid on ', { t: a.tile }, '. It stays with the bank.']);
+        this.log(['Nobody bid on ', { t: a.tile }, (a.lot || []).length > 1 ? ` and ${a.lot.length - 1} more` : '', '. ', (a.lot || []).length > 1 ? 'They stay' : 'It stays', ' with the bank.']);
       }
       if (a.bankruptcy) {
         if (!this.startBankruptcyAuction()) this.setPhase('roll');
@@ -722,14 +731,17 @@
           pr.houses = 0;
         }
       }
+      const lots = {};
       for (const i of owned) {
         const pr = s.props[i];
         pr.owner = null;
         pr.mortgaged = false;
         pr.houses = 0;
-        s.bankruptcyAuctionQueue.push(i);
+        const key = BOARD[i].group || BOARD[i].type;
+        (lots[key] = lots[key] || []).push(i);
         this.emit({ type: 'own', idx: i, pid: null });
       }
+      for (const lot of Object.values(lots)) s.bankruptcyAuctionQueue.push(lot);
       if (creditor) {
         if (p.money > 0) this.gain(creditor, p.money);
         creditor.pardons.push(...p.pardons);
@@ -741,8 +753,8 @@
       if (d) s.debt = null;
       for (const tr of s.trades) if (tr.status === 'pending' && (tr.from === pid || tr.to === pid)) tr.status = 'cancelled';
       if (s.auction && s.auction.bidder === pid) { s.auction.high = 0; s.auction.bidder = null; }
-      if (!silent) this.log([{ p: pid }, ' went bankrupt. Their properties will be auctioned to the remaining players.']);
-      else this.log([{ p: pid }, ' was removed. Their properties will be auctioned.']);
+      if (!silent) this.log([{ p: pid }, ' went bankrupt. Their properties will be auctioned a region at a time.']);
+      else this.log([{ p: pid }, ' was removed. Their properties will be auctioned a region at a time.']);
       this.emit({ type: 'bankrupt', pid });
       if (this.alive().length <= 1) { this.endGame('last'); return true; }
       if (this.cur.id === pid && s.turn.phase !== 'auction') {
@@ -902,7 +914,9 @@
     auctionBid(g, p) {
       const a = g.s.auction;
       if (!a || p.bankrupt || a.bidder === p.id) return null;
-      const limit = this.bidLimit(g, p, a.tile);
+      const lot = a.lot || [a.tile];
+      const spare = Math.floor(Math.max(0, p.money - Math.min(80, this.reserve(g, p) * 0.3)));
+      const limit = Math.min(spare, lot.reduce((sum, i) => sum + this.bidLimit(g, p, i), 0));
       const inc = a.high < 100 ? 10 : a.high < 400 ? 20 : 50;
       let next = Math.max(10, a.high + inc);
       // Open strongly instead of creeping up £10 at a time.

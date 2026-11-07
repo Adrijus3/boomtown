@@ -5,6 +5,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
 const { Game, Bot, DEFAULT_SETTINGS } = require('./public/engine.js');
 
@@ -27,13 +28,15 @@ const SETTING_RULES = {
   startingCash: [1000, 1500, 2000, 2500, 3000],
   salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
-  roundLimit: [0, 10, 15, 20, 30, 50],
+  roundLimit: [0, 10, 15, 20, 25, 30, 40, 50],
   rollTimer: [0, 30, 60, 90, 120],
   turnTimer: [0, 60, 120, 180, 300],
   botSpeed: ['relaxed', 'normal', 'fast'],
 };
 const BOOL_SETTINGS = ['private', 'doubleOnStart', 'vacationCash', 'auctions', 'doubleRentSet', 'mortgages', 'evenBuild', 'limitedBuildings', 'noRentInPrison', 'randomOrder'];
-const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120 });
+// Rooms default to 25 rounds, richest player wins: about the length of a lesson, and in testing the
+// leader after 25 rounds was the full-game winner 77% of the time. The host can change it.
+const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120, roundLimit: 25 });
 const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
@@ -62,6 +65,42 @@ const INDEX = fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8')
   .replace(/((?:src|href)=")(\/[^"?]+\.(?:js|css))(?:\?[^"]*)?(")/g, (match, attr, assetPath, quote) =>
     `${attr}${assetPath}?v=${ASSET_VERSIONS.get(assetPath) || BUILD}${quote}`)
   .replace('<head>', `<head>\n<script>window.BOOMTOWN_BUILD = ${JSON.stringify(BUILD)};</script>`);
+// Text files (scripts, styles, the page) are compressed once and kept in memory: about a third of the
+// download on a first visit, which matters when a whole class joins on the same wifi.
+const COMPRESSIBLE = /\.(js|css|html|svg|txt|webmanifest)$/;
+const packed = new Map();
+function pack(key, buf) {
+  if (!packed.has(key)) {
+    packed.set(key, {
+      raw: buf,
+      br: zlib.brotliCompressSync(buf, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }),
+      gzip: zlib.gzipSync(buf, { level: 9 }),
+    });
+  }
+  return packed.get(key);
+}
+function sendBody(req, res, status, headers, key, buf) {
+  const accept = String(req.headers['accept-encoding'] || '');
+  const out = Object.assign({ vary: 'Accept-Encoding' }, headers);
+  let body = buf;
+  if (buf.length > 1024) {
+    const p = pack(key, buf);
+    if (/\bbr\b/.test(accept)) { body = p.br; out['content-encoding'] = 'br'; }
+    else if (/\bgzip\b/.test(accept)) { body = p.gzip; out['content-encoding'] = 'gzip'; }
+  }
+  out['content-length'] = body.length;
+  res.writeHead(status, out);
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+// Compress everything up front, so a first visitor never stalls the server mid-game.
+(function warm(dir) {
+  for (const name of fs.readdirSync(dir)) {
+    const f = path.join(dir, name);
+    if (fs.statSync(f).isDirectory()) warm(f);
+    else if (COMPRESSIBLE.test(name)) { const b = fs.readFileSync(f); if (b.length > 1024) pack(f, b); }
+  }
+})(PUBLIC);
+pack('/index.html', Buffer.from(INDEX));
 const server = http.createServer((req, res) => {
   let p, versioned;
   try {
@@ -71,20 +110,21 @@ const server = http.createServer((req, res) => {
   } catch (e) { res.writeHead(400); return res.end(); }
   if (p === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
   if (p === '/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
-    res.writeHead(200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
-    return res.end(INDEX);
+    return sendBody(req, res, 200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }, '/index.html', Buffer.from(INDEX));
   }
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC + path.sep)) { res.writeHead(404); return res.end('Not found'); }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }); return res.end('Not found'); }
-    res.writeHead(200, {
+    const headers = {
       'content-type': TYPES[path.extname(file)] || 'application/octet-stream',
       // Files asked for with this build's fingerprint never change, so phones can keep them; anything
       // else is checked with the server every time.
       'cache-control': versioned ? 'public, max-age=31536000, immutable' : /\.woff2$/.test(file) ? 'public, max-age=86400' : 'no-cache',
       'x-content-type-options': 'nosniff',
-    });
+    };
+    if (COMPRESSIBLE.test(file)) return sendBody(req, res, 200, headers, file, buf);
+    res.writeHead(200, headers);
     res.end(buf);
   });
 });

@@ -580,3 +580,4 @@ html.th-open { overflow: hidden; }
 /* High contrast: the turn clock is yellow on black, with an outline. */
 [data-theme="contrast"] .turn-clock { background: #000000; color: #FFE600; box-shadow: inset 0 0 0 1px #FFE600; animation: none; }
 [data-theme="contrast"] .turn-clock.low { color: #FF9C9C; box-shadow: inset 0 0 0 1px #FF9C9C; }
+[data-theme="blueprint"] :is(.tag.bad, .tag.away) { background: rgba(5, 25, 50, .45); }
