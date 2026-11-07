@@ -4,18 +4,20 @@
 
   // ---------------------------------------------------------------- board data
   const GROUPS = {
-    wa: { name: 'Wales', color: '#B8754F', house: 40 },
-    dv: { name: 'Devon', color: '#5EC2E6', house: 40 },
-    lc: { name: 'Lancashire', color: '#E35DA6', house: 80 },
-    md: { name: 'The Midlands', color: '#F28B3A', house: 80 },
-    yk: { name: 'Yorkshire', color: '#E5484D', house: 120 },
-    sc: { name: 'Scotland', color: '#E9C246', house: 120 },
-    li: { name: 'Lincolnshire', color: '#2EB673', house: 160 },
-    ln: { name: 'London', color: '#4C6FFF', house: 160 },
+    wa: { name: 'Wales', color: '#B8754F', house: 20 },
+    dv: { name: 'Devon', color: '#5EC2E6', house: 60 },
+    lc: { name: 'Lancashire', color: '#E35DA6', house: 85 },
+    md: { name: 'The Midlands', color: '#F28B3A', house: 100 },
+    yk: { name: 'Yorkshire', color: '#E5484D', house: 110 },
+    sc: { name: 'Scotland', color: '#E9C246', house: 115 },
+    li: { name: 'Lincolnshire', color: '#2EB673', house: 125 },
+    ln: { name: 'London', color: '#4C6FFF', house: 140 },
   };
 
-  // Rent per region, nudged from simulated games so that completing any region gives a similar edge.
-  const RENT_NUDGE = { wa: 1.8, dv: 0.87, lc: 1.1, md: 0.85, yk: 0.96, sc: 0.94, li: 1.3, ln: 1 };
+  // Rents climb in board order. Regions are balanced through house prices instead (set above, from
+  // simulated games): completing any region now gives a 39-47% chance of winning a 4-player game.
+  // Wales, the cheapest, gets a small rent lift on top.
+  const RENT_NUDGE = { wa: 1.2, dv: 1, lc: 1, md: 1, yk: 1, sc: 1, li: 1, ln: 1 };
   // Each upgrade always charges more than the one before (a hotel never matches four houses).
   const climb = (rents) => rents.map((v, k, a) => (k > 1 ? (a[k] = Math.max(v, a[k - 1] + 5 * Math.ceil(a[k - 1] / 100))) : v));
   const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: climb(rent.map((value, level) => (level ? Math.max(5, Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] * RENT_NUDGE[group] / 5) * 5) : value))) });
@@ -64,21 +66,33 @@
 
   const BUYABLE = (t) => t.type === 'prop' || t.type === 'airport' || t.type === 'utility';
   const GROUP_TILES = {};
+  // Places in the same region with the same price charge the same rent (the average of their rents), so
+  // two £60 Welsh cities never differ by hundreds once built up.
+  (() => {
+    const same = {};
+    for (const t of BOARD) if (t.type === 'prop') (same[t.group + ':' + t.price] = same[t.group + ':' + t.price] || []).push(t);
+    for (const list of Object.values(same)) {
+      if (list.length < 2) continue;
+      const avg = list[0].rent.map((_, k) => list.reduce((sum, t) => sum + t.rent[k], 0) / list.length);
+      const rent = avg.map((v, k) => (k ? Math.round(v / 5) * 5 : Math.round(v)));
+      for (const t of list) t.rent = rent.slice();
+    }
+  })();
   BOARD.forEach((t, i) => { if (t.group) (GROUP_TILES[t.group] = GROUP_TILES[t.group] || []).push(i); });
   const AIRPORTS = BOARD.map((t, i) => (t.type === 'airport' ? i : -1)).filter((i) => i >= 0);
   const UTILITIES = BOARD.map((t, i) => (t.type === 'utility' ? i : -1)).filter((i) => i >= 0);
 
   const CHANCE = [
     { text: 'Advance to Start and collect your salary.', a: 'moveTo', to: 0 },
-    { text: 'Take the train to York. Collect your salary if you pass Start.', a: 'moveTo', to: 24 },
-    { text: 'Advance to the City of London.', a: 'moveTo', to: 39 },
-    { text: 'Take a detour to Manchester. Collect your salary if you pass Start.', a: 'moveTo', to: 14 },
-    { text: 'Head to Heathrow Airport. Collect your salary if you pass Start.', a: 'moveTo', to: 5 },
-    { text: 'Advance to the nearest airport. If it is owned, pay the owner double rent.', a: 'nearest', kind: 'airport' },
-    { text: 'Advance to the nearest airport. If it is owned, pay the owner double rent.', a: 'nearest', kind: 'airport' },
-    { text: 'Advance to the nearest utility. If it is owned, pay ten times your dice roll.', a: 'nearest', kind: 'utility' },
+    { text: 'Take the train to a city picked at random. Collect your salary if you pass Start.', a: 'randomCity' },
+    { text: 'Hop on a coach to a city picked at random. Collect your salary if you pass Start.', a: 'randomCity' },
+    { text: 'A friend gives you a lift to a city picked at random. Collect your salary if you pass Start.', a: 'randomCity' },
+    { text: 'Advance to the nearest airport. If it is owned, pay the owner the normal rent.', a: 'nearest', kind: 'airport' },
+    { text: 'Advance to the nearest utility. If it is owned, pay the owner the normal rent.', a: 'nearest', kind: 'utility' },
     { text: 'Go back 3 spaces.', a: 'back', n: 3 },
     { text: 'Go directly to Prison. Do not pass Start.', a: 'jail' },
+    { text: 'You win the regional pub quiz. Collect £100.', a: 'gain', n: 100 },
+    { text: 'Council tax bill. Pay £80.', a: 'pay', n: 80 },
     { text: 'Pardon: get out of Prison free. Keep this card until you need it.', a: 'pardon' },
     { text: 'The bank pays you a dividend of £50.', a: 'gain', n: 50 },
     { text: 'Your building loan matures. Collect £150.', a: 'gain', n: 150 },
@@ -105,6 +119,9 @@
     { text: 'You inherit £100.', a: 'gain', n: 100 },
   ];
   const DECKS = { chance: CHANCE, chest: CHEST };
+  // Half of each tax, fine and bail goes into the jackpot, which stops growing at £200: in simulated games the
+  // biggest collector then wins 32% (fair share 25%), against 50% when every penny went in with no ceiling.
+  const FREE_PARKING = { share: 0.5, cap: 200 };
   const PARDON_INDEX = { chance: CHANCE.findIndex((c) => c.a === 'pardon'), chest: CHEST.findIndex((c) => c.a === 'pardon') };
 
   const DEFAULT_SETTINGS = {
@@ -262,7 +279,8 @@
         const o = this.player(to);
         if (o && !o.bankrupt) { this.gain(o, amount); return; }
       }
-      if (potable && this.st.vacationCash) this.s.pot += amount;
+      // Free Parking jackpot: part of each tax, fine and bail goes into it, up to a ceiling.
+      if (potable && this.st.vacationCash) this.s.pot = Math.min(FREE_PARKING.cap || Infinity, this.s.pot + Math.round(amount * FREE_PARKING.share / 5) * 5);
     }
     // Returns true when paid immediately. Otherwise the player enters the debt phase.
     charge(p, amount, to, potable, cont) {
@@ -426,7 +444,12 @@
           const list = card.kind === 'airport' ? AIRPORTS : UTILITIES;
           let dest = list.find((i) => i > p.pos);
           if (dest == null) dest = list[0];
-          return this.moveTo(p, dest, card.kind === 'airport' ? { mul: 2 } : { util: true });
+          return this.moveTo(p, dest); // normal rent: the card no longer doubles it
+        }
+        // Any city, each equally likely, so no property gets extra visitors from the cards.
+        case 'randomCity': {
+          const cities = BOARD.map((t, i) => (t.type === 'prop' && i !== p.pos ? i : -1)).filter((i) => i >= 0);
+          return this.moveTo(p, cities[Math.floor(this.rng() * cities.length)]);
         }
         case 'back': return this.startMove(p, -card.n, null, true);
         case 'jail': this.sendToJail(p); return this.finishAction();

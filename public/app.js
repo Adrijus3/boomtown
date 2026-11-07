@@ -135,7 +135,7 @@
     { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
     { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [150, '£150'], [200, '£200'], [300, '£300'], [400, '£400']] },
     { key: 'doubleOnStart', type: 'toggle', label: 'Double salary on Start', desc: 'Land exactly on Start to collect twice the salary.' },
-    { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Taxes, fines and bail pile up on Free Parking. Whoever lands there collects the lot.' },
+    { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Half of every tax, fine and bail goes into a jackpot on Free Parking, up to £200. Whoever lands there collects it.' },
     { group: 'Property' },
     { key: 'auctions', type: 'toggle', label: 'Auctions', desc: 'A property nobody buys goes to the highest bidder.' },
     { key: 'doubleRentSet', type: 'toggle', label: 'Double rent on full sets', desc: 'Own a whole region to charge twice the base rent on empty lots.' },
@@ -538,10 +538,19 @@
   function tileCenter(i) { const t = ui.tileEls[i]; return { x: t.offsetLeft + t.offsetWidth / 2, y: t.offsetTop + t.offsetHeight / 2 }; }
   const walkMs = (n) => Math.max(380, Math.min(2400, n * speed().step));
   async function walk(ev) {
-    if (ev.jump) return travel(ev.pid, ev.to, [], speed().jump, true);
+    if (ev.jump) {
+      // A jump (Go to Prison) glides round the edge of the board through the corners, the shorter way,
+      // never straight across the middle.
+      const fwd = (ev.to - ev.from + 40) % 40, dir = fwd < 20 ? 1 : -1, n = dir > 0 ? fwd : 40 - fwd;
+      const corners = [];
+      for (let k = 1, pos = ev.from; k < n; k++) { pos = (pos + dir + 40) % 40; if (pos % 10 === 0) corners.push(tileCenter(pos)); }
+      if (BOARD[ev.to].type === 'jail') corners.push(tileCenter(ev.to)); // into the corner, then the cell
+      return travel(ev.pid, ev.to, corners, speed().jump * (1 + corners.length * 0.6), false);
+    }
     const n = Math.abs(ev.steps), dir = ev.steps < 0 ? -1 : 1;
     const via = [];
     let pos = ev.from;
+    if (BOARD[ev.from].type === 'jail') via.push(tileCenter(ev.from)); // step out of the cell first
     for (let k = 0; k < n - 1; k++) { pos = (pos + dir + 40) % 40; via.push(tileCenter(pos)); }
     await travel(ev.pid, ev.to, via, walkMs(n), false);
   }
@@ -938,12 +947,14 @@
     const bars = $('#jailBars'), board = $('#board'), tile = ui.tileEls[10];
     const cell = tile && tile.querySelector('.cell');
     if (!bars || !board || !cell) return;
-    const boardRect = board.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
-    bars.style.left = `${cellRect.left - boardRect.left}px`;
-    bars.style.top = `${cellRect.top - boardRect.top}px`;
-    bars.style.width = `${cellRect.width}px`;
-    bars.style.height = `${cellRect.height}px`;
+    // Measured inside the board (offsets, not screen rectangles), so the camera zoom and the board's
+    // border can't shift the bars off the cell.
+    let x = 0, y = 0;
+    for (let el = cell; el && el !== board; el = el.offsetParent) { x += el.offsetLeft + (el !== cell ? el.clientLeft : 0); y += el.offsetTop + (el !== cell ? el.clientTop : 0); }
+    bars.style.left = `${x}px`;
+    bars.style.top = `${y}px`;
+    bars.style.width = `${cell.offsetWidth}px`;
+    bars.style.height = `${cell.offsetHeight}px`;
   }
   function positionTokens(instant) {
     if (!game || !ui.tileEls.length) return;
@@ -964,33 +975,28 @@
       const pos = where(p), tile = ui.tileEls[pos];
       const w = tile.offsetWidth, h = tile.offsetHeight;
       let x = tile.offsetLeft + w / 2, y = tile.offsetTop + h / 2;
-      if (pos === 0) {
-        x = tile.offsetLeft + w * 0.22;
-        y = tile.offsetTop + h * 0.22;
-      } else if (pos === 10) {
+      // Every square holds its token in the middle, Prison aside (in the cell, or just visiting outside it).
+      if (pos === 10) {
         if (inCell(p)) { x = tile.offsetLeft + w * 0.33; y = tile.offsetTop + h * 0.745; }
         else { x = tile.offsetLeft + w * 0.83; y = tile.offsetTop + h * 0.64; }
-      } else if (pos === 20) {
-        x = tile.offsetLeft + w * 0.78;
-        y = tile.offsetTop + h * 0.78;
-      } else if (pos === 30) {
-        x = tile.offsetLeft + w * 0.22;
-        y = tile.offsetTop + h * 0.78;
       }
       const list = groups[pos + (inCell(p) ? ':cell' : '')] || [p];
       const n = list.length, k = list.indexOf(p);
       if (n > 1) {
-        const r = Math.min(w, h) * (pos === 10 ? 0.16 : n > 4 ? 0.3 : 0.24);
-        const a = (k / n) * Math.PI * 2 - Math.PI / 2;
-        x += Math.cos(a) * r; y += Math.sin(a) * r;
+        // Players sharing a square cluster round the middle along the tile's long side, overlapping a
+        // little when there are many, so they stay together and clear of the edges.
+        const tk = el.offsetWidth || Math.min(w, h) * 0.4;
+        const along = pos === 10 ? 'y' : w >= h ? 'x' : 'y';
+        const room = (along === 'x' ? w : h) - tk - 6;
+        const gap = Math.max(0, Math.min(tk * 0.78, room / (n - 1)));
+        const shift = (k - (n - 1) / 2) * gap;
+        if (along === 'x') x += shift; else y += shift;
+        // a second, perpendicular nudge for crowded squares so faces stay visible
+        if (n > 3) { const nudge = (k % 2 ? 1 : -1) * tk * 0.18; if (along === 'x') y += nudge; else x += nudge; }
       }
-      // Tokens are board-level overlays, not children of their property tile.
-      // Keep each token's centre far enough inside its tile for the full circle and ring.
       const halfToken = (el.offsetWidth || 0) / 2;
-      const insetX = Math.min(w / 2, halfToken + 5);
-      const insetY = Math.min(h / 2, halfToken + 5);
-      x = Math.max(tile.offsetLeft + insetX, Math.min(tile.offsetLeft + w - insetX, x));
-      y = Math.max(tile.offsetTop + insetY, Math.min(tile.offsetTop + h - insetY, y));
+      x = Math.max(tile.offsetLeft + Math.min(w / 2, halfToken + 2), Math.min(tile.offsetLeft + w - Math.min(w / 2, halfToken + 2), x));
+      y = Math.max(tile.offsetTop + Math.min(h / 2, halfToken + 2), Math.min(tile.offsetTop + h - Math.min(h / 2, halfToken + 2), y));
       x = Math.round(x); y = Math.round(y);
       ui.tokenXY[p.id] = { x, y };
       el.style.transition = instant || ui.moving[p.id] ? 'none' : '';
@@ -1025,7 +1031,7 @@
         if (price.dataset.v !== key) {
           price.dataset.v = key;
           (ui.dirtyTiles = ui.dirtyTiles || new Set()).add(i);
-          const body = label === 'lock' ? icon('lock') : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
+          const body = label === 'lock' ? `${icon('lock')}<span class="rt">Mortgaged</span>` : `<span class="rt">${t.type === 'prop' ? `Rent ${label}` : label}</span>`;
           price.innerHTML = owner ? body : label;
         }
         price.title = '';
@@ -1038,7 +1044,7 @@
           band.dataset.h = bkey;
           const houses = buildingsHTML(pr.houses);
           band.classList.toggle('has-b', !!(owner && pr.houses));
-          band.innerHTML = !owner ? '' : pr.houses ? houses : `<b class="own-mark">${pr.mortgaged ? icon('lock') : esc(tokenText(owner))}</b>`;
+          band.innerHTML = !owner ? '' : pr.houses ? houses : `<b class="own-mark">${esc(tokenText(owner))}</b>`;
           (ui.dirtyTiles = ui.dirtyTiles || new Set()).add(i);
         }
       }
@@ -1264,7 +1270,7 @@
     if (isEmpty(spec.give) && isEmpty(spec.get)) return { cls: '', text: 'Tap cities on either side to build a deal.', pos: 50 };
     const dl = BotAI.tradeDeltas(game, spec);
     const span = Math.max(150, Math.abs(dl.mine) + Math.abs(dl.theirs));
-    const pos = Math.max(5, Math.min(95, 50 + ((dl.theirs - dl.mine) / span) * 50));
+    const mt = meterMath(d), pos = Math.max(3, Math.min(97, 50 + (mt.e / mt.R) * 50));
     if (to.bot) {
       if (to.money - spec.get.money < 60) return { cls: 'bad', text: `${to.name} can't spare that much cash.`, pos, fix: spec.get.money - Math.max(0, to.money - 60), fixLabel: 'Ask for less' };
       const c = BotAI.fairCash(game, spec);
@@ -1296,9 +1302,13 @@
       d.get.money = Math.min(Math.max(0, to.money - (to.bot ? 60 : 0)), d.get.money + x);
     }
   }
+  // Online, trading pauses for whoever is taking their turn, so offers don't interrupt play.
+  function turnLocked() { const v = viewerPid(); return ONLINE && !!game && !game.s.over && v != null && game.cur && game.cur.id === v; }
+  const TURN_LOCK_MSG = 'Trading opens again once your turn is over.';
   function openDeal(preset) {
     preset = preset || {};
     if (!game || game.s.over) return;
+    if (turnLocked()) { toast(TURN_LOCK_MSG); return; }
     const from = preset.from != null ? preset.from : viewerPid();
     if (from == null) return;
     const others = game.alive().filter((p) => p.id !== from);
@@ -1312,12 +1322,12 @@
   }
   function dealBarHTML() {
     const d = ui.draft, to = game.player(d.to), v = dealVerdict(d);
-    const err = game.validateTrade(dealSpec());
-    const empty = isEmpty(d.give) && isEmpty(d.get);
+    const err = turnLocked() ? TURN_LOCK_MSG : game.validateTrade(dealSpec());
+    const empty = isEmpty(d.give) && isEmpty(d.get) && !turnLocked();
     return `<div class="deal-sum"><div class="ds-col"><span class="eyebrow">You give</span><div class="ds-items">${sideHTML(d.give)}</div></div>
         <span class="ds-arrow">${icon('swap')}</span>
         <div class="ds-col"><span class="eyebrow">You get</span><div class="ds-items">${sideHTML(d.get)}</div></div></div>
-      <div class="meter ${v.cls}"><div class="meter-track"><span class="meter-mid"></span><i style="left:${v.pos.toFixed(1)}%"></i></div>
+      <div class="meter ${v.cls}"><div class="meter-track" role="slider" tabindex="0" aria-label="Balance the deal with cash" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(v.pos)}" aria-valuetext="${esc(cashText(d))}" title="Drag to balance the deal with cash"><span class="meter-mid"></span><i style="left:${v.pos.toFixed(1)}%"></i></div>
         <div class="meter-labels"><span>Better for ${esc(to.name)}</span><span>Better for you</span></div></div>
       <div class="deal-actions"><span class="verdict ${v.cls}">${esc(v.text)}</span>
         ${v.fix ? `<button class="btn" type="button" data-fix="${v.fix}">${esc(v.fixLabel)}</button>` : ''}
@@ -1364,6 +1374,58 @@
     </div>`);
     const sh = $('#modal .sheet'); if (sh) sh.scrollTop = scroll;
     $$('#modal .deck').forEach((e, k) => { if (decks[k]) e.scrollTop = decks[k]; });
+  }
+  // ---- draggable balance meter: sliding the knob sets how much cash changes hands
+  function cashText(d) {
+    const net = d.give.money - d.get.money;
+    return net > 0 ? `You add ${fmt(net)}` : net < 0 ? `${game.player(d.to).name} adds ${fmt(-net)}` : 'No cash';
+  }
+  function cashRange() {
+    const d = ui.draft, from = game.player(d.from), to = game.player(d.to);
+    return { lo: -Math.max(0, to.money - (to.bot ? 60 : 0)), hi: from.money };
+  }
+  function setNetCash(c) {
+    const d = ui.draft;
+    d.give.money = c > 0 ? c : 0;
+    d.get.money = c < 0 ? -c : 0;
+  }
+  // The meter is linear in cash: e is the cash you'd have to add to reach the fair point (bots: the least
+  // they'd accept; people: an even split), so e > 0 means the deal favours you. Half the track is R pounds.
+  // Each £1 you add lowers e by exactly £1, so a drag maps straight onto a cash amount.
+  function meterMath(d) {
+    const spec = { from: d.from, to: d.to, give: d.give, get: d.get }, to = game.player(d.to);
+    const dl = BotAI.tradeDeltas(game, spec);
+    const e = to.bot ? Math.max(26 - dl.mine, (0.75 * dl.theirs - dl.mine) / 1.75) : (dl.theirs - dl.mine) / 2;
+    const worth = d.give.props.concat(d.get.props).reduce((a, i) => a + BOARD[i].price, 0) + 55 * (d.give.pardons + d.get.pardons);
+    return { e, R: Math.max(100, Math.round(worth * 0.6)) };
+  }
+  // the cash amount (in £10 steps) that puts the knob nearest to `target` (0-100)
+  function cashForPos(target) {
+    const d = ui.draft, { lo, hi } = cashRange(), mt = meterMath(d);
+    const want = ((target - 50) / 50) * mt.R, net = d.give.money - d.get.money + (mt.e - want);
+    return Math.max(Math.ceil(lo / 10) * 10, Math.min(Math.floor(hi / 10) * 10, Math.round(net / 10) * 10));
+  }
+  function syncCashInputs() {
+    const d = ui.draft;
+    ['give', 'get'].forEach((k) => { const el = $(`#deal-${k}-cash`); if (el && document.activeElement !== el) el.value = d[k].money; });
+  }
+  function meterTo(clientX) {
+    const tr = $('#dealBar .meter-track');
+    if (!tr || !ui.draft) return;
+    const r = tr.getBoundingClientRect();
+    const target = Math.max(0, Math.min(100, ((clientX - r.left) / r.width) * 100));
+    const c = cashForPos(target), d = ui.draft;
+    if (c === d.give.money - d.get.money && !(d.give.money && d.get.money)) return;
+    setNetCash(c);
+    syncCashInputs();
+    renderDealBar();
+  }
+  function meterStep(dir) {
+    // right = better for you = £10 less from you (or £10 more from them)
+    const d = ui.draft, { lo, hi } = cashRange();
+    const n = Math.max(lo, Math.min(hi, d.give.money - d.get.money - dir * 10));
+    if (n === d.give.money - d.get.money) return;
+    setNetCash(n); syncCashInputs(); renderDealBar();
   }
   function renderDealBar() { const b = $('#dealBar'); if (b && ui.draft) { b.innerHTML = dealBarHTML(); ui.lastHTML.modal = $('#modal').innerHTML; } }
   function sendDeal() {
@@ -1413,7 +1475,7 @@
     const dock = $('#offerDock');
     if (!dock) return;
     const offers = !game || game.s.over ? [] : game.s.trades.filter((t) => t.status === 'pending' && isMyOffer(t));
-    if (!offers.length || (ui.modal && ui.modal.kind === 'deal')) { dock.hidden = true; ui.lastHTML.dock = ''; return; }
+    if (!offers.length || turnLocked() || (ui.modal && ui.modal.kind === 'deal')) { dock.hidden = true; ui.lastHTML.dock = ''; return; }
     dock.hidden = false;
     setHTML(dock, 'dock', offerCardHTML(offers[0], offers.length));
   }
@@ -1514,6 +1576,34 @@
         return renderDealModal();
       }
       if (e.target.closest('#dealSend')) sendDeal();
+    });
+    modal.addEventListener('pointerdown', (e) => {
+      if (!ui.modal || ui.modal.kind !== 'deal' || !e.target.closest('.meter-track')) return;
+      if (e.button != null && e.button > 0) return;
+      e.preventDefault();
+      ui.meterDrag = true;
+      document.body.classList.add('meter-dragging');
+      meterTo(e.clientX);
+      const move = (ev) => { if (ui.meterDrag) meterTo(ev.clientX); };
+      const up = () => {
+        ui.meterDrag = false;
+        document.body.classList.remove('meter-dragging');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+        if (ui.modal && ui.modal.kind === 'deal') { renderDealModal(); const t = $('#dealBar .meter-track'); if (t) t.focus({ preventScroll: true }); }
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    });
+    modal.addEventListener('keydown', (e) => {
+      if (!ui.modal || ui.modal.kind !== 'deal' || !e.target.closest('.meter-track')) return;
+      const dir = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+      if (!dir) return;
+      e.preventDefault();
+      meterStep(dir);
+      const t = $('#dealBar .meter-track'); if (t) t.focus({ preventScroll: true });
     });
     modal.addEventListener('input', (e) => {
       if (!ui.modal || ui.modal.kind !== 'deal') return;
@@ -1894,11 +1984,11 @@
   }
   function tradesHTML() {
     const mine = myPid(), p = mine != null ? game.player(mine) : null;
-    const canTrade = p && !p.bankrupt && !game.s.over && game.alive().length >= 2;
+    const canTrade = p && !p.bankrupt && !game.s.over && game.alive().length >= 2 && !turnLocked();
     const pend = game.s.trades.filter((t) => t.status === 'pending').reverse();
     const done = game.s.trades.filter((t) => t.status !== 'pending').slice(-8).reverse();
-    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} Trade</button>${suggestionsHTML()}`;
-    if (!pend.length && !done.length) return h + '<div class="empty"><b>No trades yet</b>Swap properties, cash and Pardon cards with anyone, any time. Bots also make offers when they need one city to finish a set.</div>';
+    let h = `<button class="btn primary" data-a="newtrade" style="width:100%" ${canTrade ? '' : 'disabled'}>${icon('swap')} Trade</button>${turnLocked() ? `<p class="muted trade-lock">${icon('dice')} ${TURN_LOCK_MSG}</p>` : suggestionsHTML()}`;
+    if (!pend.length && !done.length) return h + '<div class="empty"><b>No trades yet</b>Swap properties, cash and Pardon cards with anyone between your turns. Bots also make offers when they need one city to finish a set.</div>';
     if (pend.length) h += '<div class="log-r" style="margin-top:16px">Open offers</div>' + pend.map(tradeCard).join('');
     if (done.length) h += '<div class="log-r" style="margin-top:16px">Recent</div>' + done.map(tradeCard).join('');
     return h;
@@ -1958,7 +2048,11 @@
   function setModal(html) {
     if (ui.lastHTML.modal === html) return;
     ui.lastHTML.modal = html;
-    $('#modal').innerHTML = html;
+    // re-drawing the sheet that's already open (e.g. tapping a card in a trade) shouldn't replay its entrance
+    const m = $('#modal'), key = (html.match(/aria-label="([^"]*)"/) || [])[1] || '';
+    m.classList.toggle('calm', !!m.firstElementChild && ui.modalKey === key);
+    ui.modalKey = key;
+    m.innerHTML = html;
     if (html.indexOf('wave') >= 0) syncWaves($('#modal'));
   }
   function renderTileModal() {
@@ -1969,11 +2063,11 @@
       const desc = {
         start: `Collect ${fmt(st.salary)} every time you pass Start${st.doubleOnStart ? `, or ${fmt(st.salary * 2)} if you land on it exactly` : ''}.`,
         jail: `Landing here is just a visit. Prisoners can pay ${fmt(st.bail)} bail, use a Pardon card or try to roll doubles. After three failed tries, bail is paid automatically.${st.noRentInPrison ? ' Owners in Prison collect no rent.' : ''}`,
-        vacation: st.vacationCash ? `Collect the jackpot of taxes, fines and bail. It currently holds ${fmt(s.pot)}.` : 'Free parking. Nothing happens here.',
+        vacation: st.vacationCash ? `Collect the jackpot: half of every tax, fine and bail, up to £200. It currently holds ${fmt(s.pot)}.` : 'Free parking. Nothing happens here.',
         gotojail: 'Go straight to Prison. You do not pass Start and do not collect your salary.',
         chance: 'Draw a Surprise card. It might move you, pay you or cost you.',
         chest: 'Open a Treasure card. Mostly good news, with the occasional bill.',
-        tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (it goes into the Free Parking jackpot)' : ''}.`,
+        tax: `Pay ${fmt(t.amount || 0)} to the bank${st.vacationCash ? ' (half goes into the Free Parking jackpot, up to £200)' : ''}.`,
       }[t.type] || '';
       const spaceContent = t.type === 'jail'
         ? `<div class="jail-info">

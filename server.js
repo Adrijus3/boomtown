@@ -711,11 +711,12 @@ function handleAction(room, c, msg) {
       ok = true; break;
     }
     case 'trade': {
+      if (g.cur.id === pid) return 'Trading opens again once your turn is over.';
       const res = g.proposeTrade({ from: pid, to: int(msg.to), give: cleanSide(msg.give), get: cleanSide(msg.get) });
       if (res.error) return res.error;
       ok = true; break;
     }
-    case 'accept': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.acceptTrade(tr.id); if (!ok && tr && tr.to === pid) { tick(room); return 'That trade is no longer possible.'; } break; }
+    case 'accept': { if (g.cur.id === pid) return 'Finish your turn first, then answer the offer.'; const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.acceptTrade(tr.id); if (!ok && tr && tr.to === pid) { tick(room); return 'That trade is no longer possible.'; } break; }
     case 'reject': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.declineTrade(tr.id); break; }
     case 'withdraw': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.from === pid && g.cancelTrade(tr.id); break; }
     case 'kick': return startKickVote(room, pid, int(msg.pid));

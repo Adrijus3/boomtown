@@ -53,8 +53,11 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - Games last **25 rounds** by default, about the length of a lesson. After the last round the richest player (by net worth) wins, unless everyone else has already gone bankrupt. The host can pick a shorter or longer game, or play until one player is left.
 - **Auctions** run on one 10-second clock (7 on fast games, 12 on relaxed). Bid with **+£10**, **+£50** or **+£100**; each button shows the price you would bid. The highest bid when the clock runs out wins. **Pass** takes you out of that auction, and the auction ends early once everyone except the leader is out.
 - When a player goes bankrupt, their properties are auctioned **one region at a time**, and the highest bidder takes the whole region.
-- Taxes, fines and bail pile up on **Free Parking**, and whoever lands there collects the lot. The host can switch this off in the house rules.
-- Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build, trade and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
+- Half of every tax, fine and bail goes into a **Free Parking** jackpot, up to £200, and whoever lands there collects it. The host can switch this off in the house rules.
+- **Surprise and Treasure cards** can still move you: to Start, to Prison, back three spaces, to the nearest airport or utility (normal rent), or by train, coach or lift to a city picked at random, so no property gets extra visitors.
+- Rents rise steadily around the board, and same-priced cities in a region charge the same rent. Regions are balanced through house prices: in simulated games, completing any region gives about the same chance of winning.
+- Trading happens between turns: the player whose turn it is can't send or accept offers, and offers sent to them wait until their turn is over. In the trade window, drag the balance slider (or use the arrow keys on it) to set how much cash changes hands.
+- Each turn has two clocks: 1 minute to roll the dice, then 2 minutes to buy, build and end the turn. The host can change either clock or switch it off. The clocks keep running while dice roll and tokens move, and pause only during auctions. If the roll clock runs out, the dice are rolled for the player. If the turn clock runs out, nothing is bought and the turn ends.
 
 ## What's in the folder
 

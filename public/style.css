@@ -3020,3 +3020,59 @@ button.deedcard:hover:not(:disabled) {
   #auctionBox .bid-btn b { font-size: 13.5px; }
   #auctionBox .bid-btn small { font-size: 9.5px; }
 }
+
+/* ---------------------------------------------------------------- v17: one close button on card headers
+   Card headers come in every colour (a region's colour, light grey for corner squares, dark for Prison),
+   so their close button is always the same dark X on white, readable on all of them. */
+:root:not([data-theme="contrast"]) #modal .deed-head [data-close] {
+  background: #FFFFFF !important;
+  color: #172033 !important;
+  border-color: rgba(23, 32, 51, .35) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .2) !important;
+}
+:root:not([data-theme="contrast"]) #modal .deed-head [data-close]:hover,
+:root:not([data-theme="contrast"]) #modal .deed-head [data-close]:focus-visible {
+  background: #F2F4F8 !important;
+  color: #0B1220 !important;
+  border-color: #0B1220 !important;
+}
+
+/* ---------------------------------------------------------------- v18: mortgaged at a glance
+   A mortgaged property says so in words, in red, where its price goes; the rest of the tile fades and
+   gets a red dashed edge, instead of dark stripes that made it hard to read. */
+#board .tile.mortgaged::before {
+  background: repeating-linear-gradient(135deg, rgba(var(--coral-rgb), .14) 0 5px, transparent 5px 11px) !important;
+  box-shadow: inset 0 0 0 2px rgba(var(--coral-rgb), .75);
+  border-radius: inherit;
+  outline: 2px dashed rgba(var(--coral-rgb), .9);
+  outline-offset: -4px;
+}
+#board .tile.mortgaged .body > :not(.tprice) { opacity: .55; filter: grayscale(.7); }
+#board .tile.mortgaged .band { background: color-mix(in srgb, var(--own) 45%, var(--tile)) !important; filter: none; }
+#board .tile.mortgaged .own-mark { background: transparent; padding: 0; color: var(--text); opacity: .8; }
+#board .tile.mortgaged .body > .tprice {
+  display: inline-flex !important; align-items: center; gap: 2px;
+  background: var(--coral) !important; color: #FFFFFF !important; border: 0 !important;
+  font-weight: 800; letter-spacing: .02em; text-transform: uppercase; z-index: 3;
+}
+#board .tile.mortgaged .body > .tprice .ic { width: 1em; height: 1em; display: block; }
+#board .tile.mortgaged .body > .tprice .rt { display: inline !important; }
+[data-scheme="dark"] #board .tile.mortgaged .body > .tprice { color: #1A0606 !important; }
+@container board (max-width: 600px) {
+  /* phones: just the padlock, still in red */
+  #board .tile.mortgaged .body > .tprice .rt { display: none !important; }
+  #board .tile.mortgaged .body > .tprice { padding: 1px 3px !important; }
+}
+
+/* ---------------------------------------------------------------- v19: trade polish
+   The balance meter is a real slider: drag (or arrow-key) the knob and the cash in the deal follows. */
+#dealBar .meter-track { cursor: grab; touch-action: none; height: 10px; outline: none; }
+#dealBar .meter-track::before { content: ""; position: absolute; inset: -12px 0; } /* bigger hit area */
+#dealBar .meter-track i { width: 22px; height: 22px; margin: -11px 0 0 -11px; cursor: grab; }
+#dealBar .meter-track:focus-visible i { box-shadow: 0 0 0 3px var(--tile), 0 0 0 6px var(--brass), 0 3px 10px rgba(0,0,0,.55); }
+body.meter-dragging, body.meter-dragging * { cursor: grabbing !important; user-select: none; }
+body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; transform: scale(1.12); }
+/* redrawing an open sheet (tapping cards, cash chips…) doesn't replay the pop-in */
+.modal.calm, .modal.calm .sheet, .modal.calm .dc-check { animation: none !important; }
+.trade-lock { display: flex; align-items: center; gap: 6px; margin: 10px 2px 0; font-size: 13px; }
+.trade-lock .ic { width: 15px; height: 15px; flex: none; }
