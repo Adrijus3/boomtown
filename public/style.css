@@ -3000,3 +3000,23 @@ button.deedcard:hover:not(:disabled) {
   .board .auction .auction-property:has(.auction-lot) .postcard { display: none; }
   .board .auction .auction-lot .auction-lot-total { font-size: 13px; padding: 7px 9px; border-radius: 8px; background: var(--tile-2); width: 100%; }
 }
+
+/* ---------------------------------------------------------------- v16: the faster auction
+   Three raise buttons, each showing the price you'd bid (+£10 / +£50 / +£100), and Pass. One clock. */
+#auctionBox .bidder .bidder-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 6px; align-items: stretch; flex: 2 1 260px; }
+#auctionBox .bidder .bidder-actions.is-status { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+#auctionBox .bid-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 46px; padding: .4em .5em; line-height: 1.05; white-space: nowrap; }
+#auctionBox .bid-btn b { font: 800 16px/1.05 var(--font-display); font-variant-numeric: tabular-nums; }
+#auctionBox .bid-btn small { font-size: 11px; font-weight: 600; opacity: .72; }
+#auctionBox .pass-btn { min-height: 46px; padding-inline: 1em; }
+.auction-status { font-weight: 700; color: var(--muted); }
+.auction-status.winning { color: var(--mint); }
+@container board (max-width: 600px) {
+  #auctionBox .bidder .bidder-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #auctionBox .bidder .bidder-actions .pass-btn { grid-column: 1 / -1; min-height: 30px; }
+  #auctionBox .bidder .bidder-actions.is-status { grid-template-columns: minmax(0, 1fr) auto; }
+  #auctionBox .bidder .bidder-actions.is-status .pass-btn { grid-column: auto; }
+  #auctionBox .bid-btn { min-height: 38px; }
+  #auctionBox .bid-btn b { font-size: 13.5px; }
+  #auctionBox .bid-btn small { font-size: 9.5px; }
+}

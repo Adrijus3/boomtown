@@ -16,9 +16,9 @@ const MAX_ROOMS = 500;
 
 // Must match the client's animation timings so the server waits while tokens move.
 const SPEED = {
-  relaxed: { step: 150, dice: 1300, bot: 1.5, card: 500, jump: 560, auction: 10000 },
-  normal: { step: 110, dice: 1050, bot: 1, card: 350, jump: 480, auction: 8000 },
-  fast: { step: 65, dice: 700, bot: 0.45, card: 220, jump: 380, auction: 5500 },
+  relaxed: { step: 150, dice: 1300, bot: 1.5, card: 500, jump: 560, auction: 12000 },
+  normal: { step: 110, dice: 1050, bot: 1, card: 350, jump: 480, auction: 10000 },
+  fast: { step: 65, dice: 700, bot: 0.45, card: 220, jump: 380, auction: 7000 },
 };
 const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4'];
 const BOT_NAMES = ['Baroness Bly', 'Otto Vance', 'Mila Sterling', 'Rex Holloway', 'Juno Park', 'Kit Marlowe', 'Nova Reyes', 'Ivo Brandt', 'Zara Quill', 'Felix Dune', 'Opal Grant', 'Hugo Lake'];
@@ -433,7 +433,7 @@ function sendGame(room, c, events, stateStr, evStr) {
   const meta = {
     now: Date.now(),
     me: pidOf(room, c.id),
-    auction: room.auction ? (() => { const me = pidOf(room, c.id); return { deadline: room.auction.deadline, span: room.auction.span, proxy: me != null ? room.auction.proxy[me] || 0 : 0, passed: me != null && !!room.auction.passed[me] }; })() : null,
+    auction: room.auction ? (() => { const me = pidOf(room, c.id); return { deadline: room.auction.deadline, span: room.auction.span, passed: me != null && !!room.auction.passed[me] }; })() : null,
     turn: timerMeta(room),
     away: Object.keys(room.awaySince).map(Number),
     idle: Object.keys(room.idle || {}).map(Number),
@@ -545,40 +545,30 @@ function turnTimer(room) {
   }, left + 20);
 }
 
+// Auctions: one fixed clock (10 seconds at normal speed) that bids never extend. The highest bid when
+// it runs out wins. Passing is final for that auction, and the auction ends early once everyone except
+// the leader is out (passed, away, or unable to afford the next bid).
 function startAuction(room) {
   if (room.auction) return;
   const g = room.game, sp = speedOf(room);
   const start = Math.max(Date.now(), room.busyUntil);
-  room.auction = { deadline: start + sp.auction, span: sp.auction, next: {}, proxy: {}, passed: {} };
+  room.auction = { deadline: start + sp.auction, span: sp.auction, next: {}, passed: {} };
   for (const p of g.alive()) if (p.bot) room.auction.next[p.id] = start + (700 + Math.random() * 1500) * sp.bot;
   room.timers.auction = setInterval(() => auctionTick(room, g), 200);
-}
-function extendAuction(room) {
-  const A = room.auction; if (!A) return;
-  const n = Date.now();
-  A.deadline = Math.max(A.deadline, n + 4200);
-  A.span = A.deadline - n;
 }
 function stopAuction(room) { clearInterval(room.timers.auction); room.timers.auction = null; room.auction = null; }
 function auctionTick(room, g) {
   if (room.game !== g || !g.s.auction || g.s.turn.phase !== 'auction') return stopAuction(room);
-  const A = room.auction, now = Date.now(), sp = speedOf(room);
-  // Auto-bids react first: raise by the minimum whenever their owner is outbid, up to the cap.
-  for (const k of Object.keys(A.proxy)) {
-    const p = g.player(+k), cap = A.proxy[k], a = g.s.auction;
-    if (!p || p.bankrupt || A.passed[k] || a.bidder === p.id) continue;
-    const next = Math.max(10, a.high + 10);
-    if (next > cap || next > p.money) { delete A.proxy[k]; tick(room); return; }
-    if (g.bid(p.id, next)) { extendAuction(room); tick(room); return; }
-  }
-  const humans = g.alive().filter((p) => !p.bot);
-  if (humans.length && humans.every((p) => A.passed[p.id] || A.proxy[p.id] || awayFor(room, p.id) >= 0)) A.deadline = Math.min(A.deadline, now + 2500);
+  const A = room.auction, now = Date.now(), sp = speedOf(room), a = g.s.auction;
   for (const p of g.alive()) {
-    if (!p.bot || now < (A.next[p.id] || 0)) continue;
+    if (!p.bot || A.passed[p.id] || a.bidder === p.id || now < (A.next[p.id] || 0)) continue;
     A.next[p.id] = now + (600 + Math.random() * 1400) * sp.bot;
     const b = Bot.auctionBid(g, p);
-    if (b != null && g.bid(p.id, b)) { extendAuction(room); tick(room); return; }
+    if (b == null) { A.passed[p.id] = true; continue; } // over its limit: the bot drops out
+    if (g.bid(p.id, b)) { tick(room); return; }
   }
+  const stillIn = g.alive().filter((p) => p.id !== a.bidder && !A.passed[p.id] && p.money >= a.high + 10 && !(!p.bot && awayFor(room, p.id) >= 0));
+  if (!stillIn.length) A.deadline = Math.min(A.deadline, now + 700);
   if (now >= A.deadline) { stopAuction(room); g.endAuction(); tick(room); }
 }
 
@@ -708,18 +698,16 @@ function handleAction(room, c, msg) {
     case 'mortgage': ok = g.mortgage(pid, i); break;
     case 'unmortgage': ok = g.unmortgage(pid, i); break;
     case 'sellprop': ok = g.sellProperty(pid, i); break;
-    case 'bid': ok = g.bid(pid, int(msg.amount)); if (ok) { extendAuction(room); if (room.auction) delete room.auction.passed[pid]; } break;
-    case 'autobid': {
-      const A = room.auction;
-      if (!A || !g.s.auction) return 'There is no auction running.';
-      const amt = int(msg.amount);
-      if (amt > 0) { A.proxy[pid] = Math.min(amt, me.money); delete A.passed[pid]; } else delete A.proxy[pid];
-      ok = true; break;
+    case 'bid': {
+      if (room.auction && room.auction.passed[pid]) return 'You passed on this auction.';
+      if (room.auction && Date.now() > room.auction.deadline) return 'Too late: the auction has closed.';
+      ok = g.bid(pid, int(msg.amount)); break;
     }
+    case 'autobid': return 'Auto-bid has been replaced: bid with the +£10, +£50 and +£100 buttons.';
     case 'pass': {
       const A = room.auction;
       if (!A || !g.s.auction) return 'There is no auction running.';
-      A.passed[pid] = true; delete A.proxy[pid];
+      A.passed[pid] = true;
       ok = true; break;
     }
     case 'trade': {

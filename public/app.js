@@ -1465,16 +1465,19 @@
   }
 
   // ---- auctions: bid, auto-bid up to a cap, or pass
+  // Your controls in an auction: three quick raises, each showing the price you would bid, and Pass.
   function bidderHTML(p, a, st) {
-    const lead = a.bidder === p.id, next = Math.max(10, a.high + 10), jump = a.high + 50;
-    const lotPrice = (a.lot || [a.tile]).reduce((sum, i) => sum + BOARD[i].price, 0);
-    const cap = Math.min(p.money, Math.max(lotPrice, Math.ceil((a.high + 60) / 10) * 10));
+    const lead = a.bidder === p.id;
     let ctl;
-    if (st.passed) ctl = '<span class="tag">You passed</span>';
-    else if (st.proxy) ctl = `<span class="tag good">Auto-bidding up to ${fmt(st.proxy)}</span><button type="button" class="btn sm ghost" data-autooff="${p.id}">Stop</button>`;
-    else ctl = (lead ? '<span class="tag good">You lead</span>' : `<button type="button" class="btn sm primary" data-bid="${p.id}" data-amt="${next}" ${next > p.money ? 'disabled' : ''}>Bid ${fmt(next)}</button><button type="button" class="btn sm" data-bid="${p.id}" data-amt="${jump}" ${jump > p.money ? 'disabled' : ''}>${fmt(jump)}</button>`)
-      + `<button type="button" class="btn sm" data-auto="${p.id}" data-amt="${cap}" ${cap <= a.high ? 'disabled' : ''} title="Raises for you each time you're outbid">Auto to ${fmt(cap)}</button><button type="button" class="btn sm ghost" data-pass="${p.id}">Pass</button>`;
-    return `<div class="bidder"><div class="bidder-profile">${dotHTML(p)}<span><b>${esc(p.name)}</b><br><span class="muted num">${fmt(p.money)}</span></span></div><div class="row bidder-actions">${ctl}</div></div>`;
+    if (st.passed) ctl = '<span class="auction-status">You passed on this one</span>';
+    else if (lead) ctl = `<span class="auction-status winning">You're winning at ${fmt(a.high)}</span><button type="button" class="btn ghost pass-btn" data-pass="${p.id}">Pass</button>`;
+    else {
+      ctl = [10, 50, 100].map((step, k) => {
+        const amt = a.high + step;
+        return `<button type="button" class="btn bid-btn ${k ? '' : 'primary'}" data-bid="${p.id}" data-amt="${amt}" ${amt > p.money ? 'disabled' : ''} aria-label="Bid ${fmt(amt)}"><b>${fmt(amt)}</b><small>+${fmt(step)}</small></button>`;
+      }).join('') + `<button type="button" class="btn ghost pass-btn" data-pass="${p.id}">Pass</button>`;
+    }
+    return `<div class="bidder"><div class="bidder-profile">${dotHTML(p)}<span><b>${esc(p.name)}</b><br><span class="muted num">${fmt(p.money)}</span></span></div><div class="bidder-actions ${lead || st.passed ? 'is-status' : ''}">${ctl}</div></div>`;
   }
 
   function bindDeals() {
@@ -1698,15 +1701,15 @@
     const mine = myPid(), p = mine != null ? game.player(mine) : null;
     const M = (meta && meta.auction) || {};
     setHTML(box, 'auction', `
-      <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">–</b></span></div>
+      <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">${M.deadline ? `${Math.max(0, Math.ceil((M.deadline - serverNow()) / 1000))}s` : '–'}</b></span></div>
       <div class="auction-property"><span class="auction-property-label">${(a.lot || []).length > 1 ? 'BANKRUPTCY LOT · WINNER TAKES ALL' : 'PROPERTY VALUE'}</span>${postcardHTML(a.tile, mine)}${(a.lot || []).length > 1 ? `<div class="auction-lot">${a.lot.map((i) => `<span>${emblemHTML(i, 'xs')}${esc(BOARD[i].name)} <b>${fmt(BOARD[i].price)}</b></span>`).join('')}<span class="auction-lot-total">${esc(BOARD[a.lot[0]].group ? GROUPS[BOARD[a.lot[0]].group].name : BOARD[a.lot[0]].type === 'airport' ? 'Airports' : 'Utilities')}: ${a.lot.length} places, together ${fmt(a.lot.reduce((sum, i) => sum + BOARD[i].price, 0))}</span></div>` : ''}</div>
       <div class="auction-bid-summary">
         <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID:</span><span class="v">${fmt(a.high)}</span></div>
         <div class="auction-leader">${bidder ? `${dotHTML(bidder)}<span>Leading: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b></span>` : '<span>No bids yet</span>'}</div>
       </div>
       <div class="bar auction-bar"><i id="auctionBar"></i></div>
-      ${p && !p.bankrupt ? `<div class="bidders">${bidderHTML(p, a, { proxy: M.proxy || 0, passed: !!M.passed })}</div>` : ''}
-      <div class="hint auction-note">Auto-bid raises for you each time you're outbid. Pass to let the clock run down.</div>`);
+      ${p && !p.bankrupt ? `<div class="bidders">${bidderHTML(p, a, { passed: !!M.passed })}</div>` : ''}
+      <div class="hint auction-note">The highest bid when the clock runs out wins. Pass to drop out.</div>`);
   }
 
   // ------------------------------------------------------------ side panel
@@ -2213,9 +2216,6 @@
       if (a) return doAction(a.dataset.a, a);
       const bid = e.target.closest('[data-bid]');
       if (bid) return act('bid', { amount: +bid.dataset.amt });
-      const auto = e.target.closest('[data-auto]');
-      if (auto) return act('autobid', { amount: +auto.dataset.amt });
-      if (e.target.closest('[data-autooff]')) return act('autobid', { amount: 0 });
       if (e.target.closest('[data-pass]')) return act('pass');
       if (e.target.closest('.center')) return;
       const t = e.target.closest('.tile');
