@@ -1097,7 +1097,8 @@
     const out = (n) => { if (!n) return false; const r = n.getBoundingClientRect(); return r.width > 0 && (r.left < q.left + pad - 0.5 || r.right > q.right - pad + 0.5 || r.bottom > q.bottom - pad + 0.5 || r.top < q.top - 0.5); };
     const vert = (n) => { if (!n) return false; const r = n.getBoundingClientRect(); return r.height > 0 && (r.bottom > q.bottom + 0.5 || r.top < q.top - 0.5); };
     const body = el.querySelector('.body');
-    return out(pill) || vert(el.querySelector('.tname')) || vert(el.querySelector('.tic')) || vert(el.querySelector('.flag')) || (!!body && body.scrollHeight > body.clientHeight + 1);
+    const nmEl = el.querySelector('.tname');
+    return out(pill) || (!!nmEl && nmEl.scrollHeight > nmEl.clientHeight + 1) || vert(nmEl) || vert(el.querySelector('.tic')) || vert(el.querySelector('.flag')) || (!!body && body.scrollHeight > body.clientHeight + 1);
   }
   // A long one-word name that is wider than its tile gets a slightly smaller size instead of breaking.
   function fitName(el) {
@@ -1108,9 +1109,17 @@
     const cs = getComputedStyle(body);
     const avail = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 1;
     const need = Math.max(nm.scrollWidth, nm.offsetWidth);
-    if (need <= avail) return;
-    const cur = parseFloat(getComputedStyle(nm).fontSize) || 8;
-    nm.style.fontSize = `${Math.max(5, Math.floor((cur * avail / need) * 2) / 2)}px`;
+    let size = parseFloat(getComputedStyle(nm).fontSize) || 8;
+    // Narrow tiles: the longest word must fit across.
+    if (need > avail) {
+      size = Math.max(4.5, Math.floor((size * avail / need) * 2) / 2);
+      nm.style.setProperty('font-size', `${size}px`, 'important');
+    }
+    // Short side tiles: a name that wraps to two lines must still fit top to bottom.
+    for (let k = 0; k < 10 && size > 4.5 && (body.scrollHeight > body.clientHeight + 1 || nm.scrollHeight > nm.clientHeight + 1); k++) {
+      size -= 0.5;
+      nm.style.setProperty('font-size', `${size}px`, 'important');
+    }
   }
   // Scale the single price badge to the inner width of its tile instead of letting
   // the label clip or hiding the price when the board gets smaller.
@@ -1137,8 +1146,9 @@
       const keepTilePrice = ['prop', 'airport', 'utility'].includes(t.type);
       // Purchase price and rent are essential board information: compress these badges,
       // but never switch them to the dot/hide states at any board size.
+      // On a phone-sized board the little flag or icon gives way first, so the name has room.
       const steps = keepTilePrice
-        ? ['fit-snug', 'fit-tight']
+        ? (compactBoard ? ['fit-snug', 'fit-min'] : ['fit-snug', 'fit-tight'])
         : (compactBoard ? ['fit-snug', 'fit-dot', 'fit-min'] : FIT_STEPS);
       el.classList.remove(...FIT_STEPS);
       fitName(el);
@@ -1148,6 +1158,7 @@
         el.classList.add(step);
         fitPrice(el, pill);
       }
+      fitName(el); // the steps above can change the tile's layout, so size the name again
       fitPrice(el, pill);
     });
   }
@@ -1335,7 +1346,7 @@
         + (sd.money ? `<button type="button" class="chipbtn" data-cash="${key}" data-set="0">Clear</button>` : '');
       return `<section class="tt-side">
         <header class="tt-h">${dotHTML(p)}<div><b>${key === 'give' ? 'You give' : `${esc(p.name)} gives`}</b><span class="muted">${fmt(p.money)} cash · ${game.ownedBy(p.id).length} properties</span></div></header>
-        <div class="tt-cash"><div class="cash-in"><span>$</span><input type="number" inputmode="numeric" id="deal-${key}-cash" data-money="${key}" min="0" max="${p.money}" step="10" value="${sd.money}" aria-label="Cash ${key === 'give' ? 'you give' : `${p.name} gives`}"></div><div class="chips">${chips}</div></div>
+        <div class="tt-cash"><div class="cash-in"><span aria-hidden="true">£</span><input type="number" inputmode="numeric" id="deal-${key}-cash" data-money="${key}" min="0" max="${p.money}" step="10" value="${sd.money}" aria-label="Cash ${key === 'give' ? 'you give' : `${p.name} gives`}"></div><div class="chips">${chips}</div></div>
         <div class="deck">${cards || '<span class="muted deck-empty">No properties yet</span>'}</div>
         ${p.pardons.length ? `<div class="owner-line"><span class="muted">Pardon cards</span><span class="stepper"><button type="button" class="icon-btn" data-pard="${key}" data-d="-1" aria-label="Fewer">${icon('minus')}</button><b>${sd.pardons}</b><button type="button" class="icon-btn" data-pard="${key}" data-d="1" aria-label="More">${icon('plus')}</button></span></div>` : ''}
       </section>`;
@@ -1630,15 +1641,15 @@
           return `<div class="note">${icon('lock')} In Prison · attempt ${p.jailTurns + 1} of 3</div>
             <div class="row roll-controls">
               <button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll for doubles</button>
-              <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
+              <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls for you at the start of each turn. It never buys, pays or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
               <button class="btn" data-a="bail" ${dis || (p.money < st.bail ? 'disabled' : '')}>Pay ${fmt(st.bail)} bail</button>
               ${p.pardons.length ? `<button class="btn" data-a="pardon" ${dis}>${icon('key')} Use Pardon</button>` : ''}
             </div>
-            <div class="hint">Auto-roll will attempt your prison dice roll too. It will not pay bail or use a Pardon.</div>`;
+            <div class="hint autoroll-hint">Auto-roll will attempt your prison dice roll too. It will not pay bail or use a Pardon.</div>`;
         }
         return `${t.again ? '<div class="note">Doubles! Roll again.</div>' : ''}
-          <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>
-          <div class="hint">Auto-roll rolls automatically whenever it is your turn to roll. It does not make buying or end-turn decisions.</div>`;
+          <div class="row roll-controls"><button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll the dice</button><button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls for you at the start of each turn. It never buys, pays or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button></div>
+          <div class="hint autoroll-hint">Auto-roll rolls automatically whenever it is your turn to roll. It does not make buying or end-turn decisions.</div>`;
       case 'moving': return '<div class="wait"><span>Moving<span class="dots"></span></span></div>';
       case 'buy': {
         const i = p.pos, tile = BOARD[i], short = tile.price - p.money;

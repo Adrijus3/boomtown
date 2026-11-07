@@ -579,3 +579,22 @@ html.th-open { overflow: hidden; }
   .tile .body > .tname { line-height: 1.05; }
   [data-sketch] .tile .band { margin: 1px; flex-basis: calc(23% - 2px); }
 }
+
+/* ---------------------------------------------------------------- readable accent tags
+   "You", "Host" and warning tags use the accent as a solid pill with its own ink colour, which reads
+   in every theme (an accent-tinted pill behind accent text did not). */
+.tag.you, .tag.warn { background: var(--brass); color: var(--brass-ink); }
+[data-theme="contrast"] :is(.tag.you, .tag.warn) { background: #FFE600; color: #000000; box-shadow: none; }
+[data-theme="comic"] :is(.tag.you, .tag.warn) { background: var(--brass); color: var(--brass-ink); }
+/* Player names written in their colour: lifted on the mid-blue Blueprint paper. */
+[data-theme="blueprint"] :is(.who, .chat-msg b) { color: color-mix(in srgb, var(--pc) 55%, #FFFFFF); }
+/* Daylight: the hovered main button stays dark enough for white text. */
+:root[data-theme="daylight"] { --brass-hi: #874F00; }
+/* Sketch themes: the drawn outline sits inside the tile edge, so keep the lettering clear of it. */
+[data-sketch] #board .tile .body { padding-left: 4px !important; padding-right: 4px !important; }
+@container board (max-width: 600px) {
+  [data-sketch] #board .tile .body { padding-left: 3px !important; padding-right: 3px !important; }
+  [data-sketch] .jail-corner .visit { letter-spacing: 0 !important; font-size: clamp(4.5px, 1.2cqi, 11px) !important; }
+}
+/* Warning tags ("In prison", "Away") use each theme's readable red. */
+.tag.bad, .tag.away { color: var(--coral-text); }

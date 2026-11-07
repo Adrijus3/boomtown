@@ -79,7 +79,7 @@
     { text: 'The bank pays you a dividend of £50.', a: 'gain', n: 50 },
     { text: 'Your building loan matures. Collect £150.', a: 'gain', n: 150 },
     { text: 'Speeding fine. Pay £15.', a: 'pay', n: 15 },
-    { text: 'Renovation time. Pay £25 for each house and £100 for each hotel.', a: 'repairs', house: 20, hotel: 80 },
+    { text: 'Renovation time. Pay £20 for each house and £80 for each hotel.', a: 'repairs', house: 20, hotel: 80 },
     { text: 'You were elected board chair. Pay each player £50.', a: 'payEach', n: 50 },
   ];
   const CHEST = [
@@ -96,7 +96,7 @@
     { text: 'Hospital fees. Pay £100.', a: 'pay', n: 100 },
     { text: 'School fees. Pay £50.', a: 'pay', n: 50 },
     { text: 'Consulting fee. Collect £25.', a: 'gain', n: 25 },
-    { text: 'Street repairs. Pay £40 for each house and £115 for each hotel.', a: 'repairs', house: 30, hotel: 90 },
+    { text: 'Street repairs. Pay £30 for each house and £90 for each hotel.', a: 'repairs', house: 30, hotel: 90 },
     { text: 'Second prize in a design contest. Collect £10.', a: 'gain', n: 10 },
     { text: 'You inherit £100.', a: 'gain', n: 100 },
   ];

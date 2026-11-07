@@ -3003,3 +3003,101 @@ button.deedcard:hover:not(:disabled) {
   overflow-wrap: normal;
   word-break: normal;
 }
+
+/* ================================================================ v13: final lettering pass
+   Last in the file on purpose, so it settles the earlier layers. Tile names never split inside a word:
+   long names wrap at spaces, and app.js shrinks a name only when one word is wider than its tile.
+   Every tile name on a board starts from the same size. */
+#board .tile .body > .tname,
+#board .corner .tname {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: manual !important;
+  -webkit-hyphens: manual !important;
+}
+#board .tile .body > .tname {
+  font-size: clamp(7.5px, 1.66cqi, 15px) !important;
+  line-height: 1.08;
+  letter-spacing: 0;
+  font-weight: 700;
+  max-width: 100%;
+  text-wrap: balance;
+}
+@container board (max-width: 600px) {
+  #board .tile .body > .tname { font-size: clamp(6px, 1.62cqi, 9.5px) !important; line-height: 1.04; }
+}
+/* Player names wrap onto a second line instead of being cut to "Baron…" in narrow side panels. */
+.pcard .pname { flex-wrap: wrap; row-gap: 2px; }
+.pcard .pname .nm { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; line-height: 1.2; min-width: 0; }
+/* The player name at the top of the portfolio wraps too. */
+.ov-head { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 10px; }
+.ov-name { flex: 1 1 140px; }
+.ov-name b { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
+/* Property names in the portfolio open the property card: a full-size target on touch screens. */
+@media (pointer: coarse) {
+  .prow .nm { min-height: 32px; display: inline-flex; align-items: center; }
+}
+
+/* ---------------------------------------------------------------- v13: compact auction on small boards
+   On a phone the auction sits inside a ~350px board. Everything you need to bid has to fit without
+   scrolling: a slim header, the property on one line, the bid beside the leader, then the buttons. */
+@container board (max-width: 600px) {
+  .board .auction { inset: 2.5%; padding: 8px 9px; gap: 6px; justify-content: flex-start; overflow-y: auto; }
+  .board .auction .auction-h h3 { font-size: 14px; }
+  .board .auction .auction-h .chip { padding: .2em .55em; font-size: 11px; }
+  .board .auction .auction-property-label,
+  .board .auction .auction-bid-label,
+  .board .auction .auction-note { display: none; }
+  .board .auction .auction-property .postcard { padding: 5px 8px; gap: 8px; min-height: 0; }
+  .board .auction .auction-property .postcard .flag.big,
+  .board .auction .auction-property .postcard .pc-emblem { width: 26px; }
+  .board .auction .auction-property .pc-country { font-size: 9px; letter-spacing: .06em; }
+  .board .auction .auction-property .pc-city { font-size: 13px; line-height: 1.1; }
+  .board .auction .auction-property .pc-meta { display: none; }
+  .board .auction .auction-property .pc-price { font-size: 13px; }
+  .board .auction .auction-bid-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 9px; min-height: 0; }
+  .board .auction .auction-bid-main .v { font-size: 24px; line-height: 1; }
+  .board .auction .auction-leader { padding: 3px 7px 3px 3px; gap: 5px; font-size: 11px; min-width: 0; }
+  .board .auction .auction-leader > .pdot { flex: 0 0 22px !important; width: 22px !important; height: 22px !important; font-size: 9px; }
+  .board .auction .bidders { gap: 4px; }
+  .board .auction .bidder { padding: 6px; gap: 6px; grid-template-columns: 1fr; }
+  .board .auction .bidder-profile { display: none; }
+  .board .auction .bidder-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
+  .board .auction .bidder-actions .btn { min-height: 34px; padding: .35em .5em; font-size: 12.5px; white-space: normal; line-height: 1.1; }
+}
+@container board (max-width: 600px) {
+  .board .auction .auction-bid-summary { height: auto; flex-wrap: nowrap; flex-direction: row !important; align-items: center !important; }
+  .board .auction .auction-bid-main { flex: 1 1 auto; text-align: left; align-items: flex-start; }
+  .board .auction .auction-leader { position: static; flex: 0 1 auto; transform: none; margin: 0; }
+  /* "Just visiting" and "Prison" fit their corner on a phone board. */
+  .jail-corner .visit { font-size: clamp(5px, 1.3cqi, 11px) !important; letter-spacing: .02em !important; }
+  .jail-bars .plate { font-size: clamp(5px, 1.3cqi, 11px) !important; letter-spacing: .05em !important; padding: 1px 3px !important; }
+}
+/* Property card facts stay two to a row on phones (one per row left the card twice as tall). */
+@media (max-width: 760px) { .sheet .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Small boards: the dice controls sit side by side and the auto-roll explanation moves into the
+   button's tooltip, so the centre of the board doesn't overflow. */
+@container board (max-width: 600px) {
+  .center .autoroll-hint { display: none; }
+  .center .roll-controls { flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .center .roll-controls .btn.lg { padding: .5em .8em; font-size: 13px; border-radius: 10px; }
+  [data-sketch] .corner .tname { font-size: clamp(6px, 1.7cqi, 18px) !important; }
+}
+@container board (max-width: 600px) {
+  .center-inner { gap: 1.4cqi; padding: 2cqi; }
+  /* While you decide to buy, the property card takes the dice's place. */
+  .center-inner:has(#cActions [data-a="buy"]) .dice { display: none; }
+  #cActions .row { flex-wrap: wrap; justify-content: center; gap: 6px; }
+  #cActions .btn.lg { padding: .5em .85em; font-size: 13px; border-radius: 10px; }
+  #cActions .details-btn { display: none; }
+}
+/* The "Now" / turn-clock badge gets its own space at the top of the card instead of covering the money. */
+.pcard:has(> .now) { padding-top: 24px; }
+.pcard:has(> .now) .now { top: 5px; }
+/* Price pills: accent text pulled toward the main text colour so it stays readable on its tint. */
+.pc-price { color: color-mix(in srgb, var(--brass) 55%, var(--text)); }
+/* Player cards: a little tighter, so four players fit a laptop-height list now that names can wrap. */
+.players.panel { gap: 4px; padding: 6px; }
+.players .pcard { padding: 7px 10px; row-gap: 1px; }
+.players .pcard:has(> .now) { padding-top: 22px; }
+.players .pmeta { line-height: 1.3; }
