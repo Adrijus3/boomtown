@@ -325,6 +325,11 @@ function joinRoom(c, room) {
   const pid = pidOf(room, c.id);
   if (pid != null && room.awaySince[pid]) { delete room.awaySince[pid]; if (room.game) sysChat(room, `${c.name || 'A player'} is back.`); }
   if (fresh && room.status !== 'waiting' && pid == null && c.name) sysChat(room, `${c.name} is watching.`);
+  // Joining a room that hasn't started puts you straight into a free seat (if we know your name and you
+  // didn't just give your seat up). A full room, or a game already under way, means you watch.
+  if (room.status === 'waiting' && c.name && c.watchOnly !== room.id && seatOf(room, c.id) < 0 && takeSeat(room, c)) {
+    sysChat(room, `${c.name} took a seat.`);
+  }
   broadcastRoom(room);
   if (room.game) { sendGame(room, c, []); automate(room); }
 }
@@ -821,6 +826,7 @@ function handle(ws, msg) {
       { const n = cleanName(msg.name); if (n) c.name = n; }
       if (COLORS.includes(msg.color)) c.color = msg.color;
       if (!takeSeat(room, c)) return fail('There are no free seats.');
+      c.watchOnly = null;
       sysChat(room, `${c.name || 'A player'} took a seat.`);
       return broadcastRoom(room);
     case 'rejoin': {
@@ -851,6 +857,7 @@ function handle(ws, msg) {
       if (room.status !== 'waiting') return;
       const i = seatOf(room, c.id);
       if (i >= 0) room.seats.splice(i, 1);
+      c.watchOnly = room.id; // stay unseated, even after a reconnect, until they take a seat again
       return broadcastRoom(room);
     }
     case 'addBot':

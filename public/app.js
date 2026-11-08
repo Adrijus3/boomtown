@@ -401,7 +401,7 @@
           <label class="field-label" for="seatName">Your nickname</label>
           <input class="text-in" id="seatName" maxlength="18" value="${esc(prof.name)}" required>
           <div class="palette">${COLORS.map((c) => `<button type="button" data-seatc="${c}" style="--pc:${c}" class="${c === prof.color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Use this colour"></button>`).join('')}</div>
-          <div class="row"><button class="btn primary" type="submit">Take a seat</button></div></form>`);
+          <div class="row"><button class="btn primary" type="submit">Join the game</button></div></form>`);
     } else {
       const taken = r.seats.filter((s, i) => i !== mySeat).map((s) => s.color);
       ctl = `<div class="palette">${COLORS.map((c) => `<button type="button" data-color="${c}" style="--pc:${c}" class="${c === r.seats[mySeat].color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Switch to this colour"></button>`).join('')}</div>

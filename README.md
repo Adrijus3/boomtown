@@ -44,6 +44,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 ## How to play
 
 - **Play now** puts you in an open public room, or opens a new one. **Create a private game** makes a room that only people with the link can join.
+- Opening a room link (or pressing Join) puts you straight into a free seat if the game hasn't started. Only someone who hasn't chosen a nickname yet is asked for one first. A full room, or a game already under way, means you watch.
 - Rooms have 6 seats to start with; the host can pick anything from 2 to 8. The host sets the house rules, adds bots and starts the game with the button at the top of the waiting room. Anyone who joins after the start can watch and chat.
 - Bots build houses on full sets as soon as they can, mortgaging spare single properties to get each set to 3 houses, and bid a little more boldly in auctions. They are noticeably tougher than early versions.
 - If a bot is slowing things down, or a friend has left or stopped playing, open them in the side panel and press **Remove bot** or **Vote to remove**. The other players still in the game get 30 seconds to vote, and more than half must agree. Bots can always be removed; a person who is still playing can only be voted out if someone else votes with you, or once they've left or let their turn clock run out. Their properties are auctioned, a region at a time.
