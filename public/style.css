@@ -3294,12 +3294,12 @@ svg.ic { vertical-align: -0.18em; }
 /* ================================================================ v28: header strips, quiet icons, neutral log, flat dice */
 /* Every square has the same strip on its inner edge: owner colour once bought, otherwise a quiet header.
    Surprise, Treasure and tax squares carry their icon in it. */
-#board .tile:not(.owned) .band { background: rgba(30,41,59,.8) !important; box-shadow: none !important; }
-#board .tile.t-top:not(.owned) .band { border-top: 1px solid #334155; }
-#board .tile.t-bottom:not(.owned) .band { border-bottom: 1px solid #334155; }
-#board .tile.t-left:not(.owned) .band { border-left: 1px solid #334155; }
-#board .tile.t-right:not(.owned) .band { border-right: 1px solid #334155; }
-[data-scheme="light"] #board .tile:not(.owned) .band { background: #F3F4F6 !important; border-color: #E5E7EB !important; }
+:root:not([data-sketch]) #board .tile:not(.owned) .band { background: rgba(30,41,59,.8) !important; box-shadow: none !important; }
+:root:not([data-sketch]) #board .tile.t-top:not(.owned) .band { border-top: 1px solid #334155; }
+:root:not([data-sketch]) #board .tile.t-bottom:not(.owned) .band { border-bottom: 1px solid #334155; }
+:root:not([data-sketch]) #board .tile.t-left:not(.owned) .band { border-left: 1px solid #334155; }
+:root:not([data-sketch]) #board .tile.t-right:not(.owned) .band { border-right: 1px solid #334155; }
+[data-scheme="light"]:not([data-sketch]) #board .tile:not(.owned) .band { background: #F3F4F6 !important; border-color: #E5E7EB !important; }
 
 /* icons on the board: Lucide outlines at 1.5px, muted slate */
 #board .tic, #board .cbig, .emblem { color: #94A3B8 !important; }
@@ -3364,3 +3364,41 @@ svg.ic { vertical-align: -0.18em; }
 .pcard > .pdot { grid-row: 2 / 4 !important; }
 .pcard .pname, .pcard .pstatus { grid-row: 2 !important; }
 .pcard .pmeta, .pcard .pmoney { grid-row: 3 !important; }
+
+/* ================================================================ v29: tabletop dark mode
+   Dark themes: the board is a deep felt, each square a physical tile sitting on it, and the roll
+   button is the one warm, lit-up thing on the table. */
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) {
+  --felt-1: color-mix(in srgb, var(--tile) 70%, var(--ink));
+  --felt-2: var(--ink);
+}
+:root[data-theme="midnight"] { --felt-1: #0F172A; --felt-2: #020617; --text: #F8FAFC; }
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board.board {
+  gap: 3px !important; padding: 4px !important; border-radius: 14px !important;
+  background: radial-gradient(120% 120% at 50% 40%, var(--felt-1) 0%, var(--felt-2) 78%) !important;
+  border: 1px solid rgba(148,163,184,.14) !important;
+}
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tile {
+  border-radius: 5px !important;
+  background: color-mix(in srgb, var(--tile) 90%, transparent) !important;
+  border: 1px solid rgba(71,85,105,.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 2px rgba(0,0,0,.35) !important;
+}
+:root[data-theme="midnight"] #board .tile { background: rgba(15,23,42,.9) !important; }
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tile.corner { background: color-mix(in srgb, var(--tile-2) 90%, transparent) !important; }
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tile.chance,
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tile.chest,
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tile.tax { background: color-mix(in srgb, var(--tile) 82%, #94A3B8 8%) !important; }
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .center { background: transparent !important; }
+:root[data-scheme="dark"]:not([data-sketch]):not([data-theme="contrast"]) #board .tname { color: #F8FAFC !important; }
+
+/* the roll (and the main choice in the middle of the board): warm amber, lit, with a soft shadow */
+:root:not([data-sketch]):not([data-theme="contrast"]):not([data-theme="clean"]) #board #cActions .btn.primary {
+  background: linear-gradient(180deg, #F5A524 0%, #D9730D 100%) !important;
+  border: 1px solid #B45309 !important; color: #1C1002 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 8px 18px -8px rgba(217,115,13,.7) !important;
+}
+:root:not([data-sketch]):not([data-theme="contrast"]):not([data-theme="clean"]) #board #cActions .btn.primary:hover:not(:disabled) { filter: brightness(1.06); }
+/* breathing room between a square's edge and its flag or icon */
+#board .tile .body > .flag:first-child { margin-top: clamp(2px, .5cqi, 5px) !important; }
+:root[data-sketch] #board .tile .body > .flag:first-child { margin-top: clamp(4px, .8cqi, 8px) !important; }

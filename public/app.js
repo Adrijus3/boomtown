@@ -165,7 +165,7 @@
   let wantRoom = (location.pathname.match(/^\/room\/([a-z0-9]{3,12})/i) || [])[1] || null;
   let ui = freshUI();
   let dice3d = null; // WebGL dice; null means the CSS dice are used
-  const FLAT_DICE = true; // plain 2D dice (the 3D dice are kept in the code but switched off)
+  const FLAT_DICE = false; // true = plain 2D dice instead of the 3D dice
   function freshUI() {
     return {
       busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, toCell: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
@@ -1868,7 +1868,7 @@
       if (p.id === mine) chips.push('<span class="tag you">You</span>');
       if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away, a bot is playing</span>');
       if (p.jail) chips.push(`<span class="tag bad">In Prison, try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
-      if (p.pardons.length) chips.push(`<span class="tag good">Pardon ×${p.pardons.length}</span>`);
+      if (p.pardons.length) chips.push(`<span class="tag good">${p.pardons.length > 1 ? `${p.pardons.length} pardons` : 'Pardon'}</span>`);
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
         ${dotHTML(p)}
         <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span></span>
