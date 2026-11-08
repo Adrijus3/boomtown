@@ -121,6 +121,7 @@
   const DECKS = { chance: CHANCE, chest: CHEST };
   // Half of each tax, fine and bail goes into the jackpot, which stops growing at £200: in simulated games the
   // biggest collector then wins 32% (fair share 25%), against 50% when every penny went in with no ceiling.
+  const CATCH_UP = 40; // extra starting cash per place later in the turn order (evens out first-move advantage)
   const FREE_PARKING = { share: 0.5, cap: 200 };
   const PARDON_INDEX = { chance: CHANCE.findIndex((c) => c.a === 'pardon'), chest: CHEST.findIndex((c) => c.a === 'pardon') };
 
@@ -171,6 +172,8 @@
         pardons: [], bankrupt: false, outSeq: 0, outRound: null,
       }));
       if (settings.randomOrder) players = shuffle(players, rng);
+      // Going first is worth about £120 in a 25-round game, so each later seat starts £40 richer than the one before.
+      players.forEach((p, i) => { p.money += CATCH_UP * i; });
       const props = {};
       BOARD.forEach((t, i) => { if (BUYABLE(t)) props[i] = { owner: null, houses: 0, mortgaged: false }; });
       const s = {
@@ -185,7 +188,7 @@
       };
       const g = new Game(s, rng);
       s.history.push(g.snapshotWorth());
-      g.log(['Game started. ', { p: players[0].id }, ' goes first.']);
+      g.log(['Game started. ', { p: players[0].id }, ' goes first. Each later player starts with £40 more than the one before.']);
       return g;
     }
 
@@ -319,6 +322,7 @@
       const s = this.s, t = s.turn;
       if (s.over || t.phase !== 'roll') return false;
       const p = this.cur;
+      if (p.bankrupt) { this.advanceTurn(); return true; }
       const d = forced || [this.die(), this.die()];
       t.dice = d;
       const total = d[0] + d[1], dbl = d[0] === d[1];
@@ -614,12 +618,15 @@
           this.transfer(w, a.high, null, false);
           for (const i of lot) { this.s.props[i].owner = w.id; this.emit({ type: 'own', idx: i, pid: w.id }); }
           this.log([{ p: w.id }, ' won ', { t: a.tile }, lot.length > 1 ? ` and ${lot.length - 1} more` : '', ' at auction for ', { m: a.high }, '.']);
+        } else if (w && !w.bankrupt) {
+          this.log([{ p: w.id }, " couldn't pay their bid of ", { m: a.high }, ', so ', { t: a.tile }, ' stays with the bank.']);
         }
       } else {
         this.log(['Nobody bid on ', { t: a.tile }, (a.lot || []).length > 1 ? ` and ${a.lot.length - 1} more` : '', '. ', (a.lot || []).length > 1 ? 'They stay' : 'It stays', ' with the bank.']);
       }
       if (a.bankruptcy) {
-        if (!this.startBankruptcyAuction()) this.setPhase('roll');
+        // the player whose turn it is may have gone bankrupt during these auctions: move on
+        if (!this.startBankruptcyAuction()) { if (this.cur.bankrupt) this.advanceTurn(); else this.setPhase('roll'); }
       } else this.finishAction();
       return true;
     }
@@ -674,11 +681,23 @@
     sellHouse(pid, idx, force) {
       if (this.canSell(pid, idx, force)) return false;
       const pr = this.s.props[idx], p = this.player(pid), bank = this.s.bank;
-      const refund = this.houseCost(idx) / 2;
+      const refund = Math.floor(this.houseCost(idx) / 2);
       let got = refund;
       if (pr.houses === 5) {
         if (!this.st.limitedBuildings || bank.houses >= 4) { pr.houses = 4; bank.hotels++; bank.houses -= 4; }
-        else { pr.houses = 0; bank.hotels++; got = refund * 5; }
+        else if (this.st.evenBuild) {
+          // The bank can't swap the hotel for 4 houses, so the whole set comes down evenly to the highest
+          // level the bank's houses allow (the rest of the set has 4 houses or hotels while one has a hotel).
+          const tiles = GROUP_TILES[BOARD[idx].group], P = this.s.props;
+          const hotels = tiles.filter((i) => P[i].houses === 5).length;
+          const held = tiles.reduce((a, i) => a + (P[i].houses === 5 ? 0 : P[i].houses), 0);
+          const units = tiles.reduce((a, i) => a + P[i].houses, 0);
+          let L = 4;
+          while (L > 0 && tiles.length * L - held > bank.houses) L--;
+          bank.houses -= tiles.length * L - held; bank.hotels += hotels;
+          for (const i of tiles) P[i].houses = L;
+          got = refund * (units - tiles.length * L);
+        } else { pr.houses = 0; bank.hotels++; got = refund * 5; }
       } else { pr.houses--; bank.houses++; }
       this.gain(p, got);
       this.log([{ p: pid }, ' sold a building on ', { t: idx }, ' for ', { m: got }, '.']);
@@ -749,7 +768,7 @@
       for (const i of owned) {
         const pr = s.props[i];
         if (pr.houses > 0) {
-          p.money += (pr.houses * this.houseCost(i)) / 2;
+          p.money += pr.houses * Math.floor(this.houseCost(i) / 2);
           if (pr.houses === 5) s.bank.hotels++; else s.bank.houses += pr.houses;
           pr.houses = 0;
         }
@@ -817,6 +836,12 @@
       };
       const e = chk(a, tr.give) || chk(b, tr.get);
       if (e) return e;
+      // the auction leader must still be able to pay their bid afterwards
+      const A = this.s.auction;
+      if (A && A.bidder != null) {
+        const left = A.bidder === a.id ? a.money - tr.give.money + tr.get.money : A.bidder === b.id ? b.money - tr.get.money + tr.give.money : Infinity;
+        if (left < A.high) return `${this.player(A.bidder).name} needs that cash for their winning bid.`;
+      }
       const empty = (x) => !x.money && !x.props.length && !x.pardons;
       if (empty(tr.give) && empty(tr.get)) return 'Add something to the trade.';
       return '';
@@ -1109,7 +1134,7 @@
           if (p.money >= s.debt.amount) return g.payDebt();
           return g.declareBankruptcy(p.id);
         case 'end':
-          if (!auto) { this.manage(g, p); this.maybeProposeTrade(g, p); }
+          if (!auto) { this.manage(g, p); if (!opts.deferTrade) this.maybeProposeTrade(g, p); }
           return g.endTurn();
       }
       return false;

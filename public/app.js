@@ -371,7 +371,7 @@
   function rejoinHTML() {
     if (!room || !room.seats) return '';
     const inGame = room.status !== 'waiting' && game;
-    const list = room.seats.map((st, i) => ({ st, i })).filter(({ st, i }) => !st.bot && !st.online && !(inGame && game.s.players[i] && game.s.players[i].bankrupt));
+    const list = room.seats.map((st, i) => ({ st, i })).filter(({ st, i }) => !st.bot && !st.online && !(inGame && game.player(i) && game.player(i).bankrupt));
     if (!list.length) return '';
     return `<div class="rejoin" role="group" aria-labelledby="rejoinH"><span id="rejoinH" class="rejoin-h">Playing on a new device? Pick your seat to carry on.</span><span class="rejoin-btns">${list.map(({ st, i }) => `<button type="button" class="btn sm" data-rejoin="${i}"><span class="mini-dot" style="--pc:${st.color}" aria-hidden="true"></span>That's me: ${esc(st.name)}</button>`).join('')}</span></div>`;
   }
@@ -1408,7 +1408,7 @@
         + `<button type="button" class="chipbtn" data-cash="${key}" data-set="max">All ${fmt(p.money)}</button>`
         + (sd.money ? `<button type="button" class="chipbtn" data-cash="${key}" data-set="0">Clear</button>` : '');
       return `<section class="tt-side">
-        <header class="tt-h">${dotHTML(p)}<div><b>${key === 'give' ? 'You give' : `${esc(p.name)} gives`}</b><span class="muted">${fmt(p.money)} cash · ${game.ownedBy(p.id).length} properties</span></div></header>
+        <header class="tt-h">${dotHTML(p)}<div><b>${key === 'give' ? 'You give' : `${esc(p.name)} gives`}</b><span class="muted">${fmt(p.money)} cash · ${game.ownedBy(p.id).length} ${game.ownedBy(p.id).length === 1 ? 'property' : 'properties'}</span></div></header>
         <div class="tt-cash"><div class="cash-in"><span aria-hidden="true">£</span><input type="number" inputmode="numeric" id="deal-${key}-cash" data-money="${key}" min="0" max="${p.money}" step="10" value="${sd.money}" aria-label="Cash ${key === 'give' ? 'you give' : `${p.name} gives`}"></div><div class="chips">${chips}</div></div>
         <div class="deck">${cards || '<span class="muted deck-empty">No properties yet</span>'}</div>
         ${p.pardons.length ? `<div class="owner-line"><span class="muted">Pardon cards</span><span class="stepper"><button type="button" class="icon-btn" data-pard="${key}" data-d="-1" aria-label="Fewer">${icon('minus')}</button><b>${sd.pardons}</b><button type="button" class="icon-btn" data-pard="${key}" data-d="1" aria-label="More">${icon('plus')}</button></span></div>` : ''}
@@ -1699,7 +1699,7 @@
       if (s.over && s.winner === p.id) chips.push(`<span class="tag warn">${icon('crown')} Winner</span>`);
       if (p.id === mine) chips.push('<span class="tag you">You</span>');
       if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away · autopilot</span>');
-      if (p.jail) chips.push(`<span class="tag bad">In Prison · ${p.jailTurns}/3</span>`);
+      if (p.jail) chips.push(`<span class="tag bad">In Prison · try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
       if (p.pardons.length) chips.push(`<span class="tag good">${icon('key')} Pardon ×${p.pardons.length}</span>`);
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
         ${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}
@@ -1798,7 +1798,7 @@
       case 'moving': return '<div class="wait"><span>Moving<span class="dots"></span></span></div>';
       case 'buy': {
         const i = p.pos, tile = BOARD[i], short = tile.price - p.money;
-        const metaTxt = tile.type === 'prop' ? `${GROUPS[tile.group].name} · rent from ${fmt(tile.rent[0])}` : tile.type === 'airport' ? 'Airport · rent from $25' : 'Utility · 4× dice roll';
+        const metaTxt = tile.type === 'prop' ? `${GROUPS[tile.group].name} · rent from ${fmt(tile.rent[0])}` : tile.type === 'airport' ? `Airport · rent from ${fmt(25)}` : 'Utility · 4× dice roll';
         return `${postcardHTML(i, p.id)}
           <div class="row">
             <button class="btn primary lg" data-a="buy" ${dis || (short > 0 ? 'disabled' : '')}>Buy for ${fmt(tile.price)}</button>
@@ -1888,7 +1888,7 @@
     if (p.bot) tags.push('<span class="tag">Bot</span>');
     if (canManageNow(p)) tags.push('<span class="tag good">Your turn</span>');
     else if (!s.over && game.cur.id === p.id) tags.push('<span class="tag warn">Playing now</span>');
-    if (p.jail) tags.push(`<span class="tag bad">In Prison · ${p.jailTurns}/3</span>`);
+    if (p.jail) tags.push(`<span class="tag bad">In Prison · try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
     if (p.bankrupt) tags.push('<span class="tag bad">Bankrupt</span>');
     const canDeal = v != null && !p.bankrupt && !s.over && game.alive().length >= 2;
     const dealBtn = !canDeal ? '' : isMe
@@ -2270,7 +2270,7 @@
     const x = (k) => L + (k / (hist.length - 1)) * (W - L - R);
     const y = (v) => T + (1 - v / max) * (H - T - Bm);
     let g = '';
-    for (let v = 0; v <= max; v += step) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v >= 1000 ? `$${v / 1000}k` : `$${v}`}</text>`;
+    for (let v = 0; v <= max; v += step) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v >= 1000 ? `£${v / 1000}k` : `£${v}`}</text>`;
     const ticks = Math.min(6, hist.length - 1);
     for (let k = 0; k <= ticks; k++) { const idx = Math.round((k / ticks) * (hist.length - 1)); g += `<text x="${x(idx)}" y="${H - 8}" text-anchor="middle">${hist[idx].end ? 'End' : `R${hist[idx].r}`}</text>`; }
     const lines = game.s.players.map((p) => {
@@ -2312,7 +2312,7 @@
     const others = game.s.players.filter((x) => !x.bot && !x.bankrupt && x.id !== pid && x.id !== mine && room && room.seats[x.id] && room.seats[x.id].online).length;
     openModal('confirm', {
       title: p.bot ? `Remove ${p.name}?` : `Vote to remove ${p.name}?`,
-      body: `${others ? `The other ${others === 1 ? 'player gets' : `${others} players get`} 30 seconds to vote. If more than half of you agree, ${esc(p.name)} is out of the game.` : `You're the only one who can vote, so ${esc(p.name)} leaves the game straight away.`} Their properties go back to the bank.`,
+      body: `${others ? `The other ${others === 1 ? 'player gets' : `${others} players get`} 30 seconds to vote. If more than half of you agree, ${esc(p.name)} is out of the game.` : `You're the only one who can vote, so ${esc(p.name)} leaves the game straight away.`} Their properties are auctioned, a region at a time.`,
       confirm: others ? 'Start the vote' : 'Remove', danger: true,
       onConfirm: () => act('kick', { pid }),
     });
@@ -2349,7 +2349,7 @@
     const d = game.s.debt && game.s.debt.pid === mine ? game.s.debt : null;
     openModal('confirm', {
       title: 'Declare bankruptcy?',
-      body: `You leave the game. ${d && typeof d.to === 'number' ? `Everything goes to ${esc(pname(d.to))}.` : 'All your properties go back to the bank.'} You can keep watching. This can’t be undone.`,
+      body: `You leave the game. Your properties are auctioned, a region at a time.${d && typeof d.to === 'number' ? ` Your cash and Pardon cards go to ${esc(pname(d.to))}.` : ''} You can keep watching. This can’t be undone.`,
       confirm: 'Declare bankruptcy', danger: true,
       onConfirm: () => act('bankrupt'),
     });

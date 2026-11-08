@@ -3079,3 +3079,30 @@ body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; 
 
 /* primary buttons keep a solid colour under their gradient, so hovering never fades through black */
 .btn.primary { background-color: var(--brass); }
+
+/* ---------------------------------------------------------------- v20: very small phones (board under ~345px)
+   The centre of the board is only ~220px square here, so the turn panel and auctions tighten up to fit
+   without scrolling: smaller dice, buttons side by side, and leaner auction controls. */
+@container board (max-width: 345px) {
+  #board .center-inner { gap: 3px !important; padding: 5px 6px !important; }
+  #board .center-inner .cmeta { transform: scale(.88); margin-block: -2px; }
+  #board .center-inner .turnline { font-size: 12px !important; }
+  #board .center-inner .dice { gap: 10px !important; padding: 0 !important; zoom: .7; }
+  #board .center-inner .actions { gap: 4px !important; width: 96% !important; font-size: 11.5px !important; min-height: 0 !important; }
+  #board .center-inner .actions .note { font-size: 10.5px !important; margin: 0 !important; }
+  #board .center-inner .actions .row { gap: 4px !important; flex-wrap: wrap; }
+  #board .center-inner .actions .btn { padding: .42em .7em !important; min-height: 28px !important; font-size: 11.5px !important; }
+  #board .center-inner .actions .btn.lg { font-size: 12px !important; }
+  #board .center-inner .feed { display: none !important; }
+
+  #auctionBox:not([hidden]) { inset: 3% !important; padding: 6px !important; gap: 4px !important; }
+  #auctionBox .bid-btn { min-height: 30px !important; padding: .25em .3em !important; }
+  #auctionBox .bid-btn small { display: none !important; }
+  #auctionBox .bid-btn b { font-size: 12.5px !important; }
+  #auctionBox .bidder .bidder-actions { gap: 4px !important; }
+  #auctionBox .bidder .bidder-actions .pass-btn { min-height: 26px !important; }
+}
+/* If the centre ever holds more than fits, keep the top (round chip, turn line) in view and let the
+   rest scroll, rather than centring and cutting off both ends. While buying, the dice shrink to make room. */
+#board .center-inner { justify-content: safe center; }
+#board .center-inner:has(#cActions [data-a="buy"]) .dice { zoom: .62; padding: 0; }

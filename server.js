@@ -457,12 +457,14 @@ function automate(room) {
   const wait = Math.max(0, room.busyUntil - now);
 
   for (const tr of g.s.trades) {
-    if (tr.status !== 'pending' || !g.player(tr.to).bot || room.tradeTimers[tr.id]) continue;
+    // nobody answers offers during their own turn, bots included: they wait until the turn is over
+    if (tr.status !== 'pending' || !g.player(tr.to).bot || room.tradeTimers[tr.id] || g.cur.id === tr.to) continue;
     room.tradeTimers[tr.id] = setTimeout(() => {
       delete room.tradeTimers[tr.id];
       if (room.game !== g) return;
       const t = g.findTrade(tr.id);
       if (!t || t.status !== 'pending') return;
+      if (g.cur.id === t.to) { automate(room); return; }
       if (Bot.evaluateTrade(g, t)) g.acceptTrade(t.id); else g.declineTrade(t.id);
       tick(room);
     }, 1500 * sp.bot + 400);
@@ -484,7 +486,12 @@ function automate(room) {
       if (g.cur.id !== p.id || g.s.turn.phase !== ph || Date.now() < room.busyUntil - 40) return automate(room);
       if (!p.bot && !expired && awayFor(room, p.id) < AWAY_GRACE) return automate(room);
       if (expired && g.s.turn.phase === 'buy') g.decline();
-      else Bot.act(g, p.bot ? undefined : { force: true, autopilot: true });
+      else {
+        const n = g.s.turn.n;
+        Bot.act(g, p.bot ? { deferTrade: true } : { force: true, autopilot: true });
+        // a bot makes its trade offer once its turn is over, not during it
+        if (p.bot && !g.s.over && g.s.turn.n !== n && !p.bankrupt) Bot.maybeProposeTrade(g, p);
+      }
       tick(room);
     }, wait + base * sp.bot + extra);
     return;
