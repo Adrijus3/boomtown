@@ -339,7 +339,7 @@
     const el = $('#roomList');
     if (!list.length) { el.innerHTML = '<div class="empty"><b>No open rooms right now</b>Press Play now to open one, then share the link with friends.</div>'; return; }
     el.innerHTML = list.map((r) => `<div class="room-item">
-      <div><div class="code">${esc(r.id)}</div><div class="sub">${esc(r.host || 'Host')}’s room · ${r.players} of ${r.max} seats${r.bots ? ` · ${r.bots} bot${r.bots > 1 ? 's' : ''}` : ''}</div></div>
+      <div><div class="code">${esc(r.id)}</div><div class="sub">${esc(r.host || 'Host')}’s room, ${r.players} of ${r.max} seats${r.bots ? `, ${r.bots} bot${r.bots > 1 ? 's' : ''}` : ''}</div></div>
       <span class="tag ${r.status === 'waiting' ? 'good' : ''}">${r.status === 'waiting' ? 'Waiting' : `Round ${r.round}`}</span>
       <button class="btn sm" data-join="${esc(r.id)}">${r.status === 'waiting' ? 'Join' : 'Watch'}</button></div>`).join('');
   }
@@ -382,7 +382,7 @@
     const r = room, host = amHost();
     const mySeat = r.seats.findIndex((s) => !s.bot && s.clientId === me);
     $('#shareLink').value = `${location.origin}/room/${r.id}`;
-    $('#seatCount').textContent = `${r.seats.length} of ${r.settings.maxPlayers} seats${r.watchers ? ` · ${r.watchers} watching` : ''}`;
+    $('#seatCount').textContent = `${r.seats.length} of ${r.settings.maxPlayers} seats${r.watchers ? `, ${r.watchers} watching` : ''}`;
     const rows = r.seats.map((s, i) => `<li class="seat-row ${i === mySeat ? 'me' : ''}">
         ${i === mySeat ? `<button type="button" class="seat-face" data-act="photo" aria-label="${prof.avatar ? 'Change' : 'Add'} your photo">${dotHTML(s)}<span class="sw-cam" aria-hidden="true">${icon('camera')}</span></button>` : dotHTML(s)}
         <span class="who-name"><span class="nm">${esc(s.name)}</span>${s.bot ? '<span class="tag">Bot</span>' : `<span class="online-dot ${s.online ? '' : 'off'}" title="${s.online ? 'Online' : 'Offline'}"></span>`}${s.clientId && s.clientId === r.hostId ? `<span class="tag warn">${icon('crown')} Host</span>` : ''}${i === mySeat ? '<span class="tag you">You</span>' : ''}</span>
@@ -422,7 +422,7 @@
     if (!seatCtl.contains(document.activeElement) || document.activeElement.tagName !== 'INPUT') seatCtl.innerHTML = ctl;
     const rb = $('#rulesBox');
     if (rb && !rb.dataset.init) { rb.dataset.init = '1'; rb.open = window.innerWidth > 900; }
-    $('#rulesHint').textContent = host ? 'Standard rules · tap to change' : `Set by ${r.hostName || 'the host'} · tap to view`;
+    $('#rulesHint').textContent = host ? 'Tap to change' : `Set by ${r.hostName || 'the host'}`;
     $('#roomRules').innerHTML = RULES.map((rule) => {
       if (rule.group) return `<div class="rgroup eyebrow">${rule.group}</div>`;
       const v = r.settings[rule.key], dis = host ? '' : 'disabled';
@@ -1223,7 +1223,7 @@
   function tileTipHTML(i) {
     const t = BOARD[i], pr = game.s.props[i], st = game.st;
     if (!pr) {
-      const sub = { tax: `Pay ${fmt(t.amount || 0)}`, chance: 'Draw a Surprise card', chest: 'Open a Treasure card', start: `Collect ${fmt(st.salary)} when you pass`, jail: `Just visiting · bail ${fmt(st.bail)}`, gotojail: 'Go straight to Prison', vacation: st.vacationCash ? `Jackpot ${fmt(game.s.pot)}` : 'Free parking' }[t.type] || '';
+      const sub = { tax: `Pay ${fmt(t.amount || 0)}`, chance: 'Draw a Surprise card', chest: 'Open a Treasure card', start: `Collect ${fmt(st.salary)} when you pass`, jail: `Just visiting. Bail ${fmt(st.bail)}`, gotojail: 'Go straight to Prison', vacation: st.vacationCash ? `Jackpot ${fmt(game.s.pot)}` : 'Free parking' }[t.type] || '';
       return `<b>${esc(t.name)}</b>${sub ? `<span class="muted">${esc(sub)}</span>` : ''}`;
     }
     const owner = pr.owner != null ? game.player(pr.owner) : null;
@@ -1391,10 +1391,10 @@
   function postcardHTML(i, who) {
     const t = BOARD[i];
     const note = setNote(i, who);
-    const rent = t.type === 'prop' ? `Rent ${fmt(t.rent[0])} · ${fmt(t.rent[1])} with a house` : t.type === 'airport' ? 'Rent $25 to $200' : 'Rent 4× or 10× the dice';
+    const rent = t.type === 'prop' ? `Rent ${fmt(t.rent[0])}, or ${fmt(t.rent[1])} with a house` : t.type === 'airport' ? `Rent ${fmt(25)} to ${fmt(200)}` : 'Rent 4× or 10× the dice';
     const longName = t.name.length > 14;
     return `<div class="postcard" style="--g:${groupColor(i)}" data-a="details" data-i="${i}" role="button" tabindex="0" aria-label="${esc(t.name)} details">${emblemHTML(i, 'big wave')}
-      <div class="pc-text"><div class="pc-country">${esc(placeLabel(i))}${note ? `<span class="pc-note"> · ${esc(note)}</span>` : ''}</div><div class="pc-city ${longName ? 'long' : ''}">${esc(t.name)}</div><div class="pc-meta">${rent}</div></div>
+      <div class="pc-text"><div class="pc-country">${esc(placeLabel(i))}${note ? `<span class="pc-note">, ${esc(note)}</span>` : ''}</div><div class="pc-city ${longName ? 'long' : ''}">${esc(t.name)}</div><div class="pc-meta">${rent}</div></div>
       <div class="pc-price">${fmt(t.price)}</div></div>`;
   }
   function miniDeed(i, o) {
@@ -1404,7 +1404,7 @@
     return `<${tag} class="deedcard ${o.on ? 'on' : ''} ${o.locked ? 'locked' : ''} ${o.small ? 'small' : ''}" ${attrs} style="--g:${groupColor(i)}" title="${esc(o.title || t.name)}">
       <span class="dc-band"></span>${emblemHTML(i)}
       <span class="dc-name">${esc(t.name)}</span>
-      <span class="dc-sub">${fmt(t.price)}${pr && pr.mortgaged ? ' · mortgaged' : ''}</span>
+      <span class="dc-sub">${fmt(t.price)}${pr && pr.mortgaged ? ', mortgaged' : ''}</span>
       ${o.badge ? `<span class="dc-badge ${o.badgeCls || ''}">${o.badge}</span>` : ''}
       ${o.on ? `<span class="dc-check">${icon('check')}</span>` : ''}</${tag}>`;
   }
@@ -1553,7 +1553,7 @@
         + `<button type="button" class="chipbtn" data-cash="${key}" data-set="max">All ${fmt(p.money)}</button>`
         + (sd.money ? `<button type="button" class="chipbtn" data-cash="${key}" data-set="0">Clear</button>` : '');
       return `<section class="tt-side">
-        <header class="tt-h">${dotHTML(p)}<div><b>${key === 'give' ? 'You give' : `${esc(p.name)} gives`}</b><span class="muted">${fmt(p.money)} cash · ${game.ownedBy(p.id).length} ${game.ownedBy(p.id).length === 1 ? 'property' : 'properties'}</span></div></header>
+        <header class="tt-h">${dotHTML(p)}<div><b>${key === 'give' ? 'You give' : `${esc(p.name)} gives`}</b><span class="muted">${fmt(p.money)} cash, ${game.ownedBy(p.id).length} ${game.ownedBy(p.id).length === 1 ? 'property' : 'properties'}</span></div></header>
         <div class="tt-cash"><div class="cash-in"><span aria-hidden="true">£</span><input type="number" inputmode="numeric" id="deal-${key}-cash" data-money="${key}" min="0" max="${p.money}" step="10" value="${sd.money}" aria-label="Cash ${key === 'give' ? 'you give' : `${p.name} gives`}"></div><div class="chips">${chips}</div></div>
         <div class="deck">${cards || '<span class="muted deck-empty">No properties yet</span>'}</div>
         ${p.pardons.length ? `<div class="owner-line"><span class="muted">Pardon cards</span><span class="stepper"><button type="button" class="icon-btn" data-pard="${key}" data-d="-1" aria-label="Fewer">${icon('minus')}</button><b>${sd.pardons}</b><button type="button" class="icon-btn" data-pard="${key}" data-d="1" aria-label="More">${icon('plus')}</button></span></div>` : ''}
@@ -1652,7 +1652,7 @@
       const span = Math.max(150, Math.abs(dl.mine) + Math.abs(dl.theirs)), diff = dl.mine - dl.theirs;
       const v = Math.abs(diff) <= span * 0.15 ? ['', 'About even'] : diff > 0 ? ['good', 'Good for you'] : ['bad', 'Costly for you'];
       const err = game.validateTrade(tr);
-      const sub = [!ONLINE && game.alive().filter((p) => !p.bot).length > 1 ? `For ${esc(b.name)}` : 'New offer', count > 1 ? `1 of ${count}` : ''].filter(Boolean).join(' · ');
+      const sub = [!ONLINE && game.alive().filter((p) => !p.bot).length > 1 ? `For ${esc(b.name)}` : 'New offer', count > 1 ? `1 of ${count}` : ''].filter(Boolean).join(', ');
       return `<div class="offer-card in">
         <div class="od-h">${dotHTML(a)}<div><b>${esc(a.name)} wants to trade</b><span class="muted">${sub}</span></div><span class="tag ${v[0]}">${v[1]}</span></div>
         <div class="od-cols"><div><span class="eyebrow">You get</span><div class="ds-items">${sideHTML(tr.give)}</div></div><div><span class="eyebrow">You give</span><div class="ds-items">${sideHTML(tr.get)}</div></div></div>
@@ -1718,7 +1718,7 @@
     const v = viewerPid();
     if (!owner || v == null || owner.id === v || owner.bankrupt || game.s.over) return '';
     const ok = game.tradable(owner.id, i);
-    return `<div class="manage one"><button type="button" class="btn primary lg" data-deal="${i}" ${ok ? '' : 'disabled'}>${icon('swap')} Make ${esc(owner.name)} an offer</button>${ok ? '' : '<div class="why">They have buildings in this region and must sell them before trading it.</div>'}</div>`;
+    return `<div class="manage one"><button type="button" class="btn primary lg" data-deal="${i}" ${ok ? '' : 'disabled'}>${icon('swap')} Make an offer</button>${ok ? '' : '<div class="why">They have buildings in this region and must sell them before trading it.</div>'}</div>`;
   }
 
   // ---- auctions: bid, auto-bid up to a cap, or pass
@@ -1843,14 +1843,14 @@
       const chips = [];
       if (s.over && s.winner === p.id) chips.push(`<span class="tag warn">${icon('crown')} Winner</span>`);
       if (p.id === mine) chips.push('<span class="tag you">You</span>');
-      if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away · autopilot</span>');
-      if (p.jail) chips.push(`<span class="tag bad">In Prison · try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
+      if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away, a bot is playing</span>');
+      if (p.jail) chips.push(`<span class="tag bad">In Prison, try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
       if (p.pardons.length) chips.push(`<span class="tag good">${icon('key')} Pardon ×${p.pardons.length}</span>`);
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
         ${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}
         ${dotHTML(p)}
         <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span>${p.bot ? '<span class="tag">Bot</span>' : ''}</span>
-        <span class="pmeta">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Worth ${fmt(game.netWorth(p.id))} · ${n} ${n === 1 ? 'property' : 'properties'}`}</span></span>
+        <span class="pmeta">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Net worth ${fmt(game.netWorth(p.id))}`}</span></span>
         <span class="pmoney" data-money="${p.id}">${p.bankrupt ? '—' : fmt(p.money)}</span>
         ${chips.length ? `<span class="pchips">${chips.join('')}</span>` : ''}
       </button>`;
@@ -1863,8 +1863,7 @@
     setHTML($('#bankbox'), 'bank', `
       <div><div class="k">${st.limitedBuildings ? 'Houses left' : 'Houses built'}</div><div class="v">${st.limitedBuildings ? b.houses : houses}</div></div>
       <div><div class="k">${st.limitedBuildings ? 'Hotels left' : 'Hotels built'}</div><div class="v">${st.limitedBuildings ? b.hotels : hotels}</div></div>
-      ${st.vacationCash ? `<div><div class="k">Free Parking</div><div class="v">${fmt(s.pot)}</div></div>` : ''}
-      <div><div class="k">Round</div><div class="v">${s.round}${st.roundLimit ? ` / ${st.roundLimit}` : ''}</div></div>`);
+      ${st.vacationCash ? `<div><div class="k">Free Parking</div><div class="v">${fmt(s.pot)}</div></div>` : ''}`);
     const myp = mine != null ? game.player(mine) : null;
     $('#resignBtn').hidden = !(myp && !myp.bankrupt && !s.over);
   }
@@ -1949,7 +1948,7 @@
     switch (t.phase) {
       case 'roll':
         if (p.jail) {
-          return `<div class="note">${icon('lock')} In Prison · attempt ${p.jailTurns + 1} of 3</div>
+          return `<div class="note">${icon('lock')} In Prison, attempt ${p.jailTurns + 1} of 3</div>
             <div class="row roll-controls">
               <button class="btn primary lg" data-a="roll" ${dis}><span class="btn-art">${window.BoomArt.die}</span> Roll for doubles</button>
               <button class="btn lg ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls the dice for you each turn, including prison rolls. It never buys, pays bail or ends your turn.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>
@@ -1962,7 +1961,7 @@
       case 'moving': return '<div class="wait"><span>Moving<span class="dots"></span></span></div>';
       case 'buy': {
         const i = p.pos, tile = BOARD[i], short = tile.price - p.money;
-        const metaTxt = tile.type === 'prop' ? `${GROUPS[tile.group].name} · rent from ${fmt(tile.rent[0])}` : tile.type === 'airport' ? `Airport · rent from ${fmt(25)}` : 'Utility · 4× dice roll';
+        const metaTxt = tile.type === 'prop' ? `${GROUPS[tile.group].name}, rent from ${fmt(tile.rent[0])}` : tile.type === 'airport' ? `Airport, rent from ${fmt(25)}` : 'Utility, 4× dice roll';
         return `${postcardHTML(i, p.id)}
           <div class="row">
             <button class="btn primary lg" data-a="buy" ${dis || (short > 0 ? 'disabled' : '')}>Buy for ${fmt(tile.price)}</button>
@@ -2013,7 +2012,7 @@
     const M = (meta && meta.auction) || {};
     setHTML(box, 'auction', `
       <div class="auction-h"><h3>${icon('gavel')} Auction</h3><span class="chip auction-countdown" id="auctionCountdown">Ends in <b id="auctionSecs" aria-live="off">${M.deadline ? `${Math.max(0, Math.ceil((M.deadline - serverNow()) / 1000))}s` : '–'}</b></span></div>
-      <div class="auction-property"><span class="auction-property-label">${(a.lot || []).length > 1 ? 'BANKRUPTCY LOT · WINNER TAKES ALL' : 'PROPERTY VALUE'}</span>${postcardHTML(a.tile, mine)}${(a.lot || []).length > 1 ? `<div class="auction-lot">${a.lot.map((i) => `<span>${emblemHTML(i, 'xs')}${esc(BOARD[i].name)} <b>${fmt(BOARD[i].price)}</b></span>`).join('')}<span class="auction-lot-total">${esc(BOARD[a.lot[0]].group ? GROUPS[BOARD[a.lot[0]].group].name : BOARD[a.lot[0]].type === 'airport' ? 'Airports' : 'Utilities')}: ${a.lot.length} places, together ${fmt(a.lot.reduce((sum, i) => sum + BOARD[i].price, 0))}</span></div>` : ''}</div>
+      <div class="auction-property"><span class="auction-property-label">${(a.lot || []).length > 1 ? 'Bankruptcy lot: the winner takes all of it' : 'Property value'}</span>${postcardHTML(a.tile, mine)}${(a.lot || []).length > 1 ? `<div class="auction-lot">${a.lot.map((i) => `<span>${emblemHTML(i, 'xs')}${esc(BOARD[i].name)} <b>${fmt(BOARD[i].price)}</b></span>`).join('')}<span class="auction-lot-total">${esc(BOARD[a.lot[0]].group ? GROUPS[BOARD[a.lot[0]].group].name : BOARD[a.lot[0]].type === 'airport' ? 'Airports' : 'Utilities')}: ${a.lot.length} places, together ${fmt(a.lot.reduce((sum, i) => sum + BOARD[i].price, 0))}</span></div>` : ''}</div>
       <div class="auction-bid-summary">
         <div class="auction-bid-main"><span class="auction-bid-label">CURRENT HIGHEST BID:</span><span class="v">${fmt(a.high)}</span></div>
         <div class="auction-leader">${bidder ? `${dotHTML(bidder)}<span>Leading: <b class="who" style="--pc:${bidder.color}">${esc(bidder.id === mine ? 'You' : bidder.name)}</b></span>` : '<span>No bids yet</span>'}</div>
@@ -2059,7 +2058,7 @@
     if (p.bot) tags.push('<span class="tag">Bot</span>');
     if (canManageNow(p)) tags.push('<span class="tag good">Your turn</span>');
     else if (!s.over && game.cur.id === p.id) tags.push('<span class="tag warn">Playing now</span>');
-    if (p.jail) tags.push(`<span class="tag bad">In Prison · try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
+    if (p.jail) tags.push(`<span class="tag bad">In Prison, try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
     if (p.bankrupt) tags.push('<span class="tag bad">Bankrupt</span>');
     const canDeal = v != null && !p.bankrupt && !s.over && game.alive().length >= 2;
     const dealBtn = !canDeal ? '' : isMe
@@ -2151,7 +2150,7 @@
     const owned = game.ownedBy(p.id);
     const manage = p.id === mine && game.canManage(p.id) && !ui.busy;
     let h = `<div class="who-row">${who}</div>
-      <div class="pf-head"><h3>${esc(p.id === mine ? 'Your portfolio' : p.name)}</h3>${dealWithBtn(p)}${p.bot ? '<span class="tag">Bot</span>' : manage ? '<span class="tag good">Your turn · manage freely</span>' : ''}</div>
+      <div class="pf-head"><h3>${esc(p.id === mine ? 'Your portfolio' : p.name)}</h3>${dealWithBtn(p)}${p.bot ? '<span class="tag">Bot</span>' : manage ? '<span class="tag good">Your turn</span>' : ''}</div>
       <div class="stats"><div class="stat"><div class="k">Cash</div><div class="v">${fmt(p.money)}</div></div>
       <div class="stat"><div class="k">Net worth</div><div class="v">${fmt(game.netWorth(p.id))}</div></div>
       <div class="stat"><div class="k">Pardons</div><div class="v">${p.pardons.length}</div></div></div>`;
@@ -2338,15 +2337,15 @@
       const parts = [], reasons = [];
       if (t.type === 'prop') {
         const b = game.canBuild(owner.id, i);
-        parts.push(btn('build', `${icon('house')} ${pr.houses === 4 ? 'Build hotel' : 'Build house'} · ${fmt(game.houseCost(i))}`, b));
-        parts.push(btn('sell', `${icon('minus')} Sell building · +${fmt(Math.floor(game.houseCost(i) / 2))}`, game.canSell(owner.id, i)));
+        parts.push(btn('build', `${icon('house')} ${pr.houses === 4 ? 'Build hotel' : 'Build house'} <span class="bp">${fmt(game.houseCost(i))}</span>`, b));
+        parts.push(btn('sell', `${icon('minus')} Sell building <span class="bp">+${fmt(Math.floor(game.houseCost(i) / 2))}</span>`, game.canSell(owner.id, i)));
         if (b) reasons.push(b);
       }
       if (st.mortgages) {
-        if (pr.mortgaged) parts.push(btn('unmortgage', `Redeem · ${fmt(game.unmortgageCost(i))}`, game.canUnmortgage(owner.id, i)));
-        else { const r = game.canMortgage(owner.id, i); parts.push(btn('mortgage', `Mortgage · +${fmt(game.mortgageValue(i))}`, r)); if (r && !reasons.includes(r)) reasons.push(r); }
+        if (pr.mortgaged) parts.push(btn('unmortgage', `Redeem <span class="bp">${fmt(game.unmortgageCost(i))}</span>`, game.canUnmortgage(owner.id, i)));
+        else { const r = game.canMortgage(owner.id, i); parts.push(btn('mortgage', `Mortgage <span class="bp">+${fmt(game.mortgageValue(i))}</span>`, r)); if (r && !reasons.includes(r)) reasons.push(r); }
       }
-      { const r = game.canSellProperty(owner.id, i); parts.push(`<button class="btn ${r ? '' : 'primary'} sell-prop" data-sellprop="${i}" ${r || ui.busy ? 'disabled' : ''} title="${esc(r)}">Sell to bank · +${fmt(game.sellValue(i))}</button>`); }
+      { const r = game.canSellProperty(owner.id, i); parts.push(`<button class="btn ${r ? '' : 'primary'} sell-prop" data-sellprop="${i}" ${r || ui.busy ? 'disabled' : ''} title="${esc(r)}">Sell to bank <span class="bp">+${fmt(game.sellValue(i))}</span></button>`); }
       if (!game.canManage(owner.id)) reasons.splice(0, reasons.length, 'You can manage your properties during your own turn.');
       manage = `<div class="manage">${parts.join('')}${reasons.length ? `<div class="why">${esc(reasons[0])}</div>` : ''}</div>`;
     }
@@ -2371,7 +2370,7 @@
     const col = (p, sd, key) => {
       const owned = game.ownedBy(p.id).sort((a, b) => a - b);
       return `<div class="tb-col"><h3>${dotHTML(p)} ${esc(giveLabel(p))}</h3>
-        <div class="money-in"><label class="eyebrow" for="tb-${key}-money">Cash · has ${fmt(p.money)}</label>
+        <div class="money-in"><label class="eyebrow" for="tb-${key}-money">Cash (has ${fmt(p.money)})</label>
           <div class="top"><input type="number" id="tb-${key}-money" data-money="${key}" min="0" max="${p.money}" step="10" value="${sd.money}"></div>
           <input type="range" id="tb-${key}-range" data-range="${key}" min="0" max="${p.money}" step="10" value="${sd.money}" aria-label="${esc(p.name)} cash"></div>
         <div class="plist">${owned.length ? owned.map((i) => {

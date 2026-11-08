@@ -3187,3 +3187,61 @@ body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; 
 #seatControls .sc-start .btn { width: 100%; justify-content: center; min-height: 50px; font-size: 16px; }
 #seatControls .sc-start .room-cta-note { text-align: center; font-size: 12.5px; color: var(--muted); }
 #roomCta[hidden] { display: none !important; }
+
+/* ================================================================ v26: calm, flat, printed-board refresh
+   Fewer effects, sentence-case labels, flat surfaces and a board drawn like a printed board (one sheet
+   split by hairlines, not a grid of floating cards). Hand-drawn themes keep their own look. */
+
+/* -- labels: sentence case, no tracking (all themes) */
+.tag, .eyebrow, .log-r, .standings th, .ov-sec > h4, .ov-sec > h2, .bankbox .k, .th-gh, .pc-country, .pcard .now,
+.auction-property-label, .field-label, .rgroup { text-transform: none !important; letter-spacing: 0 !important; }
+.eyebrow, .log-r, .standings th, .th-gh, .rgroup { font-size: 12.5px !important; font-weight: 600 !important; color: var(--muted) !important; }
+.log-r { margin: 16px 0 6px !important; }
+.tag { font-size: 11.5px !important; font-weight: 600 !important; padding: .3em .55em !important; }
+.pcard .now { font-size: 11px !important; font-weight: 700 !important; }
+
+/* -- icons sit on the text's centre line everywhere (inline or in flex rows) */
+svg.ic { vertical-align: -0.18em; }
+.room-cta-note, .note, .trade-lock { display: inline-flex; align-items: center; gap: .4em; }
+.btn, .tag, .chip, .chipbtn, .cashchip, .suggest, .icon-btn { align-items: center; }
+.btn > svg.ic, .tag > svg.ic, .chip > svg.ic, .note > svg.ic, .room-cta-note > svg.ic { vertical-align: 0; }
+
+/* -- flat surfaces (non-sketch themes) */
+:root:not([data-sketch]) .btn.primary { background: var(--brass) !important; box-shadow: none !important; }
+:root:not([data-sketch]) .btn.primary:hover:not(:disabled) { background: var(--brass-hi) !important; }
+:root:not([data-sketch]) .btn:not(.primary):not(.danger):not(.ghost) { background: var(--tile-2) !important; box-shadow: none !important; }
+:root:not([data-sketch]) .btn:not(.primary):not(.danger):not(.ghost):hover:not(:disabled) { background: var(--tile-3) !important; }
+:root:not([data-sketch]) .icon-btn { background: var(--tile-2) !important; box-shadow: none !important; }
+:root:not([data-sketch]) .tag:not(.good):not(.warn):not(.bad):not(.you):not(.away) { background: var(--tile-3) !important; }
+:root:not([data-sketch]) .panel, :root:not([data-sketch]) .sheet, :root:not([data-sketch]) .side .panel { box-shadow: none !important; background-image: none !important; }
+:root:not([data-sketch]) .pcard.turn { background: rgba(var(--brass-rgb), .08) !important; box-shadow: none !important; }
+:root:not([data-sketch]) .pcard.turn .pdot { animation: none !important; }
+:root:not([data-sketch]) .pcard .now { box-shadow: none !important; }
+:root:not([data-sketch]) .tabs, :root:not([data-sketch]) .tabs button.on { box-shadow: none !important; background-image: none !important; }
+:root:not([data-sketch]) .chip { box-shadow: none !important; background-image: none !important; }
+
+/* -- the centre: no decorative pattern behind the dice (all themes) */
+.rosette, .lobby-rosette { display: none !important; }
+
+/* -- bank figures: a plain list, label left, number right */
+.bankbox { display: block !important; padding: 6px 16px !important; }
+.bankbox > div { display: flex !important; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0 !important;
+  border: 0 !important; border-bottom: 1px solid var(--line-soft) !important; border-radius: 0 !important; background: none !important; }
+.bankbox > div:last-child { border-bottom: 0 !important; }
+.bankbox .k { margin: 0 !important; font-size: 13px !important; font-weight: 500 !important; color: var(--muted) !important; }
+.bankbox .v { font-size: 15px !important; font-variant-numeric: tabular-nums; }
+
+/* -- the board as one printed sheet (non-sketch themes): hairlines between squares, square corners inside */
+:root:not([data-sketch]) #board.board { gap: 1px !important; padding: 0 !important; background: var(--line) !important; overflow: hidden; border-radius: 14px; }
+:root:not([data-sketch]) #board .tile { border-radius: 0 !important; background: var(--tile) !important; box-shadow: none !important; }
+:root:not([data-sketch]) #board .tile.corner { background: var(--tile-2) !important; }
+:root:not([data-sketch]) #board .center { margin: 0 !important; background: var(--centre-2) !important; border-radius: 0 !important; box-shadow: none !important; }
+:root:not([data-sketch]) #board .tile:not(.owned) .body > .tprice { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; color: var(--muted) !important; font-weight: 600 !important; }
+:root:not([data-sketch]) #board .tile.owned .body > .tprice { box-shadow: none !important; }
+:root:not([data-sketch]) #board .tile:hover { filter: none !important; background: var(--tile-2) !important; }
+/* an unowned square has no owner strip, so it reads as one clean square */
+:root:not([data-sketch]) #board .tile:not(.owned) .band { background: none !important; box-shadow: none !important; }
+:root:not([data-sketch]) #board .tile:not(.owned) .body > .tprice { font-size: max(8px, 1.15cqi) !important; }
+/* one control height per row: the room link, Copy, Theme and Leave room all line up */
+.room-top .share-row .text-in, .room-top .share-row .btn, .room-top .room-tools .btn { height: 44px !important; min-height: 44px !important; box-sizing: border-box; }
+.room-top .room-tools { align-self: end; }
