@@ -165,6 +165,7 @@
   let wantRoom = (location.pathname.match(/^\/room\/([a-z0-9]{3,12})/i) || [])[1] || null;
   let ui = freshUI();
   let dice3d = null; // WebGL dice; null means the CSS dice are used
+  const FLAT_DICE = true; // plain 2D dice (the 3D dice are kept in the code but switched off)
   function freshUI() {
     return {
       busy: false, gq: [], gid: -1, offset: 0, clock: null, clockAt: 0, displayPos: {}, toCell: {}, tileEls: [], tokenEls: {}, tokenXY: {}, moving: {}, moneyShown: {}, spin: [[0, 0], [0, 0]],
@@ -632,7 +633,13 @@
       if (el) el.style.setProperty('--lit', (0.6 + 0.48 * Math.max(0, dot)).toFixed(3));
     }
   }
+  // Flat dice: two plain rounded squares with pips. While rolling they flick through faces, then settle.
+  const flatPips = (n) => [1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => `<i class="${PIPS[n].includes(k) ? 'on' : ''}"></i>`).join('');
+  function paintFlat(d) {
+    $$('#dice .fdie').forEach((el, k) => { const n = d[k] || 1; if (el.dataset.n !== String(n)) { el.dataset.n = n; el.innerHTML = flatPips(n); el.setAttribute('aria-label', `Die showing ${n}`); } });
+  }
   function setDice(d, instant) {
+    if (FLAT_DICE) { paintFlat(d); return; }
     if (dice3d) { dice3d.set(d); return; }
     $$('#dice .cube').forEach((cube, k) => {
       const [rx, ry] = FACE_ROT[d[k]];
@@ -646,6 +653,19 @@
     camOut();
     const ms = speed().dice, wrap = $('#dice');
     if (!wrap) return;
+    if (FLAT_DICE) {
+      Sound.dice();
+      wrap.classList.add('rolling');
+      const t0 = performance.now(), dur = Math.min(ms, 700);
+      while (performance.now() - t0 < dur - 90) {
+        paintFlat([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]);
+        await sleep(75);
+      }
+      wrap.classList.remove('rolling');
+      paintFlat(d);
+      await sleep(Math.max(0, ms - dur) + 60);
+      return;
+    }
     if (dice3d) { Sound.dice(); await dice3d.roll(d, ms); return; }
     wrap.style.setProperty('--rollms', ms + 'ms');
     Sound.dice();
@@ -1026,9 +1046,10 @@
       case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'airport': return `<div class="band"></div><div class="body">${art('airport')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'utility': return `<div class="band"></div><div class="body">${art(i === 12 ? 'power' : 'water')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
-      case 'chance': return `<div class="body">${art('surprise')}<div class="tname">Surprise</div></div>`;
-      case 'chest': return `<div class="body">${art('treasure')}<div class="tname">Treasure</div></div>`;
-      case 'tax': return `<div class="body">${art(t.amount >= 200 ? 'incomeTax' : 'luxuryTax')}<div class="tname">${esc(t.name)}</div><div class="tprice">${fmt(t.amount)}</div></div>`;
+      // action squares: icon and name stacked in the middle of the square, on a lightly tinted card
+      case 'chance': return `<div class="body sp">${art('surprise')}<div class="tname">Surprise</div></div>`;
+      case 'chest': return `<div class="body sp">${art('treasure')}<div class="tname">Treasure</div></div>`;
+      case 'tax': return `<div class="body sp">${art(t.amount >= 200 ? 'incomeTax' : 'luxuryTax')}<div class="tname">${esc(t.name)}</div><div class="tprice">${fmt(t.amount)}</div></div>`;
       case 'start': return `<div class="corner"><span class="cbig">${A.start}</span><div class="tname">Start</div><div class="sub">Collect ${fmt(st.salary)}</div></div>`;
       case 'jail': return `<div class="jail-corner"><div class="visit">Just visiting</div><div class="cell">${A.jailWall}</div></div>`;
       case 'vacation': return `<div class="corner"><span class="cbig">${A.vacation}</span><div class="tname">Free Parking</div><div class="sub" id="potLabel">${st.vacationCash ? 'Jackpot' : 'Free stop'}</div></div>`;
@@ -1070,7 +1091,7 @@
       <div class="center-inner">
         <div class="cmeta" id="cMeta"></div>
         <div class="turnline" id="cTurn"></div>
-        <div class="dice" id="dice"><canvas class="dice-gl" id="diceGL" aria-hidden="true"></canvas>${[0, 1].map(() => `<div class="die-wrap"><div class="die-shadow"></div><div class="die-toss"><div class="die"><div class="cube">${[1, 2, 3, 4, 5, 6].map((f) => `<div class="core c${f}"></div>`).join('')}${[1, 2, 3, 4, 5, 6].map((f) => `<div class="face f${f}">${PIPS[f].map((p) => `<i class="p${p}"></i>`).join('')}</div>`).join('')}</div></div></div></div>`).join('')}</div>
+        <div class="dice" id="dice"><canvas class="dice-gl" id="diceGL" aria-hidden="true"></canvas><span class="fdie" role="img"></span><span class="fdie" role="img"></span>${[0, 1].map(() => `<div class="die-wrap"><div class="die-shadow"></div><div class="die-toss"><div class="die"><div class="cube">${[1, 2, 3, 4, 5, 6].map((f) => `<div class="core c${f}"></div>`).join('')}${[1, 2, 3, 4, 5, 6].map((f) => `<div class="face f${f}">${PIPS[f].map((p) => `<i class="p${p}"></i>`).join('')}</div>`).join('')}</div></div></div></div>`).join('')}</div>
         <div class="actions" id="cActions"></div>
         <div class="feed" id="cFeed" aria-live="polite"></div>
       </div>
@@ -1089,7 +1110,8 @@
       ui.tokenEls[p.id] = el;
     }
     if (dice3d) { dice3d.dispose(); dice3d = null; }
-    try { dice3d = window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
+    try { dice3d = !FLAT_DICE && window.BoomDice ? window.BoomDice.create($('#diceGL'), $('#dice')) : null; } catch (e) { dice3d = null; }
+    $('#dice').classList.toggle('flat', FLAT_DICE);
     $('#dice').classList.toggle('gl', !!dice3d);
   }
   function layoutJailBars() {
@@ -1144,8 +1166,9 @@
           const rows = Math.ceil(n / cols), cell = Math.min(areaW / cols, areaH / rows);
           if (!best || cell > best.cell + 0.5) best = { cols, rows, cell };
         }
-        sc = Math.max(0.55, Math.min(1, best.cell / (tk * 1.06)));
-        const step = Math.min(best.cell, tk * sc * 1.1);
+        const SP = 1.32; // token width plus its ring and a clear gap
+        sc = Math.max(0.5, Math.min(1, best.cell / (tk * SP)));
+        const step = tk * sc * SP;
         const row = Math.floor(k / best.cols), col = k % best.cols;
         const inRow = row === best.rows - 1 ? n - row * best.cols : best.cols;
         x += (col - (inRow - 1) / 2) * step;
@@ -1841,18 +1864,16 @@
       const isTurn = !s.over && idx === s.turn.idx;
       const n = game.ownedBy(p.id).length;
       const chips = [];
-      if (s.over && s.winner === p.id) chips.push(`<span class="tag warn">${icon('crown')} Winner</span>`);
+      if (s.over && s.winner === p.id) chips.push('<span class="tag warn">Winner</span>');
       if (p.id === mine) chips.push('<span class="tag you">You</span>');
       if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away, a bot is playing</span>');
       if (p.jail) chips.push(`<span class="tag bad">In Prison, try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
-      if (p.pardons.length) chips.push(`<span class="tag good">${icon('key')} Pardon ×${p.pardons.length}</span>`);
+      if (p.pardons.length) chips.push(`<span class="tag good">Pardon ×${p.pardons.length}</span>`);
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
-        ${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}
         ${dotHTML(p)}
-        <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span>${p.bot ? '<span class="tag">Bot</span>' : ''}</span>
-        <span class="pmeta">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Net worth ${fmt(game.netWorth(p.id))}`}</span></span>
-        <span class="pmoney" data-money="${p.id}">${p.bankrupt ? '—' : fmt(p.money)}</span>
-        ${chips.length ? `<span class="pchips">${chips.join('')}</span>` : ''}
+        <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span></span>
+        <span class="pmeta">${p.bot ? '<span class="tag">Bot</span>' : ''}${chips.join('')}<span class="pnw">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Worth ${fmt(game.netWorth(p.id))}`}</span></span></span>
+        <span class="pright"><span class="pstatus">${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}</span><span class="pmoney" data-money="${p.id}">${p.bankrupt ? '—' : fmt(p.money)}</span></span>
       </button>`;
     }).join('');
     setHTML($('#players'), 'players', html);
@@ -2065,6 +2086,8 @@
       ? `<button type="button" class="btn primary sm" data-a="newtrade">${icon('swap')} Trade</button>`
       : `<button type="button" class="btn primary sm" data-dealwith="${p.id}">${icon('swap')} Offer a deal</button>`;
     const photoBtn = isMe && !s.over ? `<button type="button" class="btn sm" data-a="photo" aria-label="${avatarOf(p) ? 'Change' : 'Add'} your photo">${icon('camera')} ${avatarOf(p) ? 'Photo' : 'Add photo'}</button>` : '';
+    // Auto-roll can be switched on or off at any time from your own panel, not only during your turn.
+    const autoBtn = isMe && !s.over && !p.bankrupt ? `<button type="button" class="btn sm ${ui.autoRoll ? 'active' : ''}" data-a="autoroll" aria-pressed="${ui.autoRoll}" title="Rolls the dice and ends the turn for you. You still choose what to buy.">${ui.autoRoll ? 'Auto-roll: On' : 'Auto-roll: Off'}</button>` : '';
     const me = v != null ? game.player(v) : null;
     const othersCanVote = s.players.some((x) => !x.bot && !x.bankrupt && x.id !== p.id && x.id !== v && room && room.seats[x.id] && room.seats[x.id].online);
     const kickable = p.bot || othersCanVote || isAway(p.id) || (meta && meta.idle && meta.idle.includes(p.id));
@@ -2072,7 +2095,7 @@
     const kick = canKick ? `<div class="ov-kick"><button type="button" class="btn sm ghost" data-a="kick" data-pid="${p.id}">${icon('x')} ${p.bot ? 'Remove bot' : 'Vote to remove'}</button><span class="muted">${p.bot ? 'Takes the bot out so the game goes faster.' : 'For someone who has left or stopped playing.'}</span></div>` : '';
     return `<section class="ov-sec ov-player">
       <div class="who-row" role="group" aria-label="Choose a player">${who}</div>
-      <div class="ov-head"><div class="ov-name"><b>${esc(p.name)}</b><span class="ov-tags">${tags.join('')}</span></div><div class="ov-btns">${photoBtn}${dealBtn}</div></div>
+      <div class="ov-head"><div class="ov-name"><b>${esc(p.name)}</b><span class="ov-tags">${tags.join('')}</span></div><div class="ov-btns">${photoBtn}${autoBtn}${dealBtn}</div></div>
       <div class="stats"><div class="stat"><div class="k">Cash</div><div class="v">${fmt(p.money)}</div></div>
       <div class="stat"><div class="k">Net worth</div><div class="v">${fmt(game.netWorth(p.id))}</div></div>
       <div class="stat"><div class="k">Pardons</div><div class="v">${p.pardons.length}</div></div></div>

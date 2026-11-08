@@ -10,72 +10,20 @@
   const GEM = 'M9.2 6h13.6l6.2 7.2L16 27.6 3 13.2z';
   const ARROW = 'M4.6 11.6h11.2V7.2c0-1.1 1.3-1.7 2.1-1l10.2 8.9c.6.5.6 1.4 0 1.9L17.9 25.9c-.8.7-2.1.1-2.1-1v-4.4H4.6c-.7 0-1.2-.5-1.2-1.2v-6.5c0-.7.5-1.2 1.2-1.2z';
 
+  // Board icons: Lucide outlines, one colour (the text colour), 2px stroke. No fills, shadows or highlights.
+  const line = (body, label) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" data-art="${label}">${body}</svg>`;
   const ART = {
-    surprise: svg(`<g transform="rotate(-8 16 16)">
-      <rect x="5" y="6.8" width="22" height="22" rx="6.5" fill="#A8326F"/>
-      <rect x="5" y="5" width="22" height="22" rx="6.5" fill="#F062A5"/>
-      <path d="M8.6 10q.9-2.3 3.4-2.6" stroke="#FFC2DE" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-      <path d="M12.7 13.1c0-2.2 1.6-3.7 3.6-3.7s3.6 1.4 3.6 3.2c0 1.5-.9 2.3-2 3-.9.6-1.4 1.1-1.4 2.1v.5" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <circle cx="16.5" cy="22.3" r="1.85" fill="#fff"/></g>`, 'surprise'),
-
-    treasure: svg(`<rect x="4.5" y="13.8" width="23" height="14.4" rx="3" fill="#8A560F"/>
-      <rect x="4.5" y="12" width="23" height="14.4" rx="3" fill="#E39A2D"/>
-      <path d="M4.5 13.5v-2A6.5 6.5 0 0 1 11 5h10a6.5 6.5 0 0 1 6.5 6.5v2z" fill="#F7C25E"/>
-      <rect x="4.5" y="12.4" width="23" height="2.2" fill="#A86A16"/>
-      <rect x="9.5" y="5.4" width="2.6" height="21" fill="#A86A16"/>
-      <rect x="19.9" y="5.4" width="2.6" height="21" fill="#A86A16"/>
-      <rect x="13.2" y="10.4" width="5.6" height="7" rx="1.6" fill="#FFF4D8"/>
-      <path d="M16 12.7v2.4" stroke="#8A560F" stroke-width="1.7" stroke-linecap="round"/>
-      <path d="M7.4 9.6q1.1-2.3 3.5-2.7" stroke="#FFE6AE" stroke-width="1.4" stroke-linecap="round" fill="none"/>`, 'treasure'),
-
-    airport: svg(`<g transform="rotate(45 16 16)">
-      <path d="${PLANE}" fill="#6F7DA0" transform="translate(1.3 1.3)"/>
-      <path d="${PLANE}" fill="#E4EAF7"/>
-      <path d="M16 5.2v8" stroke="#A9B8D8" stroke-width="1.5" stroke-linecap="round"/>
-      <path d="M19.6 14.6l6.2 3.6" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" opacity=".9"/></g>`, 'airport'),
-
-    power: svg(`<path d="${BOLT}" fill="#B9781B" transform="translate(.6 1.8)"/>
-      <path d="${BOLT}" fill="#FFD23F"/>
-      <path d="M17.6 6.6l-6.8 9" stroke="#FFF3B0" stroke-width="1.6" stroke-linecap="round"/>`, 'power'),
-
-    water: svg(`<path d="${DROP}" fill="#2668B8" transform="translate(0 1.7)"/>
-      <path d="${DROP}" fill="#4FB3FF"/>
-      <path d="M11.6 18.6a4.6 4.6 0 0 0 3.2 4.4" stroke="#DDF2FF" stroke-width="2.1" stroke-linecap="round" fill="none"/>`, 'water'),
-
-    incomeTax: svg(`${[21.5, 16.5, 11.5].map((y, k) => `
-      <ellipse cx="16" cy="${y + 3.2}" rx="9.5" ry="3.7" fill="#9A6A12"/>
-      <rect x="6.5" y="${y}" width="19" height="3.2" fill="#9A6A12"/>
-      <ellipse cx="16" cy="${y}" rx="9.5" ry="3.7" fill="${k === 2 ? '#FFD467' : '#F2BC48'}"/>
-      <ellipse cx="16" cy="${y}" rx="6.3" ry="2.3" fill="none" stroke="#D2961E" stroke-width="1.2"/>`).join('')}
-      <path d="M16 9.9v3.2" stroke="#9A6A12" stroke-width="1.5" stroke-linecap="round"/>`, 'incomeTax'),
-
-    luxuryTax: svg(`<path d="${GEM}" fill="#1F7F9B" transform="translate(0 1.6)"/>
-      <path d="${GEM}" fill="#46C2E0"/>
-      <path d="M9.2 6h13.6l6.2 7.2H3z" fill="#8FE3F5"/>
-      <path d="M12.6 6h6.8l2 7.2h-10.8z" fill="#CFF6FD"/>
-      <path d="M10.8 13.2h10.4L16 27.6z" fill="#2FA9CA"/>
-      <path d="M6.4 9.8l1.8-2" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`, 'luxuryTax'),
-
-    start: svg(`<path d="${ARROW}" fill="#1E8A5E" transform="translate(0 1.8)"/>
-      <path d="${ARROW}" fill="#4AD69B"/>
-      <path d="M6 14.2h9" stroke="#C6F7E1" stroke-width="1.6" stroke-linecap="round"/>`, 'start'),
-
-    gotojail: svg(`<path d="M10.4 14.5V10.6a5.6 5.6 0 0 1 11.2 0v3.9" stroke="#7D89A8" stroke-width="3.6" fill="none" stroke-linecap="round" transform="translate(0 1)"/>
-      <path d="M10.4 14.5V10.6a5.6 5.6 0 0 1 11.2 0v3.9" stroke="#D5DCEC" stroke-width="3.6" fill="none" stroke-linecap="round"/>
-      <rect x="6" y="15.4" width="20" height="13.6" rx="4" fill="#A93434"/>
-      <rect x="6" y="13.6" width="20" height="13.6" rx="4" fill="#FF6E6E"/>
-      <circle cx="16" cy="19.4" r="2.3" fill="#5A1414"/>
-      <rect x="14.9" y="19.6" width="2.2" height="4.4" rx="1.1" fill="#5A1414"/>
-      <path d="M8.8 16.4h4" stroke="#FFC0C0" stroke-width="1.4" stroke-linecap="round"/>`, 'gotojail'),
-
-    vacation: svg(`<rect x="5" y="5.8" width="22" height="22" rx="4.5" fill="#173F86"/>
-      <rect x="5" y="4" width="22" height="22" rx="4.5" fill="#2E6BD8"/>
-      <rect x="6.6" y="5.6" width="18.8" height="18.8" rx="3.2" fill="none" stroke="#9EC0FF" stroke-width=".8" opacity=".55"/>
-      <path d="M12.4 21.4V8.8h5a3.9 3.9 0 0 1 0 7.8h-5" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`, 'parking'),
-
-    die: svg(`<rect x="4" y="5.6" width="24" height="24" rx="6" fill="#B9C2D8"/>
-      <rect x="4" y="4" width="24" height="24" rx="6" fill="#FFFFFF"/>
-      <circle cx="10.5" cy="10.5" r="2.2" fill="#161B2A"/><circle cx="16" cy="16" r="2.2" fill="#161B2A"/><circle cx="21.5" cy="21.5" r="2.2" fill="#161B2A"/>`, 'die'),
+    surprise: line('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>', 'surprise'),
+    treasure: line('<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/>', 'treasure'),
+    airport: line('<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>', 'airport'),
+    power: line('<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>', 'power'),
+    water: line('<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>', 'water'),
+    incomeTax: line('<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>', 'incomeTax'),
+    luxuryTax: line('<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/>', 'luxuryTax'),
+    start: line('<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>', 'start'),
+    gotojail: line('<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', 'gotojail'),
+    vacation: line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>', 'parking'),
+    die: line('<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 8h.01M16 16h.01M12 12h.01"/>', 'die'),
   };
 
   // ---- country flags, drawn on a uniform 3:2 frame (30 x 20)
@@ -139,11 +87,9 @@
   // ---- prison cell: plain steel bars. They float above tokens so prisoners appear behind them.
   ART.jailWall = '';
   const BAR_C = [6, 18, 30, 42, 54];
-  ART.jailBars = `<svg viewBox="0 0 60 60" preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id="bt-bv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7B87A6"/><stop offset=".4" stop-color="#D3DAEA"/><stop offset="1" stop-color="#6A7594"/></linearGradient></defs>
-    ${BAR_C.map((c) => `<rect x="${c - 1.5}" y="3" width="3" height="54" rx="1.5" fill="url(#bt-bv)"/>`).join('')}
-    <rect x="0" y="1.6" width="60" height="3" rx="1.2" fill="#A9B3CC"/>
-    <rect x="0" y="55.4" width="60" height="3" rx="1.2" fill="#A9B3CC"/></svg>`;
+  ART.jailBars = `<svg viewBox="0 0 60 60" preserveAspectRatio="none" aria-hidden="true" fill="currentColor">
+    ${BAR_C.map((c) => `<rect x="${c - 1}" y="3" width="2" height="54"/>`).join('')}
+    <rect x="0" y="2" width="60" height="2"/><rect x="0" y="56" width="60" height="2"/></svg>`;
 
   // ---- houses and hotels: classic green house, red hotel; dark outline so they read on any owner colour
   ART.house = `<svg viewBox="0 0 20 20" aria-hidden="true">

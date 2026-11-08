@@ -689,8 +689,6 @@ html.th-open { overflow: hidden; }
 :root[data-theme="clean"]:not(#_) .tag.warn { background: var(--tile-3) !important; color: #374151 !important; }
 :root[data-theme="clean"]:not(#_) .pcard.turn { background: #FFFFFF !important; }
 :root[data-theme="clean"]:not(#_) .rdots .on, :root[data-theme="clean"]:not(#_) .rdots i.on { background: var(--text) !important; }
-:root[data-theme="clean"]:not(#_) .pcard:has(> .now) { padding-top: 26px !important; }
-:root[data-theme="clean"]:not(#_) .pcard .now { top: 6px !important; right: 8px !important; }
 :root[data-theme="clean"]:not(#_) #board .tile:not(.owned) .band { background: #EEF0F2 !important; }
 /* no pill shapes or loud fills in Clean */
 :root[data-theme="clean"]:not(#_) :is(.modal, .pp-modal, .th-modal) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(10,10,10,.32) !important; }
