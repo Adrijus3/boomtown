@@ -62,6 +62,8 @@
     warn: '<path d="M10.3 3.9 2.4 17.6A2 2 0 0 0 4.1 20.6h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4.5M12 17.2h.01"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+    zoomin: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M11 8v6M8 11h6"/>',
+    zoomout: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4M8 11h6"/>',
   };
   const icon = (n, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
   const MARK = '<svg viewBox="0 0 40 40" aria-hidden="true"><rect x="3" y="17" width="10" height="20" rx="2" style="fill:var(--brass)" opacity=".5"/><rect x="15" y="5" width="11" height="32" rx="2" style="fill:var(--brass)"/><rect x="28" y="12" width="9" height="25" rx="2" style="fill:var(--brass)" opacity=".78"/><g style="fill:var(--ink)"><rect x="18" y="10" width="2" height="3"/><rect x="21.5" y="10" width="2" height="3"/><rect x="18" y="16" width="2" height="3"/><rect x="21.5" y="16" width="2" height="3"/><rect x="18" y="22" width="2" height="3"/><rect x="21.5" y="22" width="2" height="3"/><rect x="18" y="29" width="5.5" height="8"/></g></svg>';
@@ -468,11 +470,15 @@
     try {
       while (mine.gq.length && ui === mine) {
         const m = mine.gq.shift();
-        if (m.gid !== mine.gid || !game) setupGame(m);
+        const fresh = m.gid !== mine.gid || !game, before = fresh ? null : propSnapshot();
+        if (fresh) setupGame(m);
         else applyGame(m);
         for (const ev of m.events) quickEvent(ev);
         render();
-        flyMoney(moneyFlows(m.events.filter((ev) => ev.type === 'money')));
+        if (before) tileFx(before);
+        const flows = moneyFlows(m.events.filter((ev) => ev.type === 'money'));
+        flyMoney(flows);
+        cardFx(flows);
         for (const ev of m.events) { if (ui !== mine) break; await playEvent(ev); }
         syncPositions();
       }
@@ -530,7 +536,7 @@
       case 'move': await walk(ev); break;
       case 'teleport': await teleport(ev.pid, ev.to); break;
       case 'card': await showCard(ev); break;
-      case 'over': await sleep(400); Sound.win(); openModal('over'); break;
+      case 'over': await sleep(400); Sound.win(); openModal('over'); celebrate(); break;
     }
   }
   const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -715,6 +721,95 @@
   // While a token walks, the board zooms in to frame the walk, then eases back out. It always zooms out
   // before dice, cards and auctions, which sit in the middle of the board.
   const cam = { on: false, t: 0, t2: 0, anim: null, last: '' };
+  // ---- pinch to zoom (phones): two fingers zoom the board up to 3×, one finger pans while zoomed, and the
+  // magnifier button zooms in on your token or back out. The board camera stands down while you're zoomed.
+  const CAMERA_FOLLOW = false;
+  const zoom = { s: 1, x: 0, y: 0, pts: new Map(), g: null, moved: false };
+  const zoomable = () => { const b = $('#board'); return !!b && b.clientWidth > 0 && b.clientWidth < 600; };
+  function applyZoom(animate) {
+    const b = $('#board');
+    if (!b) return;
+    const W = b.clientWidth, H = b.clientHeight;
+    zoom.s = Math.max(1, Math.min(3, zoom.s));
+    if (zoom.s < 1.04) { zoom.s = 1; zoom.x = 0; zoom.y = 0; }
+    zoom.x = Math.min(0, Math.max(W - W * zoom.s, zoom.x));
+    zoom.y = Math.min(0, Math.max(H - H * zoom.s, zoom.y));
+    const on = zoom.s > 1;
+    if (on && cam.on) { cam.on = false; if (cam.anim) { cam.anim.cancel(); cam.anim = null; } clearTimeout(cam.t); clearTimeout(cam.t2); }
+    b.style.transformOrigin = '0 0';
+    b.style.transition = animate ? 'transform .32s cubic-bezier(.3,.7,.3,1)' : 'none';
+    b.style.transform = on ? `translate(${zoom.x.toFixed(1)}px, ${zoom.y.toFixed(1)}px) scale(${zoom.s.toFixed(3)})` : '';
+    b.classList.toggle('zoomed', on);
+    // our own pinch handling replaces the browser's page zoom over the board (page scrolling still works)
+    b.style.touchAction = zoomable() ? (on ? 'none' : 'pan-y') : '';
+    if (b.parentElement) b.parentElement.classList.toggle('cam-clip', on || cam.on);
+    placeZoomBtn();
+  }
+  function placeZoomBtn() {
+    const b = $('#board'), stage = b && b.parentElement;
+    if (!stage) return;
+    let btn = $('#zoomBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button'; btn.id = 'zoomBtn'; btn.className = 'zoom-btn';
+      stage.appendChild(btn);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (zoom.s > 1) { zoom.s = 1; applyZoom(true); return; }
+        const me = myPid(), at = me != null && ui.tokenXY[me] ? ui.tokenXY[me] : { x: b.clientWidth / 2, y: b.clientHeight / 2 };
+        zoom.s = 2.2; zoom.x = b.clientWidth / 2 - at.x * zoom.s; zoom.y = b.clientHeight / 2 - at.y * zoom.s;
+        applyZoom(true);
+      });
+    }
+    const show = zoomable() && screen === 'game';
+    btn.hidden = !show;
+    if (!show) return;
+    btn.innerHTML = icon(zoom.s > 1 ? 'zoomout' : 'zoomin');
+    btn.setAttribute('aria-label', zoom.s > 1 ? 'Zoom out' : 'Zoom in on the board');
+    btn.style.left = `${b.offsetLeft + b.offsetWidth - 38}px`;
+    btn.style.top = `${b.offsetTop + b.offsetHeight - 38}px`;
+  }
+  function bindZoom() {
+    const b = $('#board');
+    const origin = () => { const r = b.parentElement.getBoundingClientRect(); return { x: r.left + b.offsetLeft, y: r.top + b.offsetTop }; };
+    const mid = () => { const a = [...zoom.pts.values()]; return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1 }; };
+    b.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' || !zoomable()) return;
+      zoom.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (zoom.pts.size === 2) { const m = mid(); zoom.g = { kind: 'pinch', m, s: zoom.s, x: zoom.x, y: zoom.y }; }
+      else if (zoom.pts.size === 1) { zoom.g = { kind: 'pan', sx: e.clientX, sy: e.clientY, x: zoom.x, y: zoom.y, live: false }; zoom.moved = false; }
+    });
+    b.addEventListener('pointermove', (e) => {
+      if (!zoom.pts.has(e.pointerId)) return;
+      zoom.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const g = zoom.g;
+      if (!g) return;
+      if (g.kind === 'pinch' && zoom.pts.size >= 2) {
+        const m = mid(), O = origin();
+        const cx = (g.m.x - O.x - g.x) / g.s, cy = (g.m.y - O.y - g.y) / g.s; // board point that was under the fingers
+        zoom.s = Math.max(1, Math.min(3, g.s * (m.d / g.m.d)));
+        zoom.x = m.x - O.x - cx * zoom.s; zoom.y = m.y - O.y - cy * zoom.s;
+        zoom.moved = true;
+        applyZoom(false);
+      } else if (g.kind === 'pan' && zoom.s > 1) {
+        const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+        if (!g.live && Math.hypot(dx, dy) < 7) return;
+        g.live = true; zoom.moved = true;
+        zoom.x = g.x + dx; zoom.y = g.y + dy;
+        applyZoom(false);
+      }
+    });
+    const up = (e) => {
+      if (!zoom.pts.delete(e.pointerId)) return;
+      if (zoom.pts.size === 1 && zoom.g && zoom.g.kind === 'pinch') { const [p] = zoom.pts.values(); zoom.g = { kind: 'pan', sx: p.x, sy: p.y, x: zoom.x, y: zoom.y, live: true }; }
+      else if (!zoom.pts.size) { zoom.g = null; if (zoom.s < 1.04) applyZoom(true); }
+    };
+    b.addEventListener('pointerup', up);
+    b.addEventListener('pointercancel', up);
+    // a drag or pinch shouldn't also count as a tap on a tile
+    b.addEventListener('click', (e) => { if (zoom.moved) { zoom.moved = false; e.stopPropagation(); e.preventDefault(); } }, true);
+    window.addEventListener('resize', () => { if (!zoomable()) zoom.s = 1; applyZoom(false); });
+  }
   function camReset() {
     const board = $('#board');
     clearTimeout(cam.t); clearTimeout(cam.t2); cam.on = false;
@@ -725,7 +820,8 @@
   // of the screen (or as near as the board's edges allow).
   function camFollow(pts, dist, total, ms, easing) {
     const board = $('#board');
-    if (!board || board.clientWidth >= 600 || reduceMotion() || PERF_LITE || total < 1) return;
+    // The follow-the-token camera is switched off: the board stays still on every screen size.
+    if (CAMERA_FOLLOW !== true || !board || board.clientWidth >= 600 || reduceMotion() || PERF_LITE || total < 1 || zoom.s > 1) return;
     const W = board.clientWidth, H = board.clientHeight, s = 1.7;
     const at = (p) => {
       const tx = Math.min(0, Math.max(W - W * s, W / 2 - p.x * s)), ty = Math.min(0, Math.max(H - H * s, H / 2 - p.y * s));
@@ -798,6 +894,46 @@
       for (let c = 0; c < coins; c++) coinFlight(board, a, b, dur, delay + c * 75, c);
       if (f.to != null) boardFloat(board, b, `+${fmt(f.amt)}`, 'up', delay + dur + (coins - 1) * 75 - 80);
     });
+  }
+  // ---- small "what just changed" effects
+  function propSnapshot() {
+    const o = {};
+    for (const k of Object.keys(game.s.props)) { const pr = game.s.props[k]; o[k] = [pr.owner, pr.houses, pr.mortgaged]; }
+    return o;
+  }
+  // A tile that changes hands gets a sweep in the new owner's colour; new buildings make it glow;
+  // mortgaging or paying one off gives it a quick flash.
+  function tileFx(before) {
+    if (reduceMotion()) return;
+    for (const k of Object.keys(game.s.props)) {
+      const pr = game.s.props[k], was = before[k], el = ui.tileEls[+k];
+      if (!was || !el) continue;
+      let cls = '';
+      if (was[0] !== pr.owner) cls = pr.owner != null ? 'fx-owned' : 'fx-freed';
+      else if (pr.houses > was[1]) cls = 'fx-built';
+      else if (pr.houses < was[1]) cls = 'fx-sold';
+      else if (was[2] !== pr.mortgaged) cls = 'fx-mortgage';
+      if (!cls) continue;
+      const owner = pr.owner != null ? game.player(pr.owner) : null;
+      if (owner) el.style.setProperty('--fx', owner.color);
+      const old = el.querySelector(':scope > .tfx'); if (old) old.remove();
+      const fx = document.createElement('i');
+      fx.className = `tfx ${cls}`;
+      fx.setAttribute('aria-hidden', 'true');
+      el.appendChild(fx);
+      setTimeout(() => fx.remove(), 1400);
+    }
+  }
+  // The payer's card flashes red and the receiver's green, so you can see who paid whom at a glance.
+  function cardFx(flows) {
+    if (reduceMotion() || !flows.length) return;
+    const flash = (pid, cls) => {
+      const el = document.querySelector(`.pcard[data-pid="${pid}"]`);
+      if (!el) return;
+      el.classList.remove('fx-pay', 'fx-get'); void el.offsetWidth; el.classList.add(cls);
+      clearTimeout(el._fxT); el._fxT = setTimeout(() => el.classList.remove(cls), 1300);
+    };
+    flows.slice(0, 8).forEach((f) => { if (f.from != null) flash(f.from, 'fx-pay'); if (f.to != null) setTimeout(() => flash(f.to, 'fx-get'), 450); });
   }
   function coinFlight(board, a, b, dur, delay, c) {
     const el = document.createElement('div');
@@ -932,7 +1068,7 @@
       <div class="auction" id="auctionBox" hidden></div>
       <div class="overlay" id="overlay" hidden></div>`;
     board.appendChild(center);
-    camReset();
+    camReset(); zoom.s = 1; applyZoom(false);
     ui.tokenEls = {};
     for (const p of game.s.players) {
       const el = document.createElement('div');
@@ -1929,13 +2065,17 @@
         if (manage) {
           if (t.type === 'prop' && game.ownsSet(p.id, t.group)) {
             const sb = game.canSell(p.id, i), bb = game.canBuild(p.id, i);
-            ctl += `<button class="icon-btn" data-m="sell" data-i="${i}" ${sb ? 'disabled' : ''} title="${esc(sb || `Sell a building for ${fmt(game.houseCost(i) / 2)}`)}" aria-label="Sell a building on ${esc(t.name)}">${icon('minus')}</button>`;
+            ctl += `<button class="icon-btn" data-m="sell" data-i="${i}" ${sb ? 'disabled' : ''} title="${esc(sb || `Sell a building for ${fmt(Math.floor(game.houseCost(i) / 2))}`)}" aria-label="Sell a building on ${esc(t.name)}">${icon('minus')}</button>`;
             ctl += `<button class="icon-btn" data-m="build" data-i="${i}" ${bb ? 'disabled' : ''} title="${esc(bb || `Build for ${fmt(game.houseCost(i))}`)}" aria-label="Build on ${esc(t.name)}">${icon('plus')}</button>`;
           }
+          // Mortgage and Sell sit side by side at the same size: one keeps the property, the other gives it up.
+          let pair = '';
           if (game.st.mortgages) {
-            if (pr.mortgaged) { const r = game.canUnmortgage(p.id, i); ctl += `<button class="btn sm" data-m="unmortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Pay ${fmt(game.unmortgageCost(i))}`)}">Redeem</button>`; }
-            else { const r = game.canMortgage(p.id, i); ctl += `<button class="btn sm" data-m="mortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Receive ${fmt(game.mortgageValue(i))}`)}">Mortgage</button>`; }
+            if (pr.mortgaged) { const r = game.canUnmortgage(p.id, i); pair += `<button class="btn sm" data-m="unmortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Pay ${fmt(game.unmortgageCost(i))}`)}">Redeem</button>`; }
+            else { const r = game.canMortgage(p.id, i); pair += `<button class="btn sm" data-m="mortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Receive ${fmt(game.mortgageValue(i))}`)}">Mortgage</button>`; }
           }
+          { const r = game.canSellProperty(p.id, i); pair += `<button class="btn sm sell-prop" data-sellprop="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Sell to the bank for ${fmt(game.sellValue(i))}`)}">Sell</button>`; }
+          ctl += `<span class="mpair">${pair}</span>`;
         }
         h += `<div class="prow"><button class="nm" data-open="${i}">${emblemHTML(i, 'xs')}<span>${esc(t.name)}</span></button><span class="meta"><span class="pips">${pips}</span>${rent}</span><span class="ctl">${ctl}</span></div>`;
       }
@@ -1996,13 +2136,17 @@
         if (manage) {
           if (t.type === 'prop' && game.ownsSet(p.id, t.group)) {
             const sb = game.canSell(p.id, i), bb = game.canBuild(p.id, i);
-            ctl += `<button class="icon-btn" data-m="sell" data-i="${i}" ${sb ? 'disabled' : ''} title="${esc(sb || `Sell a building for ${fmt(game.houseCost(i) / 2)}`)}" aria-label="Sell a building on ${esc(t.name)}">${icon('minus')}</button>`;
+            ctl += `<button class="icon-btn" data-m="sell" data-i="${i}" ${sb ? 'disabled' : ''} title="${esc(sb || `Sell a building for ${fmt(Math.floor(game.houseCost(i) / 2))}`)}" aria-label="Sell a building on ${esc(t.name)}">${icon('minus')}</button>`;
             ctl += `<button class="icon-btn" data-m="build" data-i="${i}" ${bb ? 'disabled' : ''} title="${esc(bb || `Build for ${fmt(game.houseCost(i))}`)}" aria-label="Build on ${esc(t.name)}">${icon('plus')}</button>`;
           }
+          // Mortgage and Sell sit side by side at the same size: one keeps the property, the other gives it up.
+          let pair = '';
           if (game.st.mortgages) {
-            if (pr.mortgaged) { const r = game.canUnmortgage(p.id, i); ctl += `<button class="btn sm" data-m="unmortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Pay ${fmt(game.unmortgageCost(i))}`)}">Redeem</button>`; }
-            else { const r = game.canMortgage(p.id, i); ctl += `<button class="btn sm" data-m="mortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Receive ${fmt(game.mortgageValue(i))}`)}">Mortgage</button>`; }
+            if (pr.mortgaged) { const r = game.canUnmortgage(p.id, i); pair += `<button class="btn sm" data-m="unmortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Pay ${fmt(game.unmortgageCost(i))}`)}">Redeem</button>`; }
+            else { const r = game.canMortgage(p.id, i); pair += `<button class="btn sm" data-m="mortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Receive ${fmt(game.mortgageValue(i))}`)}">Mortgage</button>`; }
           }
+          { const r = game.canSellProperty(p.id, i); pair += `<button class="btn sm sell-prop" data-sellprop="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Sell to the bank for ${fmt(game.sellValue(i))}`)}">Sell</button>`; }
+          ctl += `<span class="mpair">${pair}</span>`;
         }
         h += `<div class="prow"><button class="nm" data-open="${i}">${emblemHTML(i, 'xs')}<span>${esc(t.name)}</span></button><span class="meta"><span class="pips">${pips}</span>${rent}</span><span class="ctl">${ctl}</span></div>`;
       }
@@ -2160,14 +2304,14 @@
       if (t.type === 'prop') {
         const b = game.canBuild(owner.id, i);
         parts.push(btn('build', `${icon('house')} ${pr.houses === 4 ? 'Build hotel' : 'Build house'} · ${fmt(game.houseCost(i))}`, b));
-        parts.push(btn('sell', `${icon('minus')} Sell building · +${fmt(game.houseCost(i) / 2)}`, game.canSell(owner.id, i)));
+        parts.push(btn('sell', `${icon('minus')} Sell building · +${fmt(Math.floor(game.houseCost(i) / 2))}`, game.canSell(owner.id, i)));
         if (b) reasons.push(b);
       }
       if (st.mortgages) {
         if (pr.mortgaged) parts.push(btn('unmortgage', `Redeem · ${fmt(game.unmortgageCost(i))}`, game.canUnmortgage(owner.id, i)));
         else { const r = game.canMortgage(owner.id, i); parts.push(btn('mortgage', `Mortgage · +${fmt(game.mortgageValue(i))}`, r)); if (r && !reasons.includes(r)) reasons.push(r); }
       }
-      parts.push(btn('sellprop', `Sell to bank · +${fmt(game.sellValue(i))}`, game.canSellProperty(owner.id, i)));
+      { const r = game.canSellProperty(owner.id, i); parts.push(`<button class="btn ${r ? '' : 'primary'} sell-prop" data-sellprop="${i}" ${r || ui.busy ? 'disabled' : ''} title="${esc(r)}">Sell to bank · +${fmt(game.sellValue(i))}</button>`); }
       if (!game.canManage(owner.id)) reasons.splice(0, reasons.length, 'You can manage your properties during your own turn.');
       manage = `<div class="manage">${parts.join('')}${reasons.length ? `<div class="why">${esc(reasons[0])}</div>` : ''}</div>`;
     }
@@ -2253,11 +2397,59 @@
     const rows = st.map((p, k) => `<tr><td>${k + 1}</td><td><span class="mini-dot" style="--pc:${p.color}"></span> ${esc(p.name)}${p.id === myPid() ? ' (you)' : ''}</td><td class="r">${p.bankrupt ? `Out in round ${p.outRound}` : fmt(p.money)}</td><td class="r"><b>${p.bankrupt ? '—' : fmt(game.netWorth(p.id))}</b></td></tr>`).join('');
     setModal(`<div class="sheet wide" role="dialog" aria-modal="true" aria-label="Game over">
       <div class="sheet-h"><div class="winner">${dotHTML(w)}<div><div class="eyebrow">Game over</div><h2>${esc(w.id === myPid() ? 'You win!' : `${w.name} wins`)}</h2></div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
-      <div class="sheet-b"><p>${reason}</p>
+      <div class="sheet-b">${podiumHTML(st)}<p class="over-reason">${reason}</p>
         <div class="chart-wrap">${worthChart()}</div>
         <table class="standings"><thead><tr><th>#</th><th>Player</th><th class="r">Cash</th><th class="r">Net worth</th></tr></thead><tbody>${rows}</tbody></table>
       </div>
       <div class="sheet-f"><button class="btn" data-a="home">Leave room</button>${amHost() ? '<button class="btn primary" data-a="restart" data-autofocus>New game in this room</button>' : `<span class="muted">${esc(room && room.hostName ? room.hostName : 'The host')} can start a new game.</span>`}</div></div>`);
+  }
+  // 1st in the middle and highest, 2nd on the left, 3rd on the right; steps rise in one after another.
+  function podiumHTML(st) {
+    const top = st.slice(0, 3);
+    if (top.length < 2) return '';
+    const order = top.length === 2 ? [1, 0] : [1, 0, 2];
+    const label = ['1st', '2nd', '3rd'];
+    return `<div class="podium" aria-label="Podium">${order.map((k) => {
+      const p = top[k];
+      return `<div class="pod pod-${k + 1}" style="--pc:${p.color}; --d:${[0.55, 0.3, 0.05][k]}s">
+        ${k === 0 ? `<span class="pod-crown" aria-hidden="true">${icon('crown')}</span>` : ''}
+        ${dotHTML(p, 'pod-dot')}
+        <b class="pod-name">${esc(p.name)}${p.id === myPid() ? ' (you)' : ''}</b>
+        <span class="pod-worth">${p.bankrupt ? `Out in round ${p.outRound}` : fmt(game.netWorth(p.id))}</span>
+        <div class="pod-step"><span>${label[k]}</span></div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+  // A short burst of confetti in the players' colours when the game ends (lighter on slow devices).
+  function celebrate() {
+    if (reduceMotion() || !game) return;
+    const cv = document.createElement('canvas');
+    cv.className = 'confetti';
+    cv.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(cv);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const c = cv.getContext('2d'); c.scale(dpr, dpr);
+    const w = game.player(game.s.winner);
+    const cols = [w ? w.color : '#FFD166', ...game.s.players.map((p) => p.color), '#FFD166', '#FFFFFF'];
+    const N = PERF_LITE ? 70 : 160;
+    const bits = Array.from({ length: N }, (_, k) => {
+      const side = k % 2 ? 1 : -1;
+      return { x: side > 0 ? W * 0.1 : W * 0.9, y: H * 0.75, vx: side * (3 + Math.random() * 7), vy: -(9 + Math.random() * 9),
+        r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3, s: 5 + Math.random() * 6, col: cols[k % cols.length] };
+    });
+    const t0 = performance.now();
+    const frame = (t) => {
+      const age = t - t0;
+      c.clearRect(0, 0, W, H);
+      c.globalAlpha = Math.max(0, Math.min(1, (3200 - age) / 700));
+      for (const b of bits) {
+        b.vy += 0.32; b.vx *= 0.985; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        c.save(); c.translate(b.x, b.y); c.rotate(b.r); c.fillStyle = b.col; c.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); c.restore();
+      }
+      if (age < 3200) requestAnimationFrame(frame); else cv.remove();
+    };
+    requestAnimationFrame(frame);
   }
   function worthChart() {
     const hist = game.s.history;
@@ -2354,7 +2546,21 @@
       onConfirm: () => act('bankrupt'),
     });
   }
+  function confirmSellProp(i) {
+    const t = BOARD[i];
+    openModal('confirm', {
+      title: `Sell ${t.name}?`,
+      body: `The bank pays you ${fmt(game.sellValue(i))} and ${t.name} goes back on sale. Mortgaging instead gives you ${fmt(game.mortgageValue(i))} and you keep it.`,
+      confirm: `Sell for ${fmt(game.sellValue(i))}`, danger: true,
+      onConfirm: () => act('sellprop', { i }),
+    });
+  }
   function bindGame() {
+    bindZoom();
+    document.addEventListener('click', (e) => {
+      const sp = e.target.closest('[data-sellprop]');
+      if (sp && game && !sp.disabled) { e.stopPropagation(); confirmSellProp(+sp.dataset.sellprop); }
+    }, true);
     $('#board').addEventListener('click', (e) => {
       const a = e.target.closest('[data-a]');
       if (a) return doAction(a.dataset.a, a);
