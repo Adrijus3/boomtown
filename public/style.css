@@ -3402,3 +3402,45 @@ svg.ic { vertical-align: -0.18em; }
 /* breathing room between a square's edge and its flag or icon */
 #board .tile .body > .flag:first-child { margin-top: clamp(2px, .5cqi, 5px) !important; }
 :root[data-sketch] #board .tile .body > .flag:first-child { margin-top: clamp(4px, .8cqi, 8px) !important; }
+
+/* ================================================================ v30: grounded 3D dice, tabletop emblems */
+/* The 3D dice sit a little smaller, with a soft shadow that grounds them on the table. */
+#dice:not(.flat) { transform: scale(.86); transform-origin: center; }
+#dice:not(.flat) .dice-gl, #dice:not(.flat) .die-wrap { filter: drop-shadow(0 10px 15px rgba(0,0,0,.5)); }
+
+/* Board icons live in a uniform 32px badge: dark tinted glass, a faint border in the badge colour,
+   a soft outline icon and a low ambient glow. */
+:root:not([data-sketch]) #board .tile .tic, :root:not([data-sketch]) #board .tile .cbig {
+  box-sizing: border-box !important; width: 32px !important; height: 32px !important; flex: none;
+  display: grid !important; place-items: center; padding: 6px !important; border-radius: 8px;
+  background: var(--eb, rgba(30,41,59,.35)) !important; border: 1px solid var(--ebd, rgba(148,163,184,.3));
+  color: var(--ec, #CBD5E1) !important; box-shadow: 0 0 12px -2px var(--eg, transparent), inset 0 1px 0 rgba(255,255,255,.04);
+}
+:root:not([data-sketch]) #board .tile .tic svg, :root:not([data-sketch]) #board .tile .cbig svg {
+  width: 100% !important; height: 100% !important; filter: drop-shadow(0 0 3px var(--eg, transparent));
+}
+#board .tile.chest   { --eb: rgba(69,26,3,.3);  --ebd: rgba(245,158,11,.3); --ec: #FCD34D; --eg: rgba(252,211,77,.28); }
+#board .tile.airport { --eb: rgba(8,47,73,.3);  --ebd: rgba(14,165,233,.3); --ec: #7DD3FC; --eg: rgba(125,211,252,.25); }
+#board .tile.chance  { --eb: rgba(2,44,34,.3);  --ebd: rgba(16,185,129,.3); --ec: #6EE7B7; --eg: rgba(110,231,183,.25); }
+#board .tile.tax     { --eb: rgba(69,10,10,.3); --ebd: rgba(239,68,68,.3);  --ec: #FCA5A5; --eg: rgba(252,165,165,.22); }
+#board .tile.utility:has([data-art="power"]) { --eb: rgba(66,32,6,.3); --ebd: rgba(234,179,8,.3); --ec: #FDE047; --eg: rgba(253,224,71,.25); }
+#board .tile.utility:has([data-art="water"]) { --eb: rgba(8,47,73,.3); --ebd: rgba(56,189,248,.3); --ec: #7DD3FC; --eg: rgba(125,211,252,.25); }
+#board .tile.start   { --eb: rgba(2,44,34,.3);  --ebd: rgba(16,185,129,.3); --ec: #6EE7B7; --eg: rgba(110,231,183,.25); }
+#board .tile.gotojail{ --eb: rgba(69,10,10,.3); --ebd: rgba(239,68,68,.3);  --ec: #FCA5A5; --eg: rgba(252,165,165,.22); }
+#board .tile.vacation{ --eb: rgba(8,47,73,.3);  --ebd: rgba(14,165,233,.3); --ec: #7DD3FC; --eg: rgba(125,211,252,.25); }
+/* light themes: the same badges, lighter glass and deeper ink so the icon still reads */
+[data-scheme="light"] #board .tile.chest   { --eb: #FFFBEB; --ebd: #FCD34D; --ec: #B45309; --eg: rgba(245,158,11,.18); }
+[data-scheme="light"] #board .tile.airport, [data-scheme="light"] #board .tile.vacation,
+[data-scheme="light"] #board .tile.utility:has([data-art="water"]) { --eb: #F0F9FF; --ebd: #7DD3FC; --ec: #0369A1; --eg: rgba(14,165,233,.16); }
+[data-scheme="light"] #board .tile.chance, [data-scheme="light"] #board .tile.start { --eb: #ECFDF5; --ebd: #6EE7B7; --ec: #047857; --eg: rgba(16,185,129,.16); }
+[data-scheme="light"] #board .tile.tax, [data-scheme="light"] #board .tile.gotojail { --eb: #FEF2F2; --ebd: #FCA5A5; --ec: #B91C1C; --eg: rgba(239,68,68,.14); }
+[data-scheme="light"] #board .tile.utility:has([data-art="power"]) { --eb: #FEFCE8; --ebd: #FDE047; --ec: #A16207; --eg: rgba(234,179,8,.16); }
+/* phones: the board is too small for 32px, so the badge scales with it (still the same on every square) */
+@container board (max-width: 600px) {
+  :root:not([data-sketch]) #board .tile .tic, :root:not([data-sketch]) #board .tile .cbig { width: 5.4cqi !important; height: 5.4cqi !important; padding: .9cqi !important; border-radius: 1.4cqi; }
+}
+/* the badge is one size on every square, chosen so names and prices still fit on the short side squares */
+:root:not([data-sketch]) #board .tile:not(.corner) .tic { width: 26px !important; height: 26px !important; padding: 5px !important; border-radius: 7px; }
+@container board (max-width: 600px) {
+  :root:not([data-sketch]) #board .tile:not(.corner) .tic, :root:not([data-sketch]) #board .tile .cbig { width: 3.8cqi !important; height: 3.8cqi !important; padding: .6cqi !important; border-radius: 1cqi; }
+}
