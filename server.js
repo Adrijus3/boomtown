@@ -889,6 +889,10 @@ function handle(ws, msg) {
     case 'start':
       if (!isHost) return fail('Only the host can start the game.');
       if (room.status !== 'waiting') return;
+      // starting on your own fills the table with bots, up to 4 players
+      if (room.seats.length < 2) {
+        while (room.seats.length < Math.min(4, room.settings.maxPlayers)) room.seats.push({ clientId: null, bot: true, color: freeColor(room), name: BOT_NAMES.find((n) => !room.seats.some((x) => x.name === n)) || 'Bot' });
+      }
       if (room.seats.length < 2) return fail('You need at least two players. Add a bot or share the link.');
       return startGame(room);
     case 'restart':

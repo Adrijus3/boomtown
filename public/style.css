@@ -3164,3 +3164,26 @@ body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; 
 .end-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .end-count { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; margin-left: 2px; border-radius: 99px;
   background: rgba(0,0,0,.18); font-variant-numeric: tabular-nums; font-size: .9em; }
+
+/* ---------------------------------------------------------------- v25: house rules fold away */
+.rules-panel > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.rules-panel > summary::-webkit-details-marker { display: none; }
+.rules-panel > summary .hint { margin-left: auto; }
+.rules-panel > summary .rules-toggle { width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); margin: -4px 4px 0 0; transition: transform .2s; opacity: .7; }
+.rules-panel[open] > summary .rules-toggle { transform: rotate(225deg); margin-top: 4px; }
+.rules-panel:not([open]) { align-self: start; }
+/* Players card: look → actions → start, each a full-width row */
+#seatControls.seat-actions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+#seatControls .sc-look { display: flex; flex-direction: column; gap: 8px; }
+#seatControls .sc-look-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#seatControls .sc-look-h .field-label { margin: 0; }
+#seatControls .sc-look-h .seat-photo { flex: none; }
+#seatControls .sc-look .palette { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 4px; width: 100%; padding: 4px 2px; }
+#seatControls .sc-look .palette button { flex: 0 0 auto; width: 32px !important; height: 32px !important; min-width: 0; padding: 0; }
+#seatControls .sc-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#seatControls .sc-acts.one { grid-template-columns: 1fr; }
+#seatControls .sc-acts .btn { width: 100%; justify-content: center; min-height: 42px; }
+#seatControls .sc-start { display: flex; flex-direction: column; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+#seatControls .sc-start .btn { width: 100%; justify-content: center; min-height: 50px; font-size: 16px; }
+#seatControls .sc-start .room-cta-note { text-align: center; font-size: 12.5px; color: var(--muted); }
+#roomCta[hidden] { display: none !important; }

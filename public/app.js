@@ -404,14 +404,25 @@
           <div class="row"><button class="btn primary" type="submit">Join the game</button></div></form>`);
     } else {
       const taken = r.seats.filter((s, i) => i !== mySeat).map((s) => s.color);
-      ctl = `<div class="palette">${COLORS.map((c) => `<button type="button" data-color="${c}" style="--pc:${c}" class="${c === r.seats[mySeat].color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Switch to this colour"></button>`).join('')}</div>
-        <span class="photo-btns seat-photo">${photoCtl()}</span>
-        <button class="btn sm ghost" data-act="unseat">Give up my seat</button>`;
+      // 1) how you look, 2) seat actions side by side, 3) the start button (host) — one tidy stack
+      ctl = `<div class="sc-look"><div class="sc-look-h"><span class="field-label">Your colour</span><span class="photo-btns seat-photo">${photoCtl()}</span></div>
+          <div class="palette">${COLORS.map((c) => `<button type="button" data-color="${c}" style="--pc:${c}" class="${c === r.seats[mySeat].color ? 'on' : taken.includes(c) ? 'taken' : ''}" ${taken.includes(c) ? 'disabled' : ''} aria-label="Switch to this colour"></button>`).join('')}</div></div>`;
     }
-    if (host) ctl += `<button class="btn sm" data-act="addBot" ${full ? 'disabled' : ''}>${icon('bot')} Add a bot</button>`;
+    const acts = [];
+    if (host) acts.push(`<button class="btn" data-act="addBot" ${full ? 'disabled' : ''}>${icon('bot')} Add a bot</button>`);
+    if (mySeat >= 0) acts.push('<button class="btn ghost" data-act="unseat">Give up my seat</button>');
+    if (acts.length) ctl += `<div class="sc-acts ${acts.length === 1 ? 'one' : ''}">${acts.join('')}</div>`;
+    if (host) {
+      // On your own, Start fills the table with bots (up to 4 players) and starts in one tap.
+      const fill = r.seats.length < 2 ? Math.min(4, r.settings.maxPlayers) - r.seats.length : 0;
+      ctl += `<div class="sc-start"><button class="btn primary lg" data-act="start">${fill ? `Start with ${fill} bot${fill > 1 ? 's' : ''}` : 'Start game'}</button>
+        <span class="room-cta-note">${fill ? 'Or share the link and wait for friends to join.' : 'Everyone seated will play. People who join later can watch.'}</span></div>`;
+    } else ctl += `<div class="sc-start"><span class="room-cta-note">${icon('eye')} Waiting for ${esc(r.hostName || 'the host')} to start the game.</span></div>`;
     const seatCtl = $('#seatControls');
     if (!seatCtl.contains(document.activeElement) || document.activeElement.tagName !== 'INPUT') seatCtl.innerHTML = ctl;
-    $('#rulesHint').textContent = host ? 'You are the host' : `Set by ${r.hostName || 'the host'}`;
+    const rb = $('#rulesBox');
+    if (rb && !rb.dataset.init) { rb.dataset.init = '1'; rb.open = window.innerWidth > 900; }
+    $('#rulesHint').textContent = host ? 'Standard rules · tap to change' : `Set by ${r.hostName || 'the host'} · tap to view`;
     $('#roomRules').innerHTML = RULES.map((rule) => {
       if (rule.group) return `<div class="rgroup eyebrow">${rule.group}</div>`;
       const v = r.settings[rule.key], dis = host ? '' : 'disabled';
@@ -420,10 +431,7 @@
         : `<select class="select" id="rule-${rule.key}" data-rule="${rule.key}" ${dis} aria-label="${esc(rule.label)}">${rule.options.map(([val, lab]) => `<option value="${val}" ${String(val) === String(v) ? 'selected' : ''}>${lab}</option>`).join('')}</select>`;
       return `<div class="rule ${rule.type === 'toggle' ? 'flip' : 'pick'}"><div><div class="rl">${rule.label}</div><div class="rd">${rule.desc}</div></div>${c}</div>`;
     }).join('');
-    $('#roomCta').classList.toggle('is-host', host);
-    $('#roomCta').innerHTML = host
-      ? `<button class="btn primary xl" data-act="start" ${r.seats.length < 2 ? 'disabled' : ''}>Start game</button><span class="room-cta-note">${r.seats.length < 2 ? 'You need at least two players. Share the link or add a bot.' : 'Everyone seated will play. People who join later can watch.'}</span>`
-      : `<span class="room-cta-note">${icon('eye')} Waiting for ${esc(r.hostName || 'the host')} to start the game.</span>`;
+    $('#roomCta').hidden = true;
   }
   function bindRoom() {
     const sec = $('#room');
