@@ -3159,3 +3159,8 @@ body.meter-dragging #dealBar .meter-track i { transition: background-color .2s; 
 .ctl .mpair { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .ctl .mpair .btn { width: 100%; justify-content: center; }
 .board.zoomed #tileTip { display: none !important; }
+
+/* ---------------------------------------------------------------- v24: end-of-turn countdown */
+.end-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.end-count { display: inline-grid; place-items: center; min-width: 1.5em; height: 1.5em; margin-left: 2px; border-radius: 99px;
+  background: rgba(0,0,0,.18); font-variant-numeric: tabular-nums; font-size: .9em; }

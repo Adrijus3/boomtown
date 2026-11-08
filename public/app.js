@@ -668,6 +668,7 @@
   setInterval(() => {
     if (screen !== 'game' || !game || !meta) return;
     syncAutoRoll();
+    syncAutoEnd();
     const ring = $('#timerRing'), clock = $('#turnClock'), badge = $('#nowBadge');
     const T = curClock(), on = !!T;
     if (ring) ring.hidden = !on;
@@ -1859,6 +1860,25 @@
     const myp = mine != null ? game.player(mine) : null;
     $('#resignBtn').hidden = !(myp && !myp.bankrupt && !s.over);
   }
+  // ---- automatic end of turn
+  const END_AUTO_MS = 4000;
+  function endKey() { return game ? `${ui.gid}:${game.s.turn.n}` : ''; }
+  function endAutoState() {
+    const s = game && game.s, mine = myPid();
+    const mineNow = s && !s.over && game.cur.id === mine && s.turn.phase === 'end' && !game.cur.bot;
+    if (!mineNow || ui.endStay === endKey()) return { counting: false };
+    if (ui.endAt == null || ui.endAtKey !== endKey()) { ui.endAtKey = endKey(); ui.endAt = Date.now() + END_AUTO_MS; }
+    return { counting: true, left: Math.max(1, Math.ceil((ui.endAt - Date.now()) / 1000)) };
+  }
+  function syncAutoEnd() {
+    const st = endAutoState();
+    if (!st.counting) return;
+    const el = $('#endCount'); if (el) el.textContent = Math.max(1, Math.ceil((ui.endAt - Date.now()) / 1000));
+    // wait while something is still playing out or a window is open (that counts as "busy deciding")
+    if (ui.busy || ui.modal) { ui.endAt = Math.max(ui.endAt, Date.now() + 1500); return; }
+    if (Date.now() >= ui.endAt) { ui.endAt = null; doAction('end'); }
+  }
+  function stayThisTurn() { if (game) { ui.endStay = endKey(); ui.endAt = null; scheduleRender(); } }
   function syncAutoRoll() {
     if (!ui.autoRoll || screen !== 'game' || !game || game.s.over) return;
     const s = game.s, p = game.cur, t = s.turn, mine = myPid();
@@ -1944,9 +1964,16 @@
           ${short > 0 ? `<div class="hint warn">You need ${fmt(short)} more. Mortgage or sell from your portfolio to afford it.</div>` : ''}`;
       }
       case 'auction': return '';
-      case 'end':
-        return `<button class="btn primary lg" data-a="end" ${dis}>${icon('check')} End turn</button>
-          <div class="hint">Build houses, mortgage or trade before you end your turn.</div>`;
+      case 'end': {
+        // Your turn ends by itself a few seconds after there's nothing left to decide, saving a tap.
+        // Tapping anything else (a property, building, the Stay button) keeps it open until you press End turn.
+        const ae = endAutoState();
+        return ae.counting
+          ? `<div class="row end-row"><button class="btn primary lg" data-a="end" ${dis}>${icon('check')} End turn <span class="end-count" id="endCount">${ae.left}</span></button><button class="btn lg" data-a="stay">Stay</button></div>
+          <div class="hint">Your turn ends by itself. Press Stay to build or mortgage first.</div>`
+          : `<button class="btn primary lg" data-a="end" ${dis}>${icon('check')} End turn</button>
+          <div class="hint">Build houses or mortgage before you end your turn.</div>`;
+      }
       case 'debt': {
         const d = s.debt, to = d.to === 'each' ? 'the other players' : d.to == null ? 'the bank' : pname(d.to);
         const short = d.amount - p.money;
@@ -2480,6 +2507,7 @@
     switch (a) {
       case 'roll': case 'end': case 'buy': case 'decline':
         if (!ui.busy) act(a); return;
+      case 'stay': stayThisTurn(); return;
       case 'autoroll':
         ui.autoRoll = !ui.autoRoll;
         ui.autoRollTurn = null;
@@ -2557,6 +2585,12 @@
   }
   function bindGame() {
     bindZoom();
+    // tapping anything else during the end-of-turn countdown means "I'm still doing something": stay
+    document.addEventListener('pointerdown', (e) => {
+      if (screen !== 'game' || !endAutoState().counting) return;
+      const t = e.target.closest('button, a, input, select, .tile, [data-open]');
+      if (t && !t.closest('[data-a="end"]')) stayThisTurn();
+    }, true);
     document.addEventListener('click', (e) => {
       const sp = e.target.closest('[data-sellprop]');
       if (sp && game && !sp.disabled) { e.stopPropagation(); confirmSellProp(+sp.dataset.sellprop); }

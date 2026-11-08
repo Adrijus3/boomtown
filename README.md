@@ -44,6 +44,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 ## How to play
 
 - **Play now** puts you in an open public room, or opens a new one. **Create a private game** makes a room that only people with the link can join.
+- When there's nothing left to decide on your turn, it ends by itself after a 4-second countdown on the End turn button. Press **Stay** (or tap a property, build, mortgage…) to keep your turn open, then press End turn yourself.
 - Opening a room link (or pressing Join) puts you straight into a free seat if the game hasn't started. Only someone who hasn't chosen a nickname yet is asked for one first. A full room, or a game already under way, means you watch.
 - Rooms have 6 seats to start with; the host can pick anything from 2 to 8. The host sets the house rules, adds bots and starts the game with the button at the top of the waiting room. Anyone who joins after the start can watch and chat.
 - Bots build houses on full sets as soon as they can, mortgaging spare single properties to get each set to 3 houses, and bid a little more boldly in auctions. They are noticeably tougher than early versions.
