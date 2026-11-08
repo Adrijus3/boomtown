@@ -56,7 +56,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - On a phone, owned properties show their owner rather than their rent, so names stay readable. Tap any square to see its full card.
 - Turn order is shuffled, and to even out the advantage of going first, each player after the first starts with £40 more than the one before (2nd +£40, 3rd +£80, and so on).
 - On phones, pinch the board to zoom in (up to 3×) and drag to look around, or tap the magnifier in the board's corner to zoom in on your token and back out. The board itself never moves on its own.
-- In your portfolio, **Mortgage** and **Sell** sit side by side: mortgaging keeps the property (pay it off later), selling gives it back to the bank for half its price (you're asked to confirm).
+- In your portfolio, **Mortgage** and **Sell** sit side by side: mortgaging keeps the property (pay it off later), selling pays 70% of its price but gives it back to the bank for good (you're asked to confirm).
 - When the game ends, a podium shows the top three, with confetti for the winner, before the net-worth chart.
 - Games last **25 rounds**, about the length of a lesson. After the last round the richest player (by net worth) wins, unless everyone else has already gone bankrupt.
 - **Auctions** run on one 10-second clock (7 on fast games, 12 on relaxed). Bid with **+£10**, **+£50** or **+£100**; each button shows the price you would bid. The highest bid when the clock runs out wins. **Pass** takes you out of that auction, and the auction ends early once everyone except the leader is out.

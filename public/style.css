@@ -3239,8 +3239,8 @@ svg.ic { vertical-align: -0.18em; }
 :root:not([data-sketch]) #board .tile:not(.owned) .body > .tprice { background: none !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; color: var(--muted) !important; font-weight: 600 !important; }
 :root:not([data-sketch]) #board .tile.owned .body > .tprice { box-shadow: none !important; }
 :root:not([data-sketch]) #board .tile:hover { filter: none !important; background: var(--tile-2) !important; }
-/* an unowned square has no owner strip, so it reads as one clean square */
-:root:not([data-sketch]) #board .tile:not(.owned) .band { background: none !important; box-shadow: none !important; }
+/* an unowned square keeps its plain grey strip where the owner's colour will go */
+:root:not([data-sketch]) #board .tile:not(.owned) .band { background: rgba(var(--hi), .07) !important; box-shadow: none !important; }
 :root:not([data-sketch]) #board .tile:not(.owned) .body > .tprice { font-size: max(8px, 1.15cqi) !important; }
 /* one control height per row: the room link, Copy, Theme and Leave room all line up */
 .room-top .share-row .text-in, .room-top .share-row .btn, .room-top .room-tools .btn { height: 44px !important; min-height: 44px !important; box-sizing: border-box; }

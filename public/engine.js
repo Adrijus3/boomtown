@@ -214,7 +214,8 @@
     houseCost(idx) { const t = BOARD[idx]; return t.group ? GROUPS[t.group].house : 0; }
     mortgageValue(idx) { return Math.floor(BOARD[idx].price / 2); }
     unmortgageCost(idx) { return Math.ceil((BOARD[idx].price / 2) * 1.1); }
-    sellValue(idx) { return Math.floor(BOARD[idx].price / 2); }
+    // Selling to the bank pays more than a mortgage (70% of the price against 50%), but the city is gone.
+    sellValue(idx) { return Math.floor(BOARD[idx].price * 0.7); }
 
     netWorth(pid) {
       const p = this.player(pid);

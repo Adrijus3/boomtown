@@ -581,3 +581,130 @@ html.th-open { overflow: hidden; }
 [data-theme="contrast"] .turn-clock { background: #000000; color: #FFE600; box-shadow: inset 0 0 0 1px #FFE600; animation: none; }
 [data-theme="contrast"] .turn-clock.low { color: #FF9C9C; box-shadow: inset 0 0 0 1px #FF9C9C; }
 [data-theme="blueprint"] :is(.tag.bad, .tag.away) { background: rgba(5, 25, 50, .45); }
+
+/* ================================================================ Clean (default)
+   A plain working tool: white, greys, near-black text, one green borrowed from British road signs.
+   1px #E5E7EB borders, small radii, no gradients, glows, blurs or shadows, no decorative icons in buttons. */
+@font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(/fonts/geist-variable.woff2) format('woff2'); }
+[data-theme="clean"]:not(#_) {
+  color-scheme: light;
+  --ink: #FFFFFF; --felt: #FAFAFA; --tile: #FFFFFF; --tile-2: #FAFAFA; --tile-3: #F3F4F6;
+  --line: #E5E7EB; --line-soft: #EEF0F2; --line-hi: #D1D5DB;
+  --text: #0A0A0A; --muted: #4B5563; --faint: #6B7280;
+  --brass: #00703C; --brass-hi: #005C31; --brass-ink: #FFFFFF; --brass-rgb: 0,112,60;
+  --mint: #0A0A0A; --mint-rgb: 10,10,10; --coral: #B42318; --coral-rgb: 180,35,24; --rose: #B42318; --rose-rgb: 180,35,24;
+  --tile-top: #FFFFFF; --board: #E5E7EB; --token-ring: #0A0A0A; --pop: #FFFFFF; --pop-line: #E5E7EB; --tip: #FFFFFF; --tip-line: #E5E7EB;
+  --glow: #FFFFFF; --centre-1: #FFFFFF; --centre-2: #FFFFFF; --centre-3: #FFFFFF; --cell: #F3F4F6; --cell-2: #E5E7EB;
+  --hi: 10,10,10; --shade: 107,114,128;
+  --sky: #1F2937; --steel: #4B5563; --coral-text: #B42318; --chance-text: #374151; --chest-text: #374151; --violet-text: #374151;
+  --danger-text: #B42318; --danger-strong: #7A1A12; --danger-ic: #B42318; --house: #FFFFFF; --house-ink: #0A0A0A; --knob: #FFFFFF; --mix-hi: #000;
+  --font-display: Geist, "Helvetica Neue", Arial, sans-serif;
+  --font-ui: Geist, "Helvetica Neue", Arial, sans-serif;
+  --font-label: Geist, "Helvetica Neue", Arial, sans-serif;
+  --ui-radius-small: 4px; --ui-radius: 6px; --ui-radius-panel: 8px;
+}
+:root[data-theme="clean"] body { background: #FFFFFF !important; background-image: none !important; color: var(--text); font-feature-settings: "tnum" 0; letter-spacing: -.005em; }
+
+/* no gradients, glows, blurs or floating shadows anywhere (tokens keep their ring so you can find yours) */
+:root[data-theme="clean"]:not(#_) *:not(.token):not(.token *):not(.die):not(.die *):not(.dice *):not(.cube *) { box-shadow: none !important; text-shadow: none !important; }
+:root[data-theme="clean"]:not(#_) .modal { background: rgba(10,10,10,.32) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+:root[data-theme="clean"]:not(#_) .btn, :root[data-theme="clean"]:not(#_) .icon-btn, :root[data-theme="clean"]:not(#_) .panel, :root[data-theme="clean"]:not(#_) .sheet, :root[data-theme="clean"]:not(#_) .pcard,
+:root[data-theme="clean"]:not(#_) .tile, :root[data-theme="clean"]:not(#_) .center, :root[data-theme="clean"]:not(#_) .tag, :root[data-theme="clean"]:not(#_) .chip, :root[data-theme="clean"]:not(#_) .postcard,
+:root[data-theme="clean"]:not(#_) .auction, :root[data-theme="clean"]:not(#_) .toast, :root[data-theme="clean"]:not(#_) .offer-dock, :root[data-theme="clean"]:not(#_) .deedcard, :root[data-theme="clean"]:not(#_) .pod-step,
+:root[data-theme="clean"]:not(#_) .bankbox, :root[data-theme="clean"]:not(#_) .tprice, :root[data-theme="clean"]:not(#_) .text-in, :root[data-theme="clean"]:not(#_) .select { background-image: none !important; }
+
+/* type: one sans, tight, left-aligned headings */
+:root[data-theme="clean"]:not(#_) .wordmark { font-weight: 650 !important; letter-spacing: -.03em !important; }
+:root[data-theme="clean"]:not(#_) .wordmark * { color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .panel-h h2, :root[data-theme="clean"]:not(#_) .sheet-h h2 { font-weight: 600 !important; font-size: 15px !important; letter-spacing: -.01em; }
+:root[data-theme="clean"]:not(#_) .pmoney { color: var(--text) !important; font-weight: 600 !important; }
+:root[data-theme="clean"]:not(#_) .sheet-b, :root[data-theme="clean"]:not(#_) .panel, :root[data-theme="clean"]:not(#_) .rule, :root[data-theme="clean"]:not(#_) .pf-head, :root[data-theme="clean"]:not(#_) .over-reason { text-align: left; }
+
+/* surfaces: white, 1px grey borders, small radii */
+:root[data-theme="clean"]:not(#_) .panel, :root[data-theme="clean"]:not(#_) .sheet { background: #FFFFFF !important; border: 1px solid var(--line) !important; border-radius: 8px !important; }
+:root[data-theme="clean"]:not(#_) .panel-h { padding-block: 12px !important; border-bottom: 1px solid var(--line) !important; }
+:root[data-theme="clean"]:not(#_) .pcard { border: 1px solid transparent !important; border-radius: 6px !important; padding: 8px 10px !important; }
+:root[data-theme="clean"]:not(#_) .pcard:hover { background: var(--tile-2) !important; }
+:root[data-theme="clean"]:not(#_) .pcard.viewing { background: var(--tile-2) !important; border-color: var(--line) !important; }
+:root[data-theme="clean"]:not(#_) .pcard.turn { background: #FFFFFF !important; border-color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .pcard.turn::before { display: none !important; }
+:root[data-theme="clean"]:not(#_) .pcard .now { background: var(--text) !important; color: #FFFFFF !important; border: 0 !important; border-radius: 4px !important; }
+
+/* buttons: black primary, white secondary, 6px radius, no icons next to words */
+:root[data-theme="clean"]:not(#_) .btn { border-radius: 6px !important; border: 1px solid var(--line-hi) !important; background: #FFFFFF !important; color: var(--text) !important; font-weight: 550 !important; letter-spacing: -.005em; }
+:root[data-theme="clean"]:not(#_) .btn:hover:not(:disabled) { background: var(--tile-3) !important; }
+:root[data-theme="clean"]:not(#_) .btn.primary { background: var(--text) !important; border-color: var(--text) !important; color: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) .btn.primary:hover:not(:disabled) { background: #262626 !important; }
+:root[data-theme="clean"]:not(#_) .btn.danger { color: var(--coral) !important; border-color: #F1C7C3 !important; }
+:root[data-theme="clean"]:not(#_) .btn.ghost { border-color: transparent !important; background: transparent !important; }
+:root[data-theme="clean"]:not(#_) .btn.ghost:hover:not(:disabled) { background: var(--tile-3) !important; }
+:root[data-theme="clean"]:not(#_) .btn:disabled { opacity: .45; }
+:root[data-theme="clean"]:not(#_) .btn > svg.ic, :root[data-theme="clean"]:not(#_) .btn .btn-art { display: none !important; }
+:root[data-theme="clean"]:not(#_) .icon-btn { border-radius: 6px !important; border: 1px solid var(--line) !important; background: #FFFFFF !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .icon-btn:hover:not(:disabled) { background: var(--tile-3) !important; }
+:root[data-theme="clean"]:not(#_) .icon-btn.on, :root[data-theme="clean"]:not(#_) .icon-btn[aria-pressed="true"] { border-color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) :focus-visible { outline: 2px solid var(--brass) !important; outline-offset: 2px; }
+
+/* the one accent: road-sign green marks your turn and the live action, nothing else */
+:root[data-theme="clean"]:not(#_) .tag.good, :root[data-theme="clean"]:not(#_) .tag.you { background: #E7F3EC !important; color: var(--brass) !important; border: 0 !important; }
+:root[data-theme="clean"]:not(#_) .end-count { background: rgba(255,255,255,.18) !important; border-radius: 4px !important; }
+
+/* tags and chips: small squared labels, never pills */
+:root[data-theme="clean"]:not(#_) .tag, :root[data-theme="clean"]:not(#_) .chip, :root[data-theme="clean"]:not(#_) .chipbtn, :root[data-theme="clean"]:not(#_) .cashchip { border-radius: 4px !important; }
+:root[data-theme="clean"]:not(#_) .tag { background: var(--tile-3) !important; color: #374151 !important; border: 0 !important; }
+:root[data-theme="clean"]:not(#_) .tag.bad, :root[data-theme="clean"]:not(#_) .tag.warn, :root[data-theme="clean"]:not(#_) .tag.away { background: #FDF0EF !important; color: var(--coral) !important; }
+:root[data-theme="clean"]:not(#_) .chip { background: #FFFFFF !important; border: 1px solid var(--line) !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .chipbtn { background: #FFFFFF !important; border: 1px solid var(--line-hi) !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .rdots i, :root[data-theme="clean"]:not(#_) .rdots span { border-radius: 1px !important; }
+
+/* inputs */
+:root[data-theme="clean"]:not(#_) .text-in, :root[data-theme="clean"]:not(#_) .select { background: #FFFFFF !important; border: 1px solid var(--line-hi) !important; border-radius: 6px !important; color: var(--text) !important; }
+
+/* the board: white squares on 1px grey lines, near-black lettering, plain prices */
+:root[data-theme="clean"]:not(#_) #board.board { background: var(--line) !important; border: 1px solid var(--line-hi) !important; border-radius: 8px !important; }
+:root[data-theme="clean"]:not(#_) #board .tile { background: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) #board .tile.corner { background: var(--tile-2) !important; }
+:root[data-theme="clean"]:not(#_) #board .center { background: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) #board .tname { color: var(--text) !important; font-weight: 600 !important; }
+:root[data-theme="clean"]:not(#_) #board .tile .body > .tprice { border-radius: 3px !important; }
+:root[data-theme="clean"]:not(#_) #board .tile.owned .body > .tprice { background: #FFFFFF !important; color: var(--text) !important; border: 1px solid var(--line-hi) !important; }
+:root[data-theme="clean"]:not(#_) #board .tile.danger, :root[data-theme="clean"]:not(#_) #board .tile[class*="danger"] { filter: none !important; }
+:root[data-theme="clean"]:not(#_) .pdot { border-radius: 50%; }
+
+/* lists and figures */
+:root[data-theme="clean"]:not(#_) .prow { border-bottom: 1px solid var(--line-soft) !important; }
+:root[data-theme="clean"]:not(#_) .postcard { border: 1px solid var(--line) !important; border-radius: 6px !important; background: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) .auction { background: #FFFFFF !important; border: 1px solid var(--line) !important; border-radius: 6px !important; }
+:root[data-theme="clean"]:not(#_) .toast { background: #FFFFFF !important; border: 1px solid var(--line-hi) !important; border-radius: 6px !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .offer-dock { background: #FFFFFF !important; border: 1px solid var(--line-hi) !important; border-radius: 8px !important; }
+:root[data-theme="clean"]:not(#_) .pod-step { background: var(--tile-3) !important; border: 1px solid var(--line) !important; border-radius: 4px 4px 0 0 !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .pod-1 .pod-step { background: var(--text) !important; color: #FFFFFF !important; border-color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .pod-crown { color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .chart polyline { stroke-width: 1.6 !important; }
+:root[data-theme="clean"]:not(#_) .meter-track { border-radius: 2px !important; background: var(--tile-3) !important; }
+:root[data-theme="clean"]:not(#_) .switch span, :root[data-theme="clean"]:not(#_) .switch span::before, :root[data-theme="clean"]:not(#_) .switch span::after { border-radius: 4px !important; }
+
+:root[data-theme="clean"]:not(#_) .palette button.on, :root[data-theme="clean"]:not(#_) .palette button[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 2px; }
+:root[data-theme="clean"]:not(#_) .palette button.taken { opacity: .25; }
+:root[data-theme="clean"]:not(#_) .tag.warn { background: var(--tile-3) !important; color: #374151 !important; }
+:root[data-theme="clean"]:not(#_) .pcard.turn { background: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) .rdots .on, :root[data-theme="clean"]:not(#_) .rdots i.on { background: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .pcard:has(> .now) { padding-top: 26px !important; }
+:root[data-theme="clean"]:not(#_) .pcard .now { top: 6px !important; right: 8px !important; }
+:root[data-theme="clean"]:not(#_) #board .tile:not(.owned) .band { background: #EEF0F2 !important; }
+/* no pill shapes or loud fills in Clean */
+:root[data-theme="clean"]:not(#_) :is(.modal, .pp-modal, .th-modal) { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: rgba(10,10,10,.32) !important; }
+:root[data-theme="clean"]:not(#_) .tb-to button { border-radius: 6px !important; background: #FFFFFF !important; }
+:root[data-theme="clean"]:not(#_) .tb-to button.on { border-color: var(--text) !important; background: var(--tile-3) !important; }
+:root[data-theme="clean"]:not(#_) .deed-head { background: #FFFFFF !important; color: var(--text) !important; border-bottom: 1px solid var(--line); border-top: 6px solid var(--g); }
+:root[data-theme="clean"]:not(#_) .deed-head::after { display: none !important; }
+:root[data-theme="clean"]:not(#_) .deed-head .eyebrow { color: var(--muted) !important; }
+:root[data-theme="clean"]:not(#_) .pc-price { color: var(--text) !important; background: none !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; }
+:root[data-theme="clean"]:not(#_) .postcard { border-left: 4px solid var(--g) !important; }
+:root[data-theme="clean"]:not(#_) .cardchip { border-radius: 4px !important; background: var(--tile-3) !important; color: #374151 !important; border: 0 !important; }
+:root[data-theme="clean"]:not(#_) .turn-clock { border-radius: 4px !important; background: var(--tile-3) !important; color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .deedcard { border-radius: 6px !important; background: #FFFFFF !important; border: 1px solid var(--line) !important; }
+:root[data-theme="clean"]:not(#_) .deedcard.on { border-color: var(--text) !important; }
+:root[data-theme="clean"]:not(#_) .tt-side { background: var(--tile-2) !important; border: 1px solid var(--line) !important; border-radius: 8px !important; }
+:root[data-theme="clean"]:not(#_) .tt-mid, :root[data-theme="clean"]:not(#_) .ds-arrow { border-radius: 6px !important; }
+:root[data-theme="clean"]:not(#_) .manage .btn.primary:disabled, :root[data-theme="clean"]:not(#_) .manage .btn:disabled { background: #FFFFFF !important; color: var(--faint) !important; border-color: var(--line) !important; opacity: 1; }

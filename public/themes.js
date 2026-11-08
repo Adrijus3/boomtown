@@ -7,12 +7,15 @@
   const KEY = 'boomtown.theme';
   const FONT = {
     bricolage: '"Bricolage Grotesque", system-ui, sans-serif',
+    geist: 'Geist, "Helvetica Neue", Arial, sans-serif',
     hand: '"Patrick Hand", "Comic Sans MS", cursive',
     sketch: '"Cabin Sketch", "Patrick Hand", cursive',
     architect: '"Architects Daughter", "Patrick Hand", cursive',
   };
   // p = the colours and font used for the little preview in the picker.
   const THEMES = [
+    { id: 'clean', group: 'Light', name: 'Clean', note: 'White, grey and black, with one road-sign green. The default.', scheme: 'light', meta: '#FFFFFF',
+      p: { bg: '#FFFFFF', tile: '#FFFFFF', line: '#E5E7EB', text: '#0A0A0A', acc: '#0A0A0A', on: '#FFFFFF', font: FONT.geist } },
     { id: 'midnight', group: 'Dark', name: 'Midnight', note: 'Deep navy and brass. The original.', scheme: 'dark', meta: '#0A0F1E',
       p: { bg: '#0A0F1E', tile: '#151E35', line: '#2A3758', text: '#EDF0F8', acc: '#F1B94B', on: '#241600', font: FONT.bricolage } },
     { id: 'crayon', group: 'Hand-drawn', name: 'Crayon', note: 'Scribbled in wax crayon on drawing paper.', scheme: 'light', meta: '#F3EBDA',
@@ -132,9 +135,9 @@
     get() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } },
     set(v) { try { localStorage.setItem(KEY, v); } catch (e) { /* private mode: the theme lasts until the page closes */ } },
   };
-  let current = 'midnight';
+  let current = 'clean';
   function apply(id, opts) {
-    const t = byId[id] || byId.midnight;
+    const t = byId[id] || byId.clean;
     current = t.id;
     const html = document.documentElement;
     html.setAttribute('data-theme', t.id);
@@ -155,7 +158,12 @@
   const RENAMED = { ocean: 'blueprint', forest: 'chalk' };
   const saved = RENAMED[store.get()] || store.get();
   const prefersContrast = (() => { try { return root.matchMedia('(prefers-contrast: more)').matches; } catch (e) { return false; } })();
-  apply(byId[saved] ? saved : prefersContrast ? 'contrast' : 'midnight', { keep: true });
+  // Clean became the default look; everyone is moved onto it once, and can pick any other theme afterwards.
+  const MOVED = 'boomtown.theme.clean';
+  let movedAlready = false;
+  try { movedAlready = !!localStorage.getItem(MOVED); localStorage.setItem(MOVED, '1'); } catch (e) { movedAlready = true; }
+  const start = prefersContrast && !saved ? 'contrast' : !movedAlready ? 'clean' : byId[saved] ? saved : 'clean';
+  apply(start, { keep: movedAlready });
   if (!document.body) document.addEventListener('DOMContentLoaded', addDefs, { once: true });
 
   // ------------------------------------------------------------ the picker
@@ -182,7 +190,7 @@
     wrap.innerHTML = `<div class="th-sheet" role="dialog" aria-modal="true" aria-labelledby="thTitle" aria-describedby="thNote">
       <div class="th-h"><h2 id="thTitle">Theme</h2><p id="thNote">Changes how the game looks on this device. Everyone else keeps their own.</p></div>
       <fieldset class="th-groups"><legend class="th-sr">Choose a theme</legend>
-        ${['Hand-drawn', 'Light', 'Dark'].map((g) => `<div class="th-group" role="presentation"><h3 class="th-gh">${g}</h3><div class="th-grid">${THEMES.filter((t) => t.group === g).map((t) => `<label class="th-opt"><input type="radio" name="bt-theme" value="${t.id}"${t.id === current ? ' checked' : ''}>${previewHTML(t)}<span class="th-txt"><b>${esc(t.name)}</b><span>${esc(t.note)}</span></span></label>`).join('')}</div></div>`).join('')}
+        ${['Light', 'Dark', 'Hand-drawn'].map((g) => `<div class="th-group" role="presentation"><h3 class="th-gh">${g}</h3><div class="th-grid">${THEMES.filter((t) => t.group === g).map((t) => `<label class="th-opt"><input type="radio" name="bt-theme" value="${t.id}"${t.id === current ? ' checked' : ''}>${previewHTML(t)}<span class="th-txt"><b>${esc(t.name)}</b><span>${esc(t.note)}</span></span></label>`).join('')}</div></div>`).join('')}
       </fieldset>
       <div class="th-f"><button type="button" class="btn primary" data-th="done">Done</button></div>
     </div>`;
