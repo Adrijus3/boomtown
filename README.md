@@ -54,7 +54,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - If someone disconnects, a bot plays their turns after 15 seconds. Opening the room link again gives them their seat back. On a different computer or phone, open the room link and press **That's me** next to your name. That works whenever your old device is no longer connected.
 - Press the palette button to pick a theme. They come in three groups: hand-drawn (Crayon, Chalkboard, Blueprint), light (Daylight, Classic, Rose) and dark (Midnight, Neon, Sunset, High contrast). Each person picks their own theme on their own device.
 - On a phone, owned properties show their owner rather than their rent, so names stay readable. Tap any square to see its full card.
-- Turn order is shuffled, and to even out the advantage of going first, each player after the first starts with £40 more than the one before (2nd +£40, 3rd +£80, and so on).
+- Turn order is shuffled, and everyone starts with the same cash (the host's Starting cash setting).
 - On phones, pinch the board to zoom in (up to 3×) and drag to look around, or tap the magnifier in the board's corner to zoom in on your token and back out. The board itself never moves on its own.
 - In your properties list, a full region has one **Build N houses** button that puts a house on every city in it in a single tap. Tap any property to open its options in place: **Sell** (70% of the price, the main choice), **Mortgage** (50%, and you keep it), building and selling houses, and Details.
 - When the game ends, a podium shows the top three, with confetti for the winner, before the net-worth chart.

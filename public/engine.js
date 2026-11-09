@@ -121,7 +121,6 @@
   const DECKS = { chance: CHANCE, chest: CHEST };
   // Half of each tax, fine and bail goes into the jackpot, which stops growing at £200: in simulated games the
   // biggest collector then wins 32% (fair share 25%), against 50% when every penny went in with no ceiling.
-  const CATCH_UP = 40; // extra starting cash per place later in the turn order (evens out first-move advantage)
   const FREE_PARKING = { share: 0.5, cap: 200 };
   const PARDON_INDEX = { chance: CHANCE.findIndex((c) => c.a === 'pardon'), chest: CHEST.findIndex((c) => c.a === 'pardon') };
 
@@ -172,8 +171,6 @@
         pardons: [], bankrupt: false, outSeq: 0, outRound: null,
       }));
       if (settings.randomOrder) players = shuffle(players, rng);
-      // Going first is worth about £120 in a 25-round game, so each later seat starts £40 richer than the one before.
-      players.forEach((p, i) => { p.money += CATCH_UP * i; });
       const props = {};
       BOARD.forEach((t, i) => { if (BUYABLE(t)) props[i] = { owner: null, houses: 0, mortgaged: false }; });
       const s = {
@@ -188,7 +185,7 @@
       };
       const g = new Game(s, rng);
       s.history.push(g.snapshotWorth());
-      g.log(['Game started. ', { p: players[0].id }, ' goes first. Each later player starts with £40 more than the one before.']);
+      g.log(['Game started. ', { p: players[0].id }, ' goes first.']);
       return g;
     }
 
