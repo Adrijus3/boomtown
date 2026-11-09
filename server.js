@@ -560,6 +560,15 @@ function turnTimer(room) {
 // Auctions: one fixed clock (10 seconds at normal speed) that bids never extend. The highest bid when
 // it runs out wins. Passing is final for that auction, and the auction ends early once everyone except
 // the leader is out (passed, away, or unable to afford the next bid).
+// A bid in the last few seconds puts the clock back up to that many seconds, so nobody wins by bidding
+// at the final moment: everyone else always gets a fair chance to answer.
+const LATE_BID_MS = 5000;
+function extendOnLateBid(room) {
+  const A = room.auction;
+  if (!A) return;
+  const now = Date.now();
+  if (A.deadline - now < LATE_BID_MS) A.deadline = now + LATE_BID_MS;
+}
 function startAuction(room) {
   if (room.auction) return;
   const g = room.game, sp = speedOf(room);
@@ -577,7 +586,7 @@ function auctionTick(room, g) {
     A.next[p.id] = now + (600 + Math.random() * 1400) * sp.bot;
     const b = Bot.auctionBid(g, p);
     if (b == null) { A.passed[p.id] = true; continue; } // over its limit: the bot drops out
-    if (g.bid(p.id, b)) { tick(room); return; }
+    if (g.bid(p.id, b)) { extendOnLateBid(room); tick(room); return; }
   }
   const stillIn = g.alive().filter((p) => p.id !== a.bidder && !A.passed[p.id] && p.money >= a.high + 10 && !(!p.bot && awayFor(room, p.id) >= 0));
   if (!stillIn.length) A.deadline = Math.min(A.deadline, now + 700);
@@ -713,7 +722,9 @@ function handleAction(room, c, msg) {
     case 'bid': {
       if (room.auction && room.auction.passed[pid]) return 'You passed on this auction.';
       if (room.auction && Date.now() > room.auction.deadline) return 'Too late: the auction has closed.';
-      ok = g.bid(pid, int(msg.amount)); break;
+      ok = g.bid(pid, int(msg.amount));
+      if (ok) extendOnLateBid(room);
+      break;
     }
     case 'autobid': return 'Auto-bid has been replaced: bid with the +£10, +£50 and +£100 buttons.';
     case 'pass': {

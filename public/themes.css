@@ -706,3 +706,5 @@ html.th-open { overflow: hidden; }
 :root[data-theme="clean"]:not(#_) .tt-side { background: var(--tile-2) !important; border: 1px solid var(--line) !important; border-radius: 8px !important; }
 :root[data-theme="clean"]:not(#_) .tt-mid, :root[data-theme="clean"]:not(#_) .ds-arrow { border-radius: 6px !important; }
 :root[data-theme="clean"]:not(#_) .manage .btn.primary:disabled, :root[data-theme="clean"]:not(#_) .manage .btn:disabled { background: #FFFFFF !important; color: var(--faint) !important; border-color: var(--line) !important; opacity: 1; }
+:root[data-theme="clean"]:not(#_) .cash-in input:focus, :root[data-theme="clean"]:not(#_) .cash-in input:focus-visible { outline: none !important; }
+:root[data-theme="clean"]:not(#_) .cash-in:focus-within { border-color: var(--text) !important; box-shadow: 0 0 0 3px rgba(10,10,10,.08) !important; }

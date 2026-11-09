@@ -579,22 +579,14 @@
   // board), not over the name, icon or price. Corners: towards the inner corner. 'axis' is the direction
   // several tokens line up along.
   function tokenSpot(i) {
+    // Tokens stand in the middle of the square (a little smaller than before, so the name still shows);
+    // Prison has its own spots, set in positionTokens.
     const t = ui.tileEls[i], L = t.offsetLeft, T = t.offsetTop, w = t.offsetWidth, h = t.offsetHeight;
-    const tk = (ui.tokenEls[Object.keys(ui.tokenEls)[0]] || {}).offsetWidth || Math.min(w, h) * 0.4;
-    const inset = tk * 0.3; // mostly on the strip, overhanging the middle of the board a little
-    if (i % 10 === 0 && i !== 10) {
-      // corners: over the big icon, which leaves the corner's name and wording readable
-      const ic = t.querySelector('.cbig');
-      const tr = t.getBoundingClientRect(), r = ic && ic.getBoundingClientRect();
-      const y = r && r.height && tr.height ? T + ((r.top + r.height / 2 - tr.top) / tr.height) * h : T + h * 0.3;
-      return { x: L + w / 2, y, axis: 'grid' };
-    }
-    if (i === 10) return { x: L + w / 2, y: T + h / 2, axis: 'y' };
-    if (i < 10) return { x: L + w / 2, y: T + h - inset, axis: 'x' };
-    if (i < 20) return { x: L + inset, y: T + h / 2, axis: 'y' };
-    if (i < 30) return { x: L + w / 2, y: T + inset, axis: 'x' };
-    return { x: L + w - inset, y: T + h / 2, axis: 'y' };
+    if (i % 10 === 0 && i !== 10) return { x: L + w / 2, y: T + h / 2, axis: 'grid' };
+    return { x: L + w / 2, y: T + h / 2, axis: i < 10 || (i > 20 && i < 30) ? 'x' : 'y' };
   }
+  // Points a moving token passes through. Corners are crossed where the two strips meet (the inner corner),
+  // so a walk round a corner stays on the track instead of cutting across the corner square.
   function tileCenter(i) { const p = tokenSpot(i); return { x: p.x, y: p.y }; }
   const walkMs = (n) => Math.max(380, Math.min(2400, n * speed().step));
   async function walk(ev) {
@@ -1218,7 +1210,7 @@
       const list = groups[pos + (inCell(p) ? ':cell' : '')] || [p];
       const n = list.length, k = list.indexOf(p);
       let sc = 1;
-      if (n > 1 && spot.axis !== 'grid' && pos !== 10) {
+      if (false) {
         // Players sharing a square line up along its strip, shrinking if the square is short of room.
         const tk = el.offsetWidth || Math.min(w, h) * 0.4;
         const len = (spot.axis === 'x' ? w : h) - 4;
@@ -1231,7 +1223,7 @@
         // shrink a little when the square is too small for them all, so nobody covers anybody else.
         const tk = el.offsetWidth || Math.min(w, h) * 0.4;
         const areaW = pos === 10 ? w * (inCell(p) ? 0.56 : 0.3) : w - 6;
-        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : h * 0.5;
+        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : h - 6;
         let best = null;
         for (let cols = 1; cols <= n; cols++) {
           const rows = Math.ceil(n / cols), cell = Math.min(areaW / cols, areaH / rows);
@@ -1246,8 +1238,8 @@
         y += (row - (best.rows - 1) / 2) * step;
       }
       const halfToken = ((el.offsetWidth || 0) * sc) / 2;
-      if (pos === 10) x = Math.max(tile.offsetLeft + Math.min(w / 2, halfToken + 2), Math.min(tile.offsetLeft + w - Math.min(w / 2, halfToken + 2), x));
-      if (pos === 10) y = Math.max(tile.offsetTop + Math.min(h / 2, halfToken + 2), Math.min(tile.offsetTop + h - Math.min(h / 2, halfToken + 2), y));
+      x = Math.max(tile.offsetLeft + Math.min(w / 2, halfToken + 2), Math.min(tile.offsetLeft + w - Math.min(w / 2, halfToken + 2), x));
+      y = Math.max(tile.offsetTop + Math.min(h / 2, halfToken + 2), Math.min(tile.offsetTop + h - Math.min(h / 2, halfToken + 2), y));
       x = Math.round(x); y = Math.round(y);
       ui.tokenXY[p.id] = { x, y, s: sc };
       el.style.transition = instant || ui.moving[p.id] ? 'none' : '';
@@ -1890,6 +1882,8 @@
       meterStep(dir);
       const t = $('#dealBar .meter-track'); if (t) t.focus({ preventScroll: true });
     });
+    // tapping the cash box selects the amount, so typing replaces it (no "050")
+    modal.addEventListener('focusin', (e) => { const el = e.target.closest('.cash-in input'); if (!el) return; if (el.value === '0') el.value = ''; else setTimeout(() => { try { el.select(); } catch (err) { /* */ } }, 0); });
     modal.addEventListener('input', (e) => {
       if (!ui.modal || ui.modal.kind !== 'deal') return;
       const el = e.target.closest('[data-money]');
@@ -1925,6 +1919,7 @@
     }).join('');
   }
   const isAway = (pid) => !!meta && meta.away.includes(pid);
+  const kMoney = (n) => (n >= 1000 ? `£${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : fmt(n));
   function renderPlayers() {
     const s = game.s, mine = myPid();
     const html = s.players.map((p, idx) => {
@@ -1939,7 +1934,7 @@
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
         ${dotHTML(p)}
         <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span></span>
-        <span class="pmeta">${p.bot ? '<span class="tag">Bot</span>' : ''}${chips.join('')}<span class="pnw ${chips.length + (p.bot ? 1 : 0) > 2 ? 'hide' : ''}">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Worth ${fmt(game.netWorth(p.id))}`}</span></span></span>
+        <span class="pmeta">${p.bot ? '<span class="tag">Bot</span>' : ''}${chips.join('')}<span class="pnw ${chips.length + (p.bot ? 1 : 0) > 2 ? 'hide' : ''}">${p.bankrupt ? `Out in round ${p.outRound}` : `Worth ${chips.length ? kMoney(game.netWorth(p.id)) : fmt(game.netWorth(p.id))}`}</span></span></span>
         <span class="pright"><span class="pstatus">${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}</span><span class="pmoney" data-money="${p.id}">${p.bankrupt ? '—' : fmt(p.money)}</span></span>
       </button>`;
     }).join('');

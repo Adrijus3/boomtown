@@ -3506,3 +3506,22 @@ svg.ic { vertical-align: -0.18em; }
 .postcard .emblem.big, .postcard > .emblem.big { padding: clamp(7px, 1.3cqi, 11px) !important; }
 .board.zoomed { cursor: grab; } body.meter-dragging .board.zoomed, .board.zoomed:active { cursor: grabbing; }
 .pcard .pmeta .pnw.hide { display: none; } .pcard .pmeta { flex-wrap: nowrap; }
+
+/* tokens a little smaller (about 70%), so a token in the middle of a square leaves the name readable */
+.token { --tk: clamp(11px, 2.5cqi, 24px) !important; }
+/* the cash column never gets pushed out of the card by long text on the left */
+.pcard .pname, .pcard .pmeta { min-width: 0 !important; max-width: 100%; }
+.pcard .pmoney, .pcard .pstatus { min-width: max-content; }
+/* trade cards: one clear, identical "selected" look for every card, and hover never looks like selection */
+#modal button.deedcard { transform: none !important; transition: border-color .12s, background-color .12s; }
+#modal button.deedcard:not(.on):hover:not(:disabled) { border-color: var(--line-hi) !important; box-shadow: none !important; }
+#modal .deedcard.on { border: 2px solid var(--brass) !important; box-shadow: none !important;
+  background: color-mix(in srgb, var(--tile-2) 86%, var(--brass)) !important; }
+#modal .deedcard:not(.on) { border-width: 2px !important; border-color: var(--line) !important; }
+#modal button.deedcard:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+/* trade cash box: the whole box shows the focus ring (no clipped ring around the bare number field) */
+.cash-in { border-radius: 10px; }
+.cash-in input, .cash-in input:focus, .cash-in input:focus-visible { outline: none !important; box-shadow: none !important; border: 0 !important; background: transparent !important; }
+.cash-in:focus-within { border-color: var(--brass) !important; box-shadow: 0 0 0 3px rgba(var(--brass-rgb), .25) !important; }
+.cash-in input::-webkit-outer-spin-button, .cash-in input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cash-in input[type=number] { -moz-appearance: textfield; appearance: textfield; }
