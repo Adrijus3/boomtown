@@ -3444,3 +3444,20 @@ svg.ic { vertical-align: -0.18em; }
 @container board (max-width: 600px) {
   :root:not([data-sketch]) #board .tile:not(.corner) .tic, :root:not([data-sketch]) #board .tile .cbig { width: 3.8cqi !important; height: 3.8cqi !important; padding: .6cqi !important; border-radius: 1cqi; }
 }
+
+/* ================================================================ v31: calmer side panel */
+.ov-player .ov-head { margin-bottom: 8px; }
+.ov-player .ov-name { display: flex; align-items: center; gap: 8px; }
+.ov-player .ov-name b { font-size: 18px; }
+.ov-player .ov-btns { display: grid !important; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.ov-player .ov-btns .btn { width: 100%; justify-content: center; min-height: 38px; }
+.prow.tappable { cursor: pointer; border-radius: 6px; padding-left: 8px !important; margin-left: 10px; }
+.prow.tappable:hover { background: rgba(var(--hi), .04); }
+.prow.tappable:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+.prow.open { background: rgba(var(--hi), .05); grid-template-columns: minmax(0, 1fr) auto !important; row-gap: 8px; padding-bottom: 10px !important; }
+.prow .nm { cursor: inherit; }
+.prow .row-acts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.prow .row-acts .btn { width: 100%; justify-content: center; min-height: 36px; }
+.prow .row-acts .btn .bp { opacity: .75; font-weight: 500; margin-left: .3em; }
+.prow .row-acts .btn.ghost { grid-column: 1 / -1; min-height: 30px; }
+.build-set { display: flex; width: calc(100% - 10px); margin: 6px 0 4px 10px; justify-content: center; min-height: 36px; }

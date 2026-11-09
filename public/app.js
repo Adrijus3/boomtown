@@ -795,8 +795,11 @@
     if (!show) return;
     btn.innerHTML = icon(zoom.s > 1 ? 'zoomout' : 'zoomin');
     btn.setAttribute('aria-label', zoom.s > 1 ? 'Zoom out' : 'Zoom in on the board');
-    btn.style.left = `${b.offsetLeft + b.offsetWidth - 38}px`;
-    btn.style.top = `${b.offsetTop + b.offsetHeight - 38}px`;
+    // inside the middle of the board (its bottom-right corner), so it never covers a square
+    const c = b.querySelector('.center');
+    const cx = c ? c.offsetLeft + c.offsetWidth : b.offsetWidth, cy = c ? c.offsetTop + c.offsetHeight : b.offsetHeight;
+    btn.style.left = `${b.offsetLeft + cx - 38}px`;
+    btn.style.top = `${b.offsetTop + cy - 38}px`;
   }
   function bindZoom() {
     const b = $('#board');
@@ -2067,7 +2070,7 @@
     }
     h += playerBlockHTML(p, v);
     const n = game.ownedBy(p.id).length;
-    h += `<section class="ov-sec"><h2>${p.id === v ? 'Your properties' : 'Properties'} <span class="muted">${n}</span>${canManageNow(p) && n ? '<span class="h4-hint">Tap + to build</span>' : ''}</h2>${propertiesHTML(p)}</section>`;
+    h += `<section class="ov-sec"><h2>${p.id === v ? 'Your properties' : 'Properties'} <span class="muted">${n}</span>${canManageNow(p) && n ? '<span class="h4-hint">Tap a property for options</span>' : ''}</h2>${propertiesHTML(p)}</section>`;
     h += `<section class="ov-sec"><h2>Activity</h2>${activityHTML()}</section>`;
     return h;
   }
@@ -2093,14 +2096,26 @@
     const kickable = p.bot || othersCanVote || isAway(p.id) || (meta && meta.idle && meta.idle.includes(p.id));
     const canKick = me && !me.bankrupt && !isMe && !p.bankrupt && !s.over && kickable && !(room && room.vote);
     const kick = canKick ? `<div class="ov-kick"><button type="button" class="btn sm ghost" data-a="kick" data-pid="${p.id}">${icon('x')} ${p.bot ? 'Remove bot' : 'Vote to remove'}</button><span class="muted">${p.bot ? 'Takes the bot out so the game goes faster.' : 'For someone who has left or stopped playing.'}</span></div>` : '';
+    // Kept short: whose panel this is, what you can do. Cash and net worth are already on the player cards.
+    const back = !isMe && v != null ? `<button type="button" class="btn sm ghost" data-view="${v}">Back to you</button>` : '';
     return `<section class="ov-sec ov-player">
-      <div class="who-row" role="group" aria-label="Choose a player">${who}</div>
-      <div class="ov-head"><div class="ov-name"><b>${esc(p.name)}</b><span class="ov-tags">${tags.join('')}</span></div><div class="ov-btns">${photoBtn}${autoBtn}${dealBtn}</div></div>
-      <div class="stats"><div class="stat"><div class="k">Cash</div><div class="v">${fmt(p.money)}</div></div>
-      <div class="stat"><div class="k">Net worth</div><div class="v">${fmt(game.netWorth(p.id))}</div></div>
-      <div class="stat"><div class="k">Pardons</div><div class="v">${p.pardons.length}</div></div></div>
+      <div class="ov-head"><div class="ov-name"><b>${esc(isMe ? 'You' : p.name)}</b>${p.pardons.length ? `<span class="tag good">${p.pardons.length > 1 ? `${p.pardons.length} pardons` : 'Pardon'}</span>` : ''}${p.jail ? '<span class="tag bad">In Prison</span>' : ''}${p.bankrupt ? '<span class="tag bad">Bankrupt</span>' : ''}</div></div>
+      <div class="ov-btns">${dealBtn}${autoBtn}${back}</div>
       ${kick}
     </section>`;
+  }
+  // Which cities in a region get the next round of houses: the ones with the fewest, cheapest first,
+  // as many as the player can afford and the bank can supply.
+  function buildPlan(pid, grp) {
+    const P = game.s.props, p = game.player(pid);
+    const tiles = GROUP_TILES[grp].slice().sort((a, b) => P[a].houses - P[b].houses);
+    const low = Math.min(...tiles.map((k) => P[k].houses));
+    if (low >= 5) return [];
+    const cost = GROUPS[grp].house;
+    let cash = p.money;
+    const out = [];
+    for (const k of tiles.filter((k) => P[k].houses === low)) { if (cash < cost) break; out.push(k); cash -= cost; }
+    return out;
   }
   function propertiesHTML(p) {
     const s = game.s, owned = game.ownedBy(p.id), manage = canManageNow(p);
@@ -2114,27 +2129,33 @@
       if (!have.length) continue;
       const flag = window.BoomArt.flags[sec.key] ? `<span class="flag sm">${window.BoomArt.flags[sec.key]}</span>` : '';
       h += `<div class="grp"><div class="grp-h" style="--g:${sec.color}"><i></i>${flag}<span>${sec.name}</span><span class="muted">${have.length} of ${sec.tiles.length}</span>${have.length === sec.tiles.length && GROUPS[sec.key] ? '<span class="tag good">Full set</span>' : ''}</div>`;
+      // A full region gets one button that puts a house on every city in it (evenly), in a single tap.
+      if (manage && GROUPS[sec.key] && have.length === sec.tiles.length) {
+        const plan = buildPlan(p.id, sec.key);
+        if (plan.length) h += `<button type="button" class="btn primary sm build-set" data-buildset="${sec.key}">Build ${plan.length === 1 ? 'a house' : `${plan.length} houses`}, ${fmt(plan.length * GROUPS[sec.key].house)}</button>`;
+      }
       for (const i of have) {
         const pr = s.props[i], t = BOARD[i];
         const pips = buildingsHTML(pr.houses);
         const rent = pr.mortgaged ? '<span class="tag bad">Mortgaged</span>' : `${fmt(game.rentFor(i, null, 7))}${t.type === 'utility' ? '*' : ''}`;
+        const open = manage && ui.openRow === i;
         let ctl = '';
-        if (manage) {
-          if (t.type === 'prop' && game.ownsSet(p.id, t.group)) {
-            const sb = game.canSell(p.id, i), bb = game.canBuild(p.id, i);
-            ctl += `<button class="icon-btn" data-m="sell" data-i="${i}" ${sb ? 'disabled' : ''} title="${esc(sb || `Sell a building for ${fmt(Math.floor(game.houseCost(i) / 2))}`)}" aria-label="Sell a building on ${esc(t.name)}">${icon('minus')}</button>`;
-            ctl += `<button class="icon-btn" data-m="build" data-i="${i}" ${bb ? 'disabled' : ''} title="${esc(bb || `Build for ${fmt(game.houseCost(i))}`)}" aria-label="Build on ${esc(t.name)}">${icon('plus')}</button>`;
-          }
-          // Mortgage and Sell sit side by side at the same size: one keeps the property, the other gives it up.
-          let pair = '';
+        if (open) {
+          const btn = (attrs, label, reason, primary) => `<button type="button" class="btn sm ${primary && !reason ? 'primary' : ''}" ${attrs} ${reason ? 'disabled' : ''} title="${esc(reason || '')}">${label}</button>`;
+          const b = [];
+          { const r = game.canSellProperty(p.id, i); b.push(btn(`data-sellprop="${i}"`, `Sell <span class="bp">+${fmt(game.sellValue(i))}</span>`, r, true)); }
           if (game.st.mortgages) {
-            if (pr.mortgaged) { const r = game.canUnmortgage(p.id, i); pair += `<button class="btn sm" data-m="unmortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Pay ${fmt(game.unmortgageCost(i))}`)}">Redeem</button>`; }
-            else { const r = game.canMortgage(p.id, i); pair += `<button class="btn sm" data-m="mortgage" data-i="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Receive ${fmt(game.mortgageValue(i))}`)}">Mortgage</button>`; }
+            if (pr.mortgaged) b.push(btn(`data-m="unmortgage" data-i="${i}"`, `Pay off <span class="bp">${fmt(game.unmortgageCost(i))}</span>`, game.canUnmortgage(p.id, i)));
+            else b.push(btn(`data-m="mortgage" data-i="${i}"`, `Mortgage <span class="bp">+${fmt(game.mortgageValue(i))}</span>`, game.canMortgage(p.id, i)));
           }
-          { const r = game.canSellProperty(p.id, i); pair += `<button class="btn sm sell-prop" data-sellprop="${i}" ${r ? 'disabled' : ''} title="${esc(r || `Sell to the bank for ${fmt(game.sellValue(i))}`)}">Sell</button>`; }
-          ctl += `<span class="mpair">${pair}</span>`;
+          if (t.type === 'prop' && game.ownsSet(p.id, t.group)) {
+            b.push(btn(`data-m="build" data-i="${i}"`, `${pr.houses === 4 ? 'Hotel' : 'House'} <span class="bp">${fmt(game.houseCost(i))}</span>`, game.canBuild(p.id, i)));
+            b.push(btn(`data-m="sell" data-i="${i}"`, `Sell house <span class="bp">+${fmt(Math.floor(game.houseCost(i) / 2))}</span>`, game.canSell(p.id, i)));
+          }
+          b.push(`<button type="button" class="btn sm ghost" data-open="${i}">Details</button>`);
+          ctl = `<div class="row-acts">${b.join('')}</div>`;
         }
-        h += `<div class="prow"><button class="nm" data-open="${i}">${emblemHTML(i, 'xs')}<span>${esc(t.name)}</span></button><span class="meta"><span class="pips">${pips}</span>${rent}</span><span class="ctl">${ctl}</span></div>`;
+        h += `<div class="prow ${manage ? 'tappable' : ''} ${open ? 'open' : ''}" ${manage ? `data-row="${i}" role="button" tabindex="0" aria-expanded="${open}"` : ''}><span class="nm" ${manage ? '' : `data-open="${i}"`}>${emblemHTML(i, 'xs')}<span>${esc(t.name)}</span></span><span class="meta"><span class="pips">${pips}</span>${rent}</span>${ctl}</div>`;
       }
       h += '</div>';
     }
@@ -2665,6 +2686,14 @@
       const v = e.target.closest('[data-view]'); if (v) { ui.view = +v.dataset.view; render(); return; }
       const o = e.target.closest('[data-open]'); if (o) { openModal('tile', { i: +o.dataset.open }); return; }
       const m = e.target.closest('[data-m]'); if (m) { act(m.dataset.m, { i: +m.dataset.i }); return; }
+      const bs = e.target.closest('[data-buildset]');
+      if (bs) { const me = myPid(); buildPlan(me, bs.dataset.buildset).forEach((k) => act('build', { i: k })); return; }
+      if (e.target.closest('[data-sellprop], button')) return;
+      const row = e.target.closest('[data-row]'); if (row) { const k = +row.dataset.row; ui.openRow = ui.openRow === k ? null : k; render(); return; }
+    });
+    $('#sidebody').addEventListener('keydown', (e) => {
+      const row = e.target.closest('[data-row]');
+      if (row && (e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); const k = +row.dataset.row; ui.openRow = ui.openRow === k ? null : k; render(); }
       const tr = e.target.closest('[data-tr]'); if (tr) { act(tr.dataset.tr, { id: +tr.dataset.id }); return; }
       const a = e.target.closest('[data-a]'); if (a) doAction(a.dataset.a, a);
     });
