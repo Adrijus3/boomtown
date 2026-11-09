@@ -2,6 +2,29 @@
 
 An online property-trading board game. Create a room, send the link to friends, fill the empty seats with bots and play in the browser. No accounts needed.
 
+## College Portal
+
+The site opens on the **College Portal**, a small page that links to two games:
+
+| Address | What's there |
+| --- | --- |
+| `/` | College Portal: pick a game, or type a PoorDown room code (or paste a room link) to join a classmate |
+| `/poordown` | PoorDown, this board game |
+| `/room/<code>` | A PoorDown room. Room links work exactly as before |
+| `/unofficial` | UnOfficial, a single-player colour-matching card game against 1–3 computer players |
+
+PoorDown's home screen has a **College Portal** button next to Theme, and UnOfficial has a back arrow in its top bar.
+
+UnOfficial is one self-contained page (`public/unofficial/index.html`, scripts and styles inlined), so the server just sends it. Its source is the React component in `unofficial/src/UnOfficial.jsx`. After changing it, rebuild the page and commit the result:
+
+```
+cd unofficial
+npm install
+npm run build
+```
+
+Render never runs this build: it only installs the server's own dependencies, so deploys stay as fast as before.
+
 ## Run it on your computer
 
 1. Install **Node.js 18 or newer** from nodejs.org (the LTS download is fine).
@@ -12,7 +35,7 @@ An online property-trading board game. Create a room, send the link to friends, 
    npm start
    ```
 
-3. Open **http://localhost:3000** in your browser.
+3. Open **http://localhost:3000** in your browser. That's the College Portal; PoorDown itself is at http://localhost:3000/poordown.
 
 To play with people on the same Wi-Fi, give them your computer's local address instead, for example `http://192.168.1.20:3000`. On Windows, run `ipconfig` and use the "IPv4 Address"; on a Mac, it's in System Settings → Wi-Fi → Details. Your firewall may ask you to allow Node.js the first time.
 
@@ -22,7 +45,7 @@ To play with people on the same Wi-Fi, give them your computer's local address i
 
 1. Press the **Deploy to Render** button above and sign in to Render with your GitHub account. No credit card is needed for the free plan.
 2. Render reads `render.yaml` from this repository and sets everything up: a free Node.js web service with `npm install` and `npm start`. Press **Deploy Blueprint**.
-3. After two or three minutes you get an address like `https://poordown-xxxx.onrender.com`. Open it, press **Create a private game** and send the room link to your friends.
+3. After two or three minutes you get an address like `https://poordown-xxxx.onrender.com`. Open it, pick **PoorDown** on the College Portal, press **Create a private game** and send the room link to your friends.
 
 Free services fall asleep after 15 minutes with nobody connected. The next visit wakes the server, which takes about a minute, then it's quick again. Games keep the server awake while anyone is playing.
 
@@ -73,6 +96,8 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 
 | Path | What it does |
 | --- | --- |
+| `public/portal.html` | The College Portal page at `/` |
+| `public/unofficial/index.html`, `unofficial/` | The UnOfficial card game: the built page, and its React source and build script |
 | `server.js` | Web server (sends files compressed, about a quarter of their size), rooms, seats, host controls, bots, auctions, turn timer and reconnects |
 | `public/engine.js` | The rules: board, money, rent, building, mortgages, auctions, trades, Prison, cards, bankruptcy, bot strategy. The server and the browser share this file. |
 | `public/app.js` | The browser client: start screen, waiting room, board, animations, portfolio, trades, chat |

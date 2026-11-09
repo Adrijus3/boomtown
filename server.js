@@ -1,5 +1,6 @@
 'use strict';
-/* PoorDown online server: static files + WebSocket rooms. The server runs the rules engine for every
+/* College Portal server: the portal page, the UnOfficial card game, and the PoorDown board game's
+   static files + WebSocket rooms. The server runs the rules engine for every
    room, so clients only send intentions ("roll", "bid 120") and receive the authoritative state. */
 const http = require('http');
 const fs = require('fs');
@@ -101,6 +102,12 @@ function sendBody(req, res, status, headers, key, buf) {
   }
 })(PUBLIC);
 pack('/index.html', Buffer.from(INDEX));
+// College Portal: "/" is a small page that links to the two games. PoorDown (this board game) lives at
+// "/poordown" and its room links stay at "/room/<code>"; UnOfficial is one self-contained page.
+const PORTAL_FILE = path.join(PUBLIC, 'portal.html');
+const UNOFFICIAL_FILE = path.join(PUBLIC, 'unofficial', 'index.html');
+const PORTAL = fs.readFileSync(PORTAL_FILE);
+const UNOFFICIAL = fs.readFileSync(UNOFFICIAL_FILE);
 const server = http.createServer((req, res) => {
   let p, versioned;
   try {
@@ -109,8 +116,11 @@ const server = http.createServer((req, res) => {
     versioned = u.searchParams.get('v') === ASSET_VERSIONS.get(p);
   } catch (e) { res.writeHead(400); return res.end(); }
   if (p === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
-  if (p === '/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
-    return sendBody(req, res, 200, { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }, '/index.html', Buffer.from(INDEX));
+  const page = { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' };
+  if (p === '/' || p === '/portal.html') return sendBody(req, res, 200, page, PORTAL_FILE, PORTAL);
+  if (p === '/unofficial' || p === '/unofficial/' || p === '/unofficial/index.html') return sendBody(req, res, 200, page, UNOFFICIAL_FILE, UNOFFICIAL);
+  if (p === '/poordown' || p === '/poordown/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
+    return sendBody(req, res, 200, page, '/index.html', Buffer.from(INDEX));
   }
   const file = path.normalize(path.join(PUBLIC, p));
   if (!file.startsWith(PUBLIC + path.sep)) { res.writeHead(404); return res.end('Not found'); }

@@ -282,7 +282,7 @@
     if (room) net.send({ type: 'leave' });
     room = null; game = null; meta = null; wantRoom = null;
     ui = freshUI();
-    if (location.pathname !== '/') history.pushState(null, '', '/');
+    if (location.pathname !== '/poordown') history.pushState(null, '', '/poordown');
     show('home');
     renderHome();
     net.raw({ type: 'rooms' });

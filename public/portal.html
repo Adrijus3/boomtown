@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>College Portal</title>
+<meta name="description" content="Pick a game: PoorDown, the property-trading board game, or UnOfficial, the colour-matching card game.">
+<meta name="theme-color" content="#FFFFFF">
+<style>
+  @font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(/fonts/geist-variable.woff2) format('woff2'); }
+  :root {
+    --text: #0A0A0A; --muted: #4B5563; --faint: #6B7280;
+    --line: #E5E7EB; --line-hi: #D1D5DB; --wash: #FAFAFA; --wash-2: #F3F4F6;
+    --accent: #00703C;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100dvh; background: #FFFFFF; color: var(--text);
+    font: 15px/1.5 Geist, "Helvetica Neue", Arial, sans-serif; letter-spacing: -.005em;
+    -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+
+  /* top bar */
+  .top { border-bottom: 1px solid var(--line); }
+  .top .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .name { display: inline-flex; align-items: center; min-height: 44px; font-weight: 650; font-size: 15px; letter-spacing: -.02em; text-decoration: none; }
+  .name:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .top-note { font-size: 13px; color: var(--faint); }
+
+  /* heading */
+  .head { padding: 40px 0 24px; }
+  h1 { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 650; letter-spacing: -.035em; }
+  .lede { margin: 8px 0 0; color: var(--muted); max-width: 52ch; }
+
+  /* game list */
+  .games { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .game {
+    display: flex; flex-direction: column; text-decoration: none; background: #FFFFFF;
+    border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    transition: border-color .15s;
+  }
+  .game:hover { border-color: var(--text); }
+  .game:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .preview { aspect-ratio: 16 / 8; background: var(--wash); border-bottom: 1px solid var(--line); display: block; }
+  .preview svg { display: block; width: 100%; height: 100%; }
+  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.025em; }
+  .tag { font-size: 12px; font-weight: 550; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+  .desc { margin: 0; color: var(--muted); }
+  .facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; }
+  .facts dt { color: var(--faint); }
+  .facts dd { margin: 0; }
+  .open {
+    margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; justify-content: center;
+    min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--text); color: #FFFFFF;
+    font-weight: 550; font-size: 14px;
+  }
+  .game:hover .open { background: #262626; }
+
+  /* join a room */
+  .join { margin-top: 16px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; }
+  .join label { font-weight: 550; flex: 1 1 260px; }
+  .join label span { display: block; font-weight: 400; font-size: 13px; color: var(--faint); }
+  .join-ctl { display: flex; gap: 8px; flex: 1 1 260px; }
+  .join input {
+    flex: 1; min-width: 0; height: 44px; padding: 0 12px; font: inherit; color: var(--text);
+    border: 1px solid var(--line-hi); border-radius: 6px; background: #FFFFFF;
+  }
+  .join input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .join button {
+    height: 44px; padding: 0 16px; font: inherit; font-weight: 550; color: var(--text); cursor: pointer;
+    border: 1px solid var(--line-hi); border-radius: 6px; background: #FFFFFF;
+  }
+  .join button:hover { background: var(--wash-2); }
+  .join button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .join-err { flex-basis: 100%; margin: 0; font-size: 13px; color: #B42318; }
+
+  footer { padding: 28px 0 36px; font-size: 13px; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .games { grid-template-columns: 1fr; }
+    .head { padding: 28px 0 18px; }
+    h1 { font-size: 28px; }
+    .preview { aspect-ratio: 16 / 7; }
+    .open { min-height: 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="name" href="/">College Portal</a>
+    <span class="top-note">2 games</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="head">
+    <h1>College Portal</h1>
+    <p class="lede">Pick a game. Both run in the browser on phones and laptops, with no accounts and nothing to install.</p>
+  </div>
+
+  <div class="games">
+    <a class="game" href="/poordown" aria-label="Open PoorDown, the property-trading board game">
+      <span class="preview" aria-hidden="true">
+        <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet">
+          <!-- a corner of the board: tiles with region colour bands, two tokens and a house -->
+          <g transform="translate(88 8)">
+            <rect x="0" y="0" width="144" height="144" fill="#FFFFFF" stroke="#E5E7EB"/>
+            <rect x="24" y="24" width="96" height="96" fill="#F3F4F6" stroke="#E5E7EB"/>
+            <g stroke="#E5E7EB" fill="#FFFFFF">
+              <rect x="0" y="0" width="24" height="24"/><rect x="120" y="0" width="24" height="24"/>
+              <rect x="0" y="120" width="24" height="24"/><rect x="120" y="120" width="24" height="24"/>
+              <rect x="24" y="0" width="24" height="24"/><rect x="48" y="0" width="24" height="24"/><rect x="72" y="0" width="24" height="24"/><rect x="96" y="0" width="24" height="24"/>
+              <rect x="24" y="120" width="24" height="24"/><rect x="48" y="120" width="24" height="24"/><rect x="72" y="120" width="24" height="24"/><rect x="96" y="120" width="24" height="24"/>
+              <rect x="0" y="24" width="24" height="24"/><rect x="0" y="48" width="24" height="24"/><rect x="0" y="72" width="24" height="24"/><rect x="0" y="96" width="24" height="24"/>
+              <rect x="120" y="24" width="24" height="24"/><rect x="120" y="48" width="24" height="24"/><rect x="120" y="72" width="24" height="24"/><rect x="120" y="96" width="24" height="24"/>
+            </g>
+            <!-- colour bands (inner edge of each property) -->
+            <rect x="24.5" y="17" width="23" height="6.5" fill="#E2483D"/><rect x="48.5" y="17" width="23" height="6.5" fill="#E2483D"/><rect x="96.5" y="17" width="23" height="6.5" fill="#F5B83D"/>
+            <rect x="24.5" y="120.5" width="23" height="6.5" fill="#2F6FDB"/><rect x="72.5" y="120.5" width="23" height="6.5" fill="#2F6FDB"/><rect x="96.5" y="120.5" width="23" height="6.5" fill="#2F6FDB"/>
+            <rect x="17" y="24.5" width="6.5" height="23" fill="#00703C"/><rect x="17" y="48.5" width="6.5" height="23" fill="#00703C"/>
+            <rect x="120.5" y="48.5" width="6.5" height="23" fill="#F062A5"/><rect x="120.5" y="72.5" width="6.5" height="23" fill="#F062A5"/>
+            <!-- a house on the red set, tokens on the board -->
+            <path d="M31 13 l5 -5 l5 5 v5 h-10 z" fill="#0A0A0A"/>
+            <circle cx="84" cy="132" r="6" fill="#F5B83D" stroke="#0A0A0A" stroke-width="1.5"/>
+            <circle cx="132" cy="84" r="6" fill="#4FB3FF" stroke="#0A0A0A" stroke-width="1.5"/>
+            <!-- dice in the middle -->
+            <g transform="translate(50 54)">
+              <rect width="20" height="20" rx="4" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="1.5"/>
+              <circle cx="6" cy="6" r="1.8" fill="#0A0A0A"/><circle cx="10" cy="10" r="1.8" fill="#0A0A0A"/><circle cx="14" cy="14" r="1.8" fill="#0A0A0A"/>
+            </g>
+            <g transform="translate(74 66) rotate(12)">
+              <rect width="20" height="20" rx="4" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="1.5"/>
+              <circle cx="6" cy="6" r="1.8" fill="#0A0A0A"/><circle cx="14" cy="14" r="1.8" fill="#0A0A0A"/>
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="body">
+        <span class="title-row"><h2>PoorDown</h2><span class="tag">Multiplayer</span></span>
+        <p class="desc">Buy up whole regions of the UK, build houses and hotels, out-bid rivals at auction and trade your way to a monopoly.</p>
+        <dl class="facts">
+          <dt>Players</dt><dd>2–8, online with classmates or bots</dd>
+          <dt>Ends</dt><dd>When one player is left standing</dd>
+        </dl>
+        <span class="open">Open PoorDown</span>
+      </span>
+    </a>
+
+    <a class="game" href="/unofficial" aria-label="Open UnOfficial, the colour-matching card game">
+      <span class="preview" aria-hidden="true">
+        <svg viewBox="0 0 320 160" preserveAspectRatio="xMidYMid meet">
+          <!-- three cards in a fan: Crimson 7, Wild, Cobalt Reverse -->
+          <defs>
+            <g id="uo-card-edge"><rect x="0" y="0" width="64" height="90" rx="6" fill="#FBF7EF" stroke="#D1D5DB"/></g>
+          </defs>
+          <g transform="translate(160 158)">
+            <g transform="rotate(-14) translate(-86 -112)">
+              <use href="#uo-card-edge"/>
+              <rect x="3.5" y="3.5" width="57" height="83" rx="4" fill="#C3333A"/>
+              <circle cx="32" cy="45" r="19" fill="#9F252C"/>
+              <text x="32" y="56" text-anchor="middle" font-family="Geist, Arial, sans-serif" font-size="30" font-weight="800" font-style="italic" fill="#FBF7EF">7</text>
+              <text x="10" y="17" text-anchor="middle" font-family="Geist, Arial, sans-serif" font-size="11" font-weight="800" font-style="italic" fill="#FBF7EF">7</text>
+            </g>
+            <g transform="rotate(14) translate(22 -112)">
+              <use href="#uo-card-edge"/>
+              <rect x="3.5" y="3.5" width="57" height="83" rx="4" fill="#24509F"/>
+              <circle cx="32" cy="45" r="19" fill="#1A3C7E"/>
+              <g transform="translate(32 45) scale(0.62)" fill="none" stroke="#FBF7EF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M-14 5 V-4 a8 8 0 0 1 8 -8 H12"/><path d="M6 -19 L13 -12 L6 -5"/>
+                <path d="M14 -5 V4 a8 8 0 0 1 -8 8 H-12"/><path d="M-6 19 L-13 12 L-6 5"/>
+              </g>
+            </g>
+            <g transform="translate(-32 -124)">
+              <use href="#uo-card-edge"/>
+              <rect x="3.5" y="3.5" width="57" height="83" rx="4" fill="#2B2C30"/>
+              <g transform="translate(32 45) rotate(-20)">
+                <path d="M0 0 L0 -19 A19 19 0 0 1 19 0 Z" fill="#C3333A"/>
+                <path d="M0 0 L19 0 A19 19 0 0 1 0 19 Z" fill="#24509F"/>
+                <path d="M0 0 L0 19 A19 19 0 0 1 -19 0 Z" fill="#E6A42B"/>
+                <path d="M0 0 L-19 0 A19 19 0 0 1 0 -19 Z" fill="#1B8257"/>
+              </g>
+              <circle cx="32" cy="45" r="9.5" fill="#2B2C30"/>
+              <text x="32" y="49.5" text-anchor="middle" font-family="Geist, Arial, sans-serif" font-size="12" font-weight="800" font-style="italic" fill="#FBF7EF">+4</text>
+            </g>
+          </g>
+        </svg>
+      </span>
+      <span class="body">
+        <span class="title-row"><h2>UnOfficial</h2><span class="tag">Single player</span></span>
+        <p class="desc">Match the colour, number or symbol and empty your hand first. Down to one card? Call UNOFFICIAL! within two seconds, or draw two.</p>
+        <dl class="facts">
+          <dt>Players</dt><dd>You against 1–3 computer players</dd>
+          <dt>Ends</dt><dd>When someone plays their last card</dd>
+        </dl>
+        <span class="open">Open UnOfficial</span>
+      </span>
+    </a>
+  </div>
+
+  <form class="join" id="join" novalidate>
+    <label for="code">Joining a classmate's PoorDown game?<span>Type the code from their room link (for example e877a), or paste the whole link.</span></label>
+    <div class="join-ctl">
+      <input id="code" name="code" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" placeholder="Room code or link" aria-describedby="joinErr">
+      <button type="submit">Join</button>
+    </div>
+    <p class="join-err" id="joinErr" role="alert" hidden></p>
+  </form>
+</main>
+
+<footer>
+  <div class="wrap">College Portal · PoorDown · UnOfficial</div>
+</footer>
+
+<script>
+  // Room codes are 3–12 letters and numbers. Accept a pasted room link too.
+  document.getElementById('join').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var raw = document.getElementById('code').value.trim();
+    var m = raw.match(/\/room\/([a-z0-9]{3,12})/i) || raw.match(/^([a-z0-9]{3,12})$/i);
+    var err = document.getElementById('joinErr');
+    if (!m) {
+      err.textContent = 'That doesn’t look like a room code. It’s the letters and numbers at the end of the room link.';
+      err.hidden = false;
+      return;
+    }
+    err.hidden = true;
+    location.href = '/room/' + m[1].toLowerCase();
+  });
+</script>
+</body>
+</html>
