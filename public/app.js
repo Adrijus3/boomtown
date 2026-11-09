@@ -540,6 +540,7 @@
     for (const p of game.s.players) ui.displayPos[p.id] = p.pos;
     if (game.s.pending) ui.displayPos[game.s.pending.pid] = game.s.pending.to;
     if (ui.view == null) ui.view = myPid() != null ? myPid() : game.cur.id;
+    if (ONLINE && myPid() != null) act('autoroll', { on: !!ui.autoRoll }); // the server keeps auto-roll in step with this page
     if (screen !== 'game') show('game');
     buildBoard();
     setDice(game.s.turn.dice || [5, 3], true);
@@ -1548,7 +1549,9 @@
     }
   }
   // Online, trading pauses for whoever is taking their turn, so offers don't interrupt play.
-  function turnLocked() { const v = viewerPid(); return ONLINE && !!game && !game.s.over && v != null && game.cur && game.cur.id === v; }
+  // Trading pauses on your own turn, except when you owe money: then a trade may be what saves you.
+  function inDebt() { const v = viewerPid(), d = game && game.s.debt; return !!d && v != null && d.pid === v; }
+  function turnLocked() { const v = viewerPid(); return ONLINE && !!game && !game.s.over && v != null && game.cur && game.cur.id === v && !inDebt(); }
   const TURN_LOCK_MSG = 'Trading opens again once your turn is over.';
   // If your turn starts while you're building a trade, the trade is put aside (only that one) and
   // handed back once your turn is over.
@@ -2072,6 +2075,7 @@
           <div class="hint">to ${esc(to)}. You have ${fmt(p.money)}. ${short > 0 ? `Sell buildings, mortgage or trade to raise ${fmt(short)}.` : 'You can pay now.'}</div>
           <div class="row">
             <button class="btn primary lg" data-a="pay" ${dis || (short > 0 ? 'disabled' : '')}>Pay ${fmt(d.amount)}</button>
+            <button class="btn" data-a="newtrade">Trade</button>
             <button class="btn danger" data-a="bankrupt" ${dis}>${icon('flag')} Declare bankruptcy</button>
           </div>`;
       }
@@ -2644,6 +2648,7 @@
       case 'autoroll':
         ui.autoRoll = !ui.autoRoll;
         ui.autoRollTurn = null;
+        if (ONLINE) act('autoroll', { on: ui.autoRoll });
         render();
         if (ui.autoRoll) syncAutoRoll();
         return;

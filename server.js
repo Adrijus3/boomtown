@@ -484,6 +484,20 @@ function automate(room) {
   if (ph === 'auction') return startAuction(room);
   const expired = !p.bot && !!room.turnT && room.turnT.expired && room.turnT.key === turnKey(room);
   const away = p.bot ? -1 : awayFor(room, p.id);
+  // Auto-roll runs here on the server, so it keeps going while that player's tab is in the background
+  // (phones and browsers pause pages you aren't looking at). It rolls, and ends the turn after 4 seconds.
+  if (!p.bot && room.autoRoll && room.autoRoll[p.id] && (ph === 'roll' || ph === 'end') && away < 0 && !expired) {
+    const delay = ph === 'roll' ? 700 : 4200;
+    clearTimeout(room.timers.auto);
+    const key = `${g.s.turn.n}:${ph}:${g.s.turn.doubles || 0}`;
+    room.timers.auto = setTimeout(() => {
+      if (room.game !== g || g.s.over || g.cur.id !== p.id || `${g.s.turn.n}:${g.s.turn.phase}:${g.s.turn.doubles || 0}` !== key) return;
+      if (Date.now() < room.busyUntil - 40) return automate(room);
+      if (!room.autoRoll[p.id]) return;
+      if (g.s.turn.phase === 'roll') g.roll(); else g.endTurn();
+      tick(room);
+    }, Math.max(0, room.busyUntil - Date.now()) + delay);
+  }
   if (p.bot || away >= 0 || expired) {
     const base = expired ? 450 : { roll: 650, buy: 850, end: 600, debt: 900 }[ph] || 700;
     const extra = p.bot || expired ? 0 : Math.max(0, AWAY_GRACE - away);
@@ -614,7 +628,7 @@ function auctionTick(room, g) {
 }
 
 function clearTimers(room) {
-  clearTimeout(room.timers.move); clearTimeout(room.timers.bot); clearTimeout(room.timers.turn); clearInterval(room.timers.auction); clearTimeout(room.timers.deferred);
+  clearTimeout(room.timers.move); clearTimeout(room.timers.auto); clearTimeout(room.timers.bot); clearTimeout(room.timers.turn); clearInterval(room.timers.auction); clearTimeout(room.timers.deferred);
   clearTimeout(room.timers.vote); clearTimeout(room.timers.kick);
   room.timers = { move: null, bot: null, turn: null, auction: null, deferred: null, vote: null, kick: null };
   room.vote = null; room.kickPending = null;
@@ -753,13 +767,19 @@ function handleAction(room, c, msg) {
       A.passed[pid] = true;
       ok = true; break;
     }
+    case 'autoroll': {
+      room.autoRoll = room.autoRoll || {};
+      room.autoRoll[pid] = !!msg.on;
+      automate(room);
+      return;
+    }
     case 'trade': {
-      if (g.cur.id === pid) return 'Trading opens again once your turn is over.';
+      if (g.cur.id === pid && !(g.s.debt && g.s.debt.pid === pid)) return 'Trading opens again once your turn is over.';
       const res = g.proposeTrade({ from: pid, to: int(msg.to), give: cleanSide(msg.give), get: cleanSide(msg.get) });
       if (res.error) return res.error;
       ok = true; break;
     }
-    case 'accept': { if (g.cur.id === pid) return 'Finish your turn first, then answer the offer.'; const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.acceptTrade(tr.id); if (!ok && tr && tr.to === pid) { tick(room); return 'That trade is no longer possible.'; } break; }
+    case 'accept': { if (g.cur.id === pid && !(g.s.debt && g.s.debt.pid === pid)) return 'Finish your turn first, then answer the offer.'; const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.acceptTrade(tr.id); if (!ok && tr && tr.to === pid) { tick(room); return 'That trade is no longer possible.'; } break; }
     case 'reject': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.to === pid && g.declineTrade(tr.id); break; }
     case 'withdraw': { const tr = g.findTrade(int(msg.id)); ok = !!tr && tr.from === pid && g.cancelTrade(tr.id); break; }
     case 'kick': return startKickVote(room, pid, int(msg.pid));
