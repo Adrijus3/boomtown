@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>College Portal</title>
-<meta name="description" content="Pick a game: PoorDown, the property-trading board game, or UnOfficial, the colour-matching card game.">
+<meta name="description" content="Pick a game to play with classmates: PoorDown, the property-trading board game, or UnOfficial, the colour-matching card game.">
 <meta name="theme-color" content="#FFFFFF">
 <style>
   @font-face { font-family: Geist; font-style: normal; font-display: swap; font-weight: 100 900; src: url(/fonts/geist-variable.woff2) format('woff2'); }
@@ -194,10 +194,10 @@
         </svg>
       </span>
       <span class="body">
-        <span class="title-row"><h2>UnOfficial</h2><span class="tag">Single player</span></span>
+        <span class="title-row"><h2>UnOfficial</h2><span class="tag">Multiplayer</span></span>
         <p class="desc">Match the colour, number or symbol and empty your hand first. Down to one card? Call UNOFFICIAL! within two seconds, or draw two.</p>
         <dl class="facts">
-          <dt>Players</dt><dd>You against 1–3 computer players</dd>
+          <dt>Players</dt><dd>2–4, classmates, bots, or both</dd>
           <dt>Ends</dt><dd>When someone plays their last card</dd>
         </dl>
         <span class="open">Open UnOfficial</span>
@@ -206,7 +206,7 @@
   </div>
 
   <form class="join" id="join" novalidate>
-    <label for="code">Joining a classmate's PoorDown game?<span>Type the code from their room link (for example e877a), or paste the whole link.</span></label>
+    <label for="code">Joining a classmate's game?<span>Type the room code (for example e877a) or paste the link. Works for both games.</span></label>
     <div class="join-ctl">
       <input id="code" name="code" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" placeholder="Room code or link" aria-describedby="joinErr">
       <button type="submit">Join</button>
@@ -232,7 +232,7 @@
       return;
     }
     err.hidden = true;
-    location.href = '/room/' + m[1].toLowerCase();
+    location.href = '/join/' + m[1].toLowerCase(); // the server knows which game the room belongs to
   });
 </script>
 </body>

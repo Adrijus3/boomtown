@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
 const { Game, Bot, DEFAULT_SETTINGS, BOARD } = require('./public/engine.js');
+const { createUnofficial } = require('./unofficial/rooms.js');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -104,10 +105,12 @@ function sendBody(req, res, status, headers, key, buf) {
 pack('/index.html', Buffer.from(INDEX));
 // College Portal: "/" is a small page that links to the two games. PoorDown (this board game) lives at
 // "/poordown" and its room links stay at "/room/<code>"; UnOfficial is one self-contained page.
+const unofficial = createUnofficial({ build: BUILD, isTaken: (code) => rooms.has(code) });
 const PORTAL_FILE = path.join(PUBLIC, 'portal.html');
 const UNOFFICIAL_FILE = path.join(PUBLIC, 'unofficial', 'index.html');
 const PORTAL = fs.readFileSync(PORTAL_FILE);
-const UNOFFICIAL = fs.readFileSync(UNOFFICIAL_FILE);
+// The page learns this build's fingerprint, so an open tab reloads itself after an update.
+const UNOFFICIAL = Buffer.from(fs.readFileSync(UNOFFICIAL_FILE, 'utf8').replace('<head>', `<head><script>window.UO_BUILD = ${JSON.stringify(BUILD)};</script>`));
 const server = http.createServer((req, res) => {
   let p, versioned;
   try {
@@ -118,7 +121,16 @@ const server = http.createServer((req, res) => {
   if (p === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
   const page = { 'content-type': TYPES['.html'], 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' };
   if (p === '/' || p === '/portal.html') return sendBody(req, res, 200, page, PORTAL_FILE, PORTAL);
-  if (p === '/unofficial' || p === '/unofficial/' || p === '/unofficial/index.html') return sendBody(req, res, 200, page, UNOFFICIAL_FILE, UNOFFICIAL);
+  if (p === '/unofficial' || p === '/unofficial/' || p === '/unofficial/index.html' || /^\/unofficial\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
+    return sendBody(req, res, 200, page, UNOFFICIAL_FILE, UNOFFICIAL);
+  }
+  // The portal's "join a classmate" box: send a room code to whichever game it belongs to.
+  const join = p.match(/^\/join\/([a-z0-9]{3,12})\/?$/i);
+  if (join) {
+    const code = join[1].toLowerCase();
+    res.writeHead(302, { location: unofficial.hasRoom(code) ? `/unofficial/room/${code}` : `/room/${code}`, 'cache-control': 'no-store' });
+    return res.end();
+  }
   if (p === '/poordown' || p === '/poordown/' || p === '/index.html' || /^\/room\/[a-z0-9]{3,12}\/?$/i.test(p)) {
     return sendBody(req, res, 200, page, '/index.html', Buffer.from(INDEX));
   }
@@ -275,7 +287,7 @@ function claimSeat(room, c) {
 
 function createRoom(host, isPrivate) {
   let id;
-  do { id = rid(5); } while (id.length < 5 || rooms.has(id));
+  do { id = rid(5); } while (id.length < 5 || rooms.has(id) || unofficial.hasRoom(id));
   const room = {
     id, hostId: host.id, status: 'waiting', createdAt: Date.now(), emptySince: null,
     settings: Object.assign({}, ROOM_DEFAULTS, { private: !!isPrivate }),
@@ -987,7 +999,15 @@ function handle(ws, msg) {
 }
 
 // ------------------------------------------------------------ sockets
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 256 * 1024 }); // room copies sent back after a restart can be large
+const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 }); // room copies sent back after a restart can be large
+// Two games share this server: PoorDown talks on /ws, UnOfficial on /unofficial/ws.
+server.on('upgrade', (req, socket, head) => {
+  let p = '';
+  try { p = new URL(req.url, 'http://local').pathname; } catch (e) { /* bad URL */ }
+  const target = p === '/ws' ? wss : p === '/unofficial/ws' ? unofficial.wss : null;
+  if (!target) { socket.destroy(); return; }
+  target.handleUpgrade(req, socket, head, (ws) => target.emit('connection', ws, req));
+});
 wss.on('connection', (ws) => {
   ws.client = null;
   ws.isAlive = true;

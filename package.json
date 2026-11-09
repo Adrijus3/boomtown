@@ -1,12 +1,12 @@
 {
   "name": "poordown",
   "version": "1.0.0",
-  "description": "Online property-trading board game: rooms, auctions, mortgages, trades, houses and hotels.",
+  "description": "College Portal: PoorDown, an online property-trading board game, and UnOfficial, a colour-matching card game, for classmates and bots.",
   "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/ui-layout.js && node test/simulate.js"
+    "test": "node test/ui-layout.js && node test/simulate.js && node test/unofficial-engine.js && node test/unofficial-rooms.js"
   },
   "engines": {
     "node": ">=18"

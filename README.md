@@ -8,14 +8,29 @@ The site opens on the **College Portal**, a small page that links to two games:
 
 | Address | What's there |
 | --- | --- |
-| `/` | College Portal: pick a game, or type a PoorDown room code (or paste a room link) to join a classmate |
+| `/` | College Portal: pick a game, or type any room code (or paste a room link) to join a classmate. `/join/<code>` sends the code to whichever game it belongs to |
 | `/poordown` | PoorDown, this board game |
 | `/room/<code>` | A PoorDown room. Room links work exactly as before |
-| `/unofficial` | UnOfficial, a single-player colour-matching card game against 1–3 computer players |
+| `/unofficial` | UnOfficial, a colour-matching card game for 2–8 classmates and bots |
+| `/unofficial/room/<code>` | An UnOfficial room |
 
 PoorDown's home screen has a **College Portal** button next to Theme, and UnOfficial has a back arrow in its top bar.
 
-UnOfficial is one self-contained page (`public/unofficial/index.html`, scripts and styles inlined), so the server just sends it. Its source is the React component in `unofficial/src/UnOfficial.jsx`. After changing it, rebuild the page and commit the result:
+## UnOfficial
+
+UnOfficial plays like PoorDown: **Play now** puts you in an open room (or opens one), **Create a private room** makes a room only reachable by its link or 5-letter code, and the home screen lists open rooms. **Practice** deals you straight in against bots.
+
+The host of a room:
+
+- picks the table size, **2 to 8 seats**, and fills empty seats with **Easy** or **Strategic** bots (classmates can take a seat or stand up and watch; the host can remove a bot or a classmate before the deal);
+- sets the **house rules**: starting hand (5, 7 or 10 cards; 7 at most with 7–8 players), turn clock (15, 30 or 60 seconds, or off), bot speed, the UNOFFICIAL! penalty (+2, +4 or off), stacking draw cards (+2 on +2, +4 on any draw card), draw until you can play, strict Wild +4 (only without a card in the active colour), sevens & zeros (a 7 swaps hands with a player you pick, a 0 passes every hand one seat along), and public or private;
+- deals, and deals again after each hand. Room scores add up hand by hand.
+
+Rule changes during a hand apply from the next deal; speed and the turn clock apply straight away.
+
+The server runs every hand (`unofficial/rooms.js`, using the rules in `unofficial/engine.js`) and sends each player only their own cards. If a classmate's connection drops, a bot plays their turns after 5 seconds until they reopen the room link. When the turn clock runs out, a bot plays that one turn for them. You draw by tapping the deck yourself; the game only draws for you when the turn clock runs out. UnOfficial rooms live in memory, so a restart or redeploy ends the hands in progress.
+
+The page is one self-contained file (`public/unofficial/index.html`, scripts and styles inlined), so the server just sends it. Its source is the React client in `unofficial/src/UnOfficial.jsx`. After changing it, rebuild the page and commit the result:
 
 ```
 cd unofficial
@@ -97,7 +112,9 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 | Path | What it does |
 | --- | --- |
 | `public/portal.html` | The College Portal page at `/` |
-| `public/unofficial/index.html`, `unofficial/` | The UnOfficial card game: the built page, and its React source and build script |
+| `unofficial/engine.js` | UnOfficial's rules and bots, shared by the server and the page |
+| `unofficial/rooms.js` | UnOfficial rooms: seats, hosts, house rules, the game loop, bots standing in for absent players |
+| `public/unofficial/index.html`, `unofficial/src/` | The UnOfficial page: the built file, and its React source and build script |
 | `server.js` | Web server (sends files compressed, about a quarter of their size), rooms, seats, host controls, bots, auctions, turn timer and reconnects |
 | `public/engine.js` | The rules: board, money, rent, building, mortgages, auctions, trades, Prison, cards, bankruptcy, bot strategy. The server and the browser share this file. |
 | `public/app.js` | The browser client: start screen, waiting room, board, animations, portfolio, trades, chat |

@@ -1,44 +1,35 @@
 /**
- * UnOfficial — a fast, tactile colour-matching card game (inspired by UNO).
+ * UnOfficial — a fast, tactile colour-matching card game (inspired by UNO), for classmates and bots.
  * ───────────────────────────────────────────────────────────────────────────
- * Single-file React component. Drop it into any React 18+ app that has
- * Tailwind CSS, framer-motion (v10+) and lucide-react installed:
+ * This is the browser side of the multiplayer game. The server (../rooms.js) runs every hand with the same
+ * rules engine (../engine.js); this page shows the table, animates what the server reports, and sends your
+ * moves. Rooms hold up to four seats: classmates join with a link or a 5-letter code, and the host fills any
+ * empty seats with Easy or Strategic bots. "Practice" deals you straight in against bots.
  *
- *   import UnOfficial from './UnOfficial';
- *   export default function App() { return <UnOfficial />; }
- *
- * Optional props: homeHref (adds a back link in the top bar, e.g. to a games portal) and homeLabel.
- *
- * No external media: every card is inline SVG and every sound is synthesised
- * with the Web Audio API, so there is nothing to download besides the JS.
+ * No external media: every card is inline SVG and every sound is synthesised with the Web Audio API.
  *
  * File map
  *   1. Constants & palette
- *   2. Deck & card-matching utilities
- *   3. Rules engine — a pure reducer; every game-state transition lives here
- *   4. AI opponents (Easy / Strategic)
+ *   2. Card helpers (the rules themselves live in ../engine.js)
  *   5. Audio engine (Web Audio API)
  *   6. Persistence & small hooks
  *   7. Geometry (responsive sizing, hand-fan layout)
  *   8. Visual components (cards, seats, overlays, controls)
- *   9. <UnOfficial/> — controller: animation sequences, input, render
- *
- * Phase machine (state.phase)
- *   MENU ──NEW_GAME──▶ DEAL ──BEGIN_TURN──▶ PLAYER_TURN | AI_TURN
- *   PLAYER_TURN | AI_TURN ──PLAY_CARD / END_TURN──▶ TRANSITION ──BEGIN_TURN──▶ …
- *   PLAY_CARD (last card) ──▶ GAME_OVER ──NEW_GAME──▶ DEAL
- *   TRANSITION is the short beat between turns while a card is still flying.
+ *   9. Rooms: connection, the server's view of the table, and the screens
  */
 import React, { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import {
-  ArrowLeft, BarChart3, Brain, Check, Dices, Megaphone, RotateCcw, Settings2, Siren, Trophy, Volume2, VolumeX, X,
+  ArrowLeft, ArrowRightLeft, BarChart3, Bot, Brain, Check, Copy, Crown, Dices, LogOut, Megaphone, Minus, Plus, RefreshCw, Settings2, Siren, Trophy, Users,
+  Volume2, VolumeX, WifiOff, X,
 } from 'lucide-react';
+import Engine from '../engine.js';
+
+const { COLORS, isWild, isPlayable, handPoints, mod } = Engine;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Constants & palette
 // ─────────────────────────────────────────────────────────────────────────────
-const COLORS = ['red', 'yellow', 'green', 'blue'];
 const PALETTE = {
   red: { base: '#C3333A', shade: '#9F252C', name: 'Crimson', key: 'R' },
   yellow: { base: '#E6A42B', shade: '#C4861A', name: 'Amber', key: 'Y' },
@@ -54,9 +45,6 @@ const WELL = '#D3CAB9';
 const SEAT_TONES = ['#26272B', '#7B5E96', '#3E7D84', '#AD5F3B'];
 const FONT = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-const HAND_SIZE = 7;
-const UNO_GRACE_MS = 2000; // time to tap UNOFFICIAL! after dropping to one card
-const EXPOSE_REACT_MS = 900; // AI waits this long after an exposure so a human can still catch it
 const OPPONENT_NAMES = ['Mara', 'Theo', 'Juno'];
 
 const SPEEDS = {
@@ -78,66 +66,8 @@ const DEFAULT_SETTINGS = { opponents: 2, difficulties: ['strategic', 'easy', 'st
 const DEFAULT_STATS = { played: 0, wins: 0, points: 0, bestRound: 0, streak: 0, bestStreak: 0, cardsPlayed: 0, unoCalls: 0, catches: 0, caught: 0 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. Deck & card-matching utilities
+// 2. Card helpers
 // ─────────────────────────────────────────────────────────────────────────────
-/** Standard 108-card deck: per colour one 0, two each of 1–9, Skip, Reverse, Draw 2; plus 4 Wild and 4 Wild Draw 4. */
-function buildDeck() {
-  const deck = [];
-  let n = 0;
-  const add = (color, type, value = null) => deck.push({ id: `c${n++}`, color, type, value });
-  for (const color of COLORS) {
-    add(color, 'number', 0);
-    for (let v = 1; v <= 9; v++) { add(color, 'number', v); add(color, 'number', v); }
-    for (const t of ['skip', 'reverse', 'draw2']) { add(color, t); add(color, t); }
-  }
-  for (let i = 0; i < 4; i++) { add('wild', 'wild'); add('wild', 'wild4'); }
-  return deck;
-}
-
-/** Fisher–Yates shuffle (returns a new array). */
-function shuffle(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-const mod = (n, m) => ((n % m) + m) % m;
-const rand = (lo, hi) => lo + Math.random() * (hi - lo);
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const isWild = (c) => c.color === 'wild';
-const cardPoints = (c) => (c.type === 'number' ? c.value : isWild(c) ? 50 : 20);
-const handPoints = (hand) => hand.reduce((t, c) => t + cardPoints(c), 0);
-const topEntry = (s) => s.discard[s.discard.length - 1];
-
-/** Stacking house rule: +2 may go on +2; a Wild +4 may go on any pending draw. */
-const canStack = (card, pendingType) => card.type === 'wild4' || (card.type === 'draw2' && pendingType === 'draw2');
-
-/**
- * Core matching rule. A card is playable when:
- *   • a draw penalty is pending → only a stackable draw card (and only if stacking is on)
- *   • it is wild
- *   • it matches the active colour (wilds set the active colour)
- *   • it matches the top card's number, or its action symbol
- */
-function isPlayable(card, s) {
-  if (s.pendingDraw > 0) return s.rules.stacking && canStack(card, s.pendingType);
-  if (isWild(card)) return true;
-  if (card.color === s.currentColor) return true;
-  const top = topEntry(s)?.card;
-  if (!top) return true;
-  if (card.type === 'number') return top.type === 'number' && top.value === card.value;
-  return card.type === top.type;
-}
-
-const COLOR_ORDER = { red: 0, yellow: 1, green: 2, blue: 3, wild: 4 };
-const TYPE_ORDER = { number: 0, skip: 1, reverse: 2, draw2: 3, wild: 4, wild4: 5 };
-/** Hands are kept sorted by colour, then type, then value — easier to scan, and keys 1–9 stay predictable. */
-const sortHand = (hand) => hand.slice().sort((a, b) =>
-  COLOR_ORDER[a.color] - COLOR_ORDER[b.color] || TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || (a.value ?? 0) - (b.value ?? 0));
-
 function cardLabel(c) {
   const col = isWild(c) ? '' : `${PALETTE[c.color].name} `;
   switch (c.type) {
@@ -148,276 +78,6 @@ function cardLabel(c) {
     case 'wild': return 'Wild';
     default: return 'Wild Draw 4';
   }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. Rules engine — pure reducer
-// ─────────────────────────────────────────────────────────────────────────────
-const INITIAL_STATE = {
-  phase: 'MENU', players: [], drawPile: [], discard: [], currentColor: null, current: 0, direction: 1,
-  pendingDraw: 0, pendingType: null, hasDrawn: false, drawnCardId: null, turnKey: 0, winner: null,
-  roundPoints: 0, rules: { stacking: true }, lastDraw: null,
-};
-
-const newPlayer = (id, name, isHuman, difficulty) => ({
-  id, name, isHuman, difficulty, hand: [],
-  uno: 'none', // 'none' | 'grace' (2 s to call) | 'called' | 'exposed' (missed it, can be caught) | 'caught'
-  unoDeadline: 0, exposedAt: 0,
-  armed: false, // pressed UNOFFICIAL! with two cards, before playing the second-to-last one
-  lacks: [], // colours this player was seen unable to follow (strategic AI memory)
-  lead: null, // colour this player last pushed (strategic AI memory)
-});
-
-const patchPlayer = (players, i, patch) =>
-  players.map((p, j) => (j === i ? { ...p, ...(typeof patch === 'function' ? patch(p) : patch) } : p));
-
-const TURN_PHASES = ['PLAYER_TURN', 'AI_TURN'];
-const LIVE_PHASES = ['DEAL', 'PLAYER_TURN', 'AI_TURN', 'TRANSITION'];
-
-function gameReducer(s, a) {
-  switch (a.type) {
-    // MENU / GAME_OVER → DEAL: fresh players, a pre-shuffled deck (shuffling happens outside so the reducer stays pure).
-    case 'NEW_GAME': {
-      const players = [newPlayer(0, 'You', true, null), ...a.opponents.map((o, i) => newPlayer(i + 1, o.name, false, o.difficulty))];
-      return { ...INITIAL_STATE, phase: 'DEAL', players, drawPile: a.deck, current: a.starter, rules: { stacking: a.stacking } };
-    }
-
-    // Draw pile ran dry: everything under the top discard becomes the new (pre-shuffled) draw pile.
-    case 'RESHUFFLE': {
-      if (s.drawPile.length || s.discard.length < 2) return s;
-      return { ...s, drawPile: a.pile, discard: [topEntry(s)] };
-    }
-
-    // One card from the top of the draw pile into a hand (used by dealing, drawing, penalties and catches).
-    case 'DRAW_ONE': {
-      if (!LIVE_PHASES.includes(s.phase) || !s.drawPile.length) return s;
-      const card = s.drawPile[s.drawPile.length - 1];
-      const players = patchPlayer(s.players, a.player, (p) => ({ hand: sortHand([...p.hand, card]), uno: 'none', exposedAt: 0, armed: false }));
-      return { ...s, drawPile: s.drawPile.slice(0, -1), players, lastDraw: { player: a.player, card } };
-    }
-
-    // DEAL: turn the first discard face up. Action/wild cards are skipped so every round opens on a number.
-    case 'FLIP_START': {
-      if (s.phase !== 'DEAL') return s;
-      let idx = s.drawPile.length - 1;
-      while (idx > 0 && s.drawPile[idx].type !== 'number') idx--;
-      const card = s.drawPile[idx];
-      return {
-        ...s,
-        drawPile: s.drawPile.filter((_, i) => i !== idx),
-        discard: [{ card, color: card.color, rot: a.rot, dx: 0, dy: 0 }],
-        currentColor: card.color,
-      };
-    }
-
-    // DEAL | TRANSITION → PLAYER_TURN | AI_TURN. A player who was exposed is safe once their own turn starts.
-    case 'BEGIN_TURN': {
-      if (s.phase !== 'DEAL' && s.phase !== 'TRANSITION') return s;
-      const pi = s.current;
-      const players = patchPlayer(s.players, pi, (q) => ({ armed: false, ...(q.uno === 'exposed' ? { uno: 'none', exposedAt: 0 } : {}) }));
-      return { ...s, players, phase: players[pi].isHuman ? 'PLAYER_TURN' : 'AI_TURN', turnKey: s.turnKey + 1, hasDrawn: false, drawnCardId: null };
-    }
-
-    // The heart of the rules: validate, move the card, apply its effect, open the UNOFFICIAL! window, pick the next player.
-    case 'PLAY_CARD': {
-      const { player: pi, cardId, color, now } = a;
-      if (!TURN_PHASES.includes(s.phase) || pi !== s.current) return s;
-      const p = s.players[pi];
-      if (p.isHuman !== (s.phase === 'PLAYER_TURN')) return s;
-      const card = p.hand.find((c) => c.id === cardId);
-      if (!card || !isPlayable(card, s)) return s;
-      if (s.drawnCardId && s.drawnCardId !== cardId) return s; // after drawing, only the drawn card may be played
-
-      const n = s.players.length;
-      const hand = p.hand.filter((c) => c.id !== cardId);
-      const chosen = isWild(card) ? (COLORS.includes(color) ? color : 'red') : card.color;
-      let { direction, pendingDraw, pendingType } = s;
-      let skip = 0;
-      if (card.type === 'reverse') { direction = -direction; if (n === 2) skip = 1; } // 2 players: Reverse acts as Skip
-      if (card.type === 'skip') skip = 1;
-      if (card.type === 'draw2') { pendingDraw += 2; pendingType = 'draw2'; } // next player stacks or draws
-      if (card.type === 'wild4') { pendingDraw += 4; pendingType = 'wild4'; }
-
-      // UNOFFICIAL! window: pre-called → safe; otherwise a 2-second grace period starts now.
-      let uno = 'none';
-      let unoDeadline = 0;
-      if (hand.length === 1) {
-        if (p.armed) uno = 'called';
-        else { uno = 'grace'; unoDeadline = now + UNO_GRACE_MS; }
-      }
-      const players = patchPlayer(s.players, pi, (q) => ({
-        hand, uno, unoDeadline, exposedAt: 0, armed: false, lacks: q.lacks.filter((c) => c !== chosen), lead: chosen,
-      }));
-      const discard = [...s.discard, { card, color: chosen, rot: a.rot ?? 0, dx: a.dx ?? 0, dy: a.dy ?? 0 }];
-      const base = { ...s, players, discard, currentColor: chosen, direction, pendingDraw, pendingType, hasDrawn: false, drawnCardId: null };
-
-      if (hand.length === 0) {
-        // Round over: the winner scores the value of every card left in opponents' hands.
-        const roundPoints = players.reduce((t, q, i) => (i === pi ? t : t + handPoints(q.hand)), 0);
-        return { ...base, phase: 'GAME_OVER', winner: pi, roundPoints, pendingDraw: 0, pendingType: null };
-      }
-      return { ...base, current: mod(pi + direction * (1 + skip), n), phase: 'TRANSITION' };
-    }
-
-    // A non-penalty draw. inferLack lets opponents remember "they couldn't follow this colour".
-    case 'MARK_DRAWN': {
-      if (!TURN_PHASES.includes(s.phase)) return s;
-      const players = a.inferLack
-        ? patchPlayer(s.players, s.current, (q) => ({ lacks: q.lacks.includes(s.currentColor) ? q.lacks : [...q.lacks, s.currentColor] }))
-        : s.players;
-      return { ...s, players, hasDrawn: true, drawnCardId: a.cardId };
-    }
-
-    // Penalty cards taken: the stack is cleared; the victim's turn then ends via END_TURN.
-    case 'ACCEPT_PENALTY':
-      return { ...s, pendingDraw: 0, pendingType: null, players: patchPlayer(s.players, s.current, { lacks: [] }) };
-
-    // PLAYER_TURN | AI_TURN → TRANSITION (pass, or turn lost to a penalty).
-    case 'END_TURN': {
-      if (!TURN_PHASES.includes(s.phase)) return s;
-      return {
-        ...s, current: mod(s.current + s.direction, s.players.length), phase: 'TRANSITION',
-        hasDrawn: false, drawnCardId: null, players: patchPlayer(s.players, s.current, { armed: false }),
-      };
-    }
-
-    // UNOFFICIAL! — either pre-arm (2 cards, own turn) or call inside the 2-second grace window.
-    case 'CALL_UNO': {
-      const p = s.players[a.player];
-      if (!p || !LIVE_PHASES.includes(s.phase)) return s;
-      if (p.uno === 'grace' && p.hand.length === 1) return { ...s, players: patchPlayer(s.players, a.player, { uno: 'called' }) };
-      if (p.hand.length === 2 && s.current === a.player && TURN_PHASES.includes(s.phase) && !p.armed) {
-        return { ...s, players: patchPlayer(s.players, a.player, { armed: true }) };
-      }
-      return s;
-    }
-
-    // Grace window ran out without a call → the player is exposed and can be challenged.
-    case 'UNO_EXPIRE': {
-      const p = s.players[a.player];
-      if (!p || p.uno !== 'grace' || a.now < p.unoDeadline || !LIVE_PHASES.includes(s.phase)) return s;
-      return { ...s, players: patchPlayer(s.players, a.player, { uno: 'exposed', exposedAt: a.now }) };
-    }
-
-    // Successful challenge: mark as caught (the two penalty cards follow as DRAW_ONE actions).
-    case 'CHALLENGE': {
-      const p = s.players[a.target];
-      if (!p || p.uno !== 'exposed' || p.hand.length !== 1 || !LIVE_PHASES.includes(s.phase)) return s;
-      return { ...s, players: patchPlayer(s.players, a.target, { uno: 'caught' }) };
-    }
-
-    default:
-      return s;
-  }
-}
-
-/** Synchronous store: dispatch() returns the next state immediately, so async animation sequences never read stale state. */
-function useGameStore() {
-  const ref = useRef(INITIAL_STATE);
-  const [, force] = useReducer((x) => x + 1, 0);
-  const dispatch = useCallback((action) => {
-    const prev = ref.current;
-    const next = gameReducer(prev, action);
-    if (next !== prev) { ref.current = next; force(); }
-    return next;
-  }, []);
-  return [ref.current, dispatch, ref];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. AI opponents
-// ─────────────────────────────────────────────────────────────────────────────
-const nextSeat = (s, from, steps = 1) => mod(from + s.direction * steps, s.players.length);
-
-/** Strategic colour choice: our deepest suit, nudged toward colours the next player can't follow and away from their lead. */
-function aiBestColor(s, pi, played) {
-  const p = s.players[pi];
-  const rest = p.hand.filter((c) => c.id !== played?.id && !isWild(c));
-  const next = s.players[nextSeat(s, pi)];
-  let best = pick(COLORS);
-  let bestScore = -Infinity;
-  for (const color of COLORS) {
-    const mine = rest.filter((c) => c.color === color);
-    let sc = mine.length * 10 + handPoints(mine) * 0.15 + (mine.some((c) => c.type !== 'number') ? 3 : 0);
-    if (next.lacks.includes(color)) sc += 6;
-    if (next.lead === color) sc -= 5;
-    if (sc > bestScore) { bestScore = sc; best = color; }
-  }
-  return best;
-}
-
-/** Heuristic score for one playable card (Strategic only). */
-function scoreStrategic(s, pi, card, color) {
-  const p = s.players[pi];
-  const n = s.players.length;
-  const rest = p.hand.filter((c) => c.id !== card.id);
-  const next = s.players[nextSeat(s, pi)];
-  const threat = next.hand.length <= 2 ? 3 - next.hand.length : 0; // 1 or 2 when the next player is close to out
-  let score = 0;
-
-  // Save wilds — they're the only cards that are always playable.
-  if (card.type === 'wild') score -= 28;
-  if (card.type === 'wild4') score -= 36 - threat * 30;
-  // Dump high-value number cards early (they count against us if someone else goes out).
-  if (card.type === 'number') score += card.value * 0.5;
-  // Attack when the next player is close to winning.
-  if (card.type === 'skip' || (card.type === 'reverse' && n === 2)) score += 4 + threat * 14;
-  if (card.type === 'draw2') score += 6 + threat * 18;
-  if (card.type === 'reverse' && n > 2) {
-    const prev = s.players[nextSeat(s, pi, -1)];
-    score += next.hand.length < prev.hand.length ? 8 + threat * 8 : -3;
-  }
-  // Colour control: keep playing into our deepest suit.
-  const deep = rest.filter((c) => c.color === color).length;
-  score += deep * 4;
-  if (!isWild(card) && card.color !== s.currentColor) score += (deep - rest.filter((c) => c.color === s.currentColor).length) * 2;
-  // Counter opponent colour leads.
-  if (next.lacks.includes(color)) score += 10;
-  if (next.lead === color) score -= 7;
-  // End game: keep a wild as the final card — it can always be played.
-  if (rest.length === 1 && isWild(rest[0]) && !isWild(card)) score += 15;
-  return score + Math.random() * 1.5;
-}
-
-/** Returns { type:'play', cardId, color } or { type:'draw' } for a normal (non-penalty) turn. */
-function aiChooseMove(s, pi) {
-  const p = s.players[pi];
-  const playable = p.hand.filter((c) => isPlayable(c, s));
-  if (!playable.length) return { type: 'draw' };
-  if (p.difficulty !== 'strategic') {
-    const card = pick(playable); // Easy: any legal card, any colour
-    return { type: 'play', cardId: card.id, color: isWild(card) ? pick(COLORS) : null };
-  }
-  let best = null;
-  let bestScore = -Infinity;
-  for (const card of playable) {
-    const color = isWild(card) ? aiBestColor(s, pi, card) : card.color;
-    const sc = scoreStrategic(s, pi, card, color);
-    if (sc > bestScore) { bestScore = sc; best = { card, color }; }
-  }
-  return { type: 'play', cardId: best.card.id, color: isWild(best.card) ? best.color : null };
-}
-
-/** Facing a pending +2/+4: stack (if allowed and wanted) or return null to take the cards. */
-function aiChooseStack(s, pi) {
-  if (!s.rules.stacking) return null;
-  const p = s.players[pi];
-  const options = p.hand.filter((c) => canStack(c, s.pendingType));
-  if (!options.length) return null;
-  if (p.difficulty !== 'strategic') {
-    if (Math.random() < 0.5) return null;
-    const c = pick(options);
-    return { cardId: c.id, color: isWild(c) ? pick(COLORS) : null };
-  }
-  const c = options.find((o) => o.type === 'draw2') || options[0]; // spend a +2 before a +4
-  return { cardId: c.id, color: isWild(c) ? aiBestColor(s, pi, c) : null };
-}
-
-/** After drawing a playable card: Easy usually plays it; Strategic keeps a drawn wild while its hand is still big. */
-function aiWantsDrawn(s, pi, card) {
-  const p = s.players[pi];
-  if (p.difficulty !== 'strategic') return Math.random() < 0.75;
-  return !(isWild(card) && p.hand.length > 3);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -542,7 +202,6 @@ function useViewport() {
   }, []);
   return vp;
 }
-const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 7. Geometry
@@ -1009,7 +668,7 @@ function Bubble({ text, tone }) {
 }
 
 /** Opponent seat: a fan of card backs, a name plate, and live call / catch indicators. */
-const Seat = memo(function Seat({ player, index, count, active, thinking, compact, cardW, bubble, onCatch, fanRef }) {
+const Seat = memo(function Seat({ player, index, count, active, thinking, compact, tight, cardW, bubble, onCatch, fanRef }) {
   const shown = Math.min(count, compact ? 5 : 8);
   const step = cardW * (compact ? 0.3 : 0.34);
   const fanW = cardW + Math.max(0, shown - 1) * step;
@@ -1034,20 +693,21 @@ const Seat = memo(function Seat({ player, index, count, active, thinking, compac
       <div
         className={`relative flex items-center rounded-full transition-colors duration-200 ${active ? 'uo-pulse' : ''}`}
         style={{
-          background: active ? INK : 'rgba(251,247,239,0.8)', color: active ? CREAM : INK,
-          padding: compact ? '2px 8px 2px 2px' : '3px 10px 3px 3px', gap: compact ? 5 : 8,
+          background: active ? INK : 'rgba(251,247,239,0.8)', color: active ? CREAM : INK, opacity: player.online === false ? 0.6 : 1,
+          padding: tight ? '3px 7px' : compact ? '2px 8px 2px 2px' : '3px 10px 3px 3px', gap: tight ? 4 : compact ? 5 : 8,
           boxShadow: active ? undefined : '0 0 0 1px rgba(38,32,24,0.08)',
         }}
       >
-        <Avatar index={index} name={player.name} size={compact ? 22 : 28} />
-        <span className="font-semibold leading-none" style={{ fontSize: compact ? 12 : 14 }}>{player.name}</span>
-        {!compact && (player.difficulty === 'strategic'
-          ? <Brain size={13} aria-label="Strategic" style={{ opacity: 0.6 }} />
-          : <Dices size={13} aria-label="Easy" style={{ opacity: 0.6 }} />)}
+        {!tight && <Avatar index={index} name={player.name} size={compact ? 22 : 28} />}
+        <span className="truncate font-semibold leading-none" style={{ fontSize: compact ? 12 : 14, maxWidth: tight ? 46 : compact ? 58 : 120 }}>{player.name}</span>
+        {!compact && player.bot !== false && (player.difficulty === 'strategic'
+          ? <Brain size={13} aria-label="Strategic bot" style={{ opacity: 0.6 }} />
+          : <Dices size={13} aria-label="Easy bot" style={{ opacity: 0.6 }} />)}
         <span className="rounded-full px-1.5 text-[11px] font-bold tabular-nums leading-[18px]"
           style={{ background: active ? 'rgba(251,247,239,0.16)' : 'rgba(38,39,43,0.08)' }}>{count}</span>
-        {thinking && <ThinkingDots />}
+        {thinking && !tight && <ThinkingDots />}
         {called && <span className="h-2 w-2 rounded-full" style={{ background: PALETTE.red.base }} title="Called UNOFFICIAL!" />}
+        {player.online === false && <WifiOff size={13} aria-label="Offline: a bot plays for them" style={{ opacity: 0.7 }} />}
       </div>
       <div className={`absolute left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-1 ${compact ? 'top-0' : 'top-full mt-1.5'}`}>
         {exposed && (
@@ -1097,7 +757,8 @@ function UnoButton({ mode, onClick, deadline, compact }) {
       {mode === 'called' ? <Check size={18} strokeWidth={3} /> : <Megaphone size={18} strokeWidth={2.4} />}
       {mode === 'called' ? 'Called!' : 'UNOFFICIAL!'}
       {mode === 'grace' && (
-        <span key={deadline} className="uo-shrink absolute bottom-1.5 left-4 right-4 h-[3px] rounded-full" style={{ background: 'rgba(251,247,239,0.85)' }} />
+        <span key={deadline} className="uo-shrink absolute bottom-1.5 left-4 right-4 h-[3px] rounded-full"
+          style={{ background: 'rgba(251,247,239,0.85)', animationDuration: `${Math.max(0, (deadline || 0) - performance.now())}ms` }} />
       )}
     </motion.button>
   );
@@ -1141,8 +802,253 @@ function StatTile({ label, value, accent }) {
 const winRate = (st) => (st.played ? `${Math.round((st.wins / st.played) * 100)}%` : '—');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9. <UnOfficial/> — controller + render
+// 9. Rooms: connection, the server's view of the table, and the screens
 // ─────────────────────────────────────────────────────────────────────────────
+const PROFILE_KEY = 'unofficial.profile.v1';
+const roomFromPath = () => ((typeof location !== 'undefined' && location.pathname.match(/^\/unofficial\/room\/([a-z0-9]{3,12})/i)) || [])[1]?.toLowerCase() || null;
+const codeFromInput = (raw) => {
+  const t = String(raw || '').trim();
+  const m = t.match(/room\/([a-z0-9]{3,12})/i) || t.match(/^([a-z0-9]{3,12})$/i);
+  return m ? m[1].toLowerCase() : null;
+};
+const newToken = () => {
+  try { return Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => (b % 36).toString(36)).join(''); } catch { return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+};
+
+/**
+ * The server sends the table in seat order. Turn it round so you sit at the bottom (display seat 0)
+ * and everyone else follows clockwise; opponents' hands become face-down placeholders.
+ */
+function adaptView(v, receivedAt) {
+  const n = v.players.length;
+  const you = v.you >= 0 ? v.you : 0;
+  const toD = (i) => (i == null || i < 0 ? i : mod(i - you, n));
+  const toS = (d) => mod(d + you, n);
+  const players = v.players.map((_, d) => {
+    const i = toS(d);
+    const p = v.players[i];
+    const hand = i === v.you ? v.hand : v.reveal ? v.reveal[i] : Array.from({ length: p.count }, (_, k) => ({ id: `h${i}-${k}`, hidden: true }));
+    return { ...p, seat: i, isHuman: !p.bot, hand, name: i === v.you ? 'You' : p.name };
+  });
+  const me = v.you >= 0 ? v.players[v.you] : null;
+  return {
+    ...v, players, current: toD(v.current), winner: v.winner == null ? null : toD(v.winner),
+    drawPile: { length: v.drawCount }, spectator: v.you < 0, toD, toS,
+    turnDeadline: v.turnLeft > 0 ? receivedAt + v.turnLeft : 0,
+    graceDeadline: me && me.uno === 'grace' ? receivedAt + me.unoLeft : 0,
+  };
+}
+
+/** Seconds left on a clock, shown only once it gets close. Ticks on its own so the table doesn't re-render. */
+function Countdown({ deadline, under = 10, prefix = ' · ', suffix = 's' }) {
+  const [, force] = useReducer((x) => x + 1, 0);
+  useEffect(() => {
+    if (!deadline) return undefined;
+    const id = setInterval(force, 250);
+    return () => clearInterval(id);
+  }, [deadline]);
+  if (!deadline) return null;
+  const left = Math.ceil((deadline - performance.now()) / 1000);
+  if (left > under || left < 0) return null;
+  return <span className="tabular-nums">{prefix}{left}{suffix}</span>;
+}
+
+function Panel({ children, className = '' }) {
+  return (
+    <div className={`w-full rounded-3xl p-5 sm:p-6 ${className}`} style={{ background: CREAM, boxShadow: '0 24px 50px -24px rgba(30,25,18,0.4), 0 0 0 1px rgba(38,32,24,0.06)' }}>
+      {children}
+    </div>
+  );
+}
+
+function TextInput({ value, onChange, placeholder, id, label, maxLength = 18, onEnter, autoFocus }) {
+  return (
+    <input
+      id={id} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={label}
+      maxLength={maxLength} autoComplete="off" spellCheck="false" autoFocus={autoFocus}
+      onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) { e.preventDefault(); onEnter(); } }}
+      className="h-12 w-full min-w-0 rounded-xl px-3.5 text-[15px] outline-none"
+      style={{ background: '#FFFFFF', color: INK, boxShadow: 'inset 0 0 0 1px rgba(38,32,24,0.18)' }}
+      onFocus={(e) => { e.target.style.boxShadow = `inset 0 0 0 2px ${INK}`; }}
+      onBlur={(e) => { e.target.style.boxShadow = 'inset 0 0 0 1px rgba(38,32,24,0.18)'; }}
+    />
+  );
+}
+
+function Stepper({ value, min, max, onChange, label }) {
+  return (
+    <div className="inline-flex items-center rounded-full p-1" style={{ background: 'rgba(38,39,43,0.07)' }} role="group" aria-label={label}>
+      <button type="button" aria-label={`Fewer ${label.toLowerCase()}`} disabled={value <= min} onClick={() => onChange(value - 1)}
+        className="grid h-11 w-11 place-items-center rounded-full disabled:opacity-30" style={{ color: INK }}><Minus size={16} /></button>
+      <span className="w-8 text-center text-base font-bold tabular-nums" aria-live="polite">{value}</span>
+      <button type="button" aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => onChange(value + 1)}
+        className="grid h-11 w-11 place-items-center rounded-full disabled:opacity-30" style={{ color: INK }}><Plus size={16} /></button>
+    </div>
+  );
+}
+
+const CLOCKS = [{ value: 0, label: 'Off' }, { value: 15, label: '15s' }, { value: 30, label: '30s' }, { value: 60, label: '60s' }];
+const PENALTIES = [{ value: 0, label: 'Off' }, { value: 2, label: '+2' }, { value: 4, label: '+4' }];
+const HANDS = [{ value: 5, label: '5' }, { value: 7, label: '7' }, { value: 10, label: '10' }];
+
+function RuleRow({ title, hint, children, value, editable }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="min-w-0 flex-1 basis-[180px]">
+        <div className="text-sm font-semibold">{title}</div>
+        {hint && <div className="text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>{hint}</div>}
+      </div>
+      {editable ? children : <span className="text-sm font-semibold">{value}</span>}
+    </div>
+  );
+}
+
+/** The host's house rules, like PoorDown's. Everyone else sees them read-only. */
+function RulesPanel({ settings, editable, onChange, seated, scope }) {
+  const set = (patch) => onChange(patch);
+  const onOff = (v) => (v ? 'On' : 'Off');
+  return (
+    <div className="flex flex-col gap-4">
+      <RuleRow editable={editable} title="Seats at the table" hint="2 to 8 players, classmates and bots" value={settings.maxSeats}>
+        <Stepper label="Seats" value={settings.maxSeats} min={Math.max(2, seated || 2)} max={8} onChange={(v) => set({ maxSeats: v })} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Starting hand" hint="Cards each (7 at most with 7–8 players)" value={`${settings.handSize} cards`}>
+        <Segmented id={`${scope}-hand`} value={settings.handSize} onChange={(v) => set({ handSize: v })} options={HANDS} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Turn clock" hint="A bot plays for anyone who runs out of time" value={settings.turnClock ? `${settings.turnClock}s` : 'Off'}>
+        <Segmented id={`${scope}-clock`} value={settings.turnClock} onChange={(v) => set({ turnClock: v })} options={CLOCKS} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Bot speed" hint="How fast bots move and cards fly" value={SPEEDS[settings.speed]?.label}>
+        <Segmented id={`${scope}-speed`} value={settings.speed} onChange={(v) => set({ speed: v })} options={Object.entries(SPEEDS).map(([k, v]) => ({ value: k, label: v.label }))} />
+      </RuleRow>
+      <RuleRow editable={editable} title="UNOFFICIAL! penalty" hint="Cards for forgetting to call at one card" value={settings.unoPenalty ? `+${settings.unoPenalty}` : 'Off'}>
+        <Segmented id={`${scope}-uno`} value={settings.unoPenalty} onChange={(v) => set({ unoPenalty: v })} options={PENALTIES} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Stack draw cards" hint="+2 on +2, and +4 on any draw card" value={onOff(settings.stacking)}>
+        <Toggle label="Stack draw cards" checked={settings.stacking} onChange={(v) => set({ stacking: v })} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Draw until you can play" hint="Instead of drawing just one card" value={onOff(settings.drawToMatch)}>
+        <Toggle label="Draw until you can play" checked={settings.drawToMatch} onChange={(v) => set({ drawToMatch: v })} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Strict Wild +4" hint="Only when you have nothing in the active colour" value={onOff(settings.wild4Strict)}>
+        <Toggle label="Strict Wild +4" checked={settings.wild4Strict} onChange={(v) => set({ wild4Strict: v })} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Sevens & zeros" hint="A 7 swaps hands with a player you pick; a 0 passes every hand on" value={onOff(settings.sevenZero)}>
+        <Toggle label="Sevens and zeros" checked={settings.sevenZero} onChange={(v) => set({ sevenZero: v })} />
+      </RuleRow>
+      <RuleRow editable={editable} title="Private room" hint="Only people with the link or code can join" value={settings.private ? 'Private' : 'Public'}>
+        <Toggle label="Private room" checked={settings.private} onChange={(v) => set({ private: v })} />
+      </RuleRow>
+    </div>
+  );
+}
+
+/** Waiting room: share the link, fill seats with classmates or bots, set the rules, deal. */
+function Lobby({ room, onSend, onCopy, onLeave, link, wide }) {
+  const full = room.seats.length >= room.max;
+  const playing = room.status === 'playing';
+  const me = room.seats.find((x) => x.you);
+  return (
+    <div className="mx-auto grid w-full max-w-[980px] gap-4 px-4 py-6 md:grid-cols-2 md:items-start md:gap-6 md:py-10">
+      <div className="flex w-full flex-col gap-4 md:col-start-1 md:row-start-1">
+        <Panel>
+          <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'rgba(38,39,43,0.5)' }}>Room code</div>
+          <div className="mt-1 font-black italic tracking-tight" style={{ fontSize: wide ? 44 : 38, lineHeight: 1, letterSpacing: '0.02em' }}>{room.id}</div>
+          <p className="mt-3 text-sm" style={{ color: 'rgba(38,39,43,0.65)' }}>
+            Send classmates the link, or tell them the code: they type it on the College Portal or in UnOfficial.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <input readOnly value={link} aria-label="Room link" onFocus={(e) => e.target.select()}
+              className="h-11 min-w-0 flex-1 rounded-xl px-3 text-sm outline-none" style={{ background: '#FFFFFF', boxShadow: 'inset 0 0 0 1px rgba(38,32,24,0.18)', color: INK }} />
+            <GhostButton onClick={onCopy}><Copy size={16} /> Copy</GhostButton>
+          </div>
+        </Panel>
+        {playing && (
+          <div className="rounded-2xl px-4 py-3 text-sm font-semibold" style={{ background: 'rgba(230,164,43,0.18)', color: '#5A3E06' }}>
+            {me ? 'A hand is being played right now. You’re dealt in from the next hand.' : 'A hand is being played and the table is full. You can watch the seats here.'}
+          </div>
+        )}
+      </div>
+      <div className="w-full md:col-start-1 md:row-start-2">
+        <Panel>
+          <div className="mb-1 text-sm font-bold">House rules</div>
+          <div className="mb-4 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>
+            {room.host ? (playing ? 'Changes apply from the next hand (speed and the turn clock apply now).' : 'You’re the host: set the table up before you deal.') : `${room.hostName || 'The host'} sets the rules.`}
+          </div>
+          <RulesPanel scope="lobby" settings={room.settings} editable={room.host} seated={room.seats.length} onChange={(patch) => onSend({ type: 'setting', settings: patch })} />
+        </Panel>
+      </div>
+
+      <div className="flex w-full flex-col gap-4 md:col-start-2 md:row-span-2 md:row-start-1">
+        <Panel>
+          <div className="mb-3 flex items-baseline justify-between">
+            <div className="text-sm font-bold">Players</div>
+            <div className="text-xs font-semibold tabular-nums" style={{ color: 'rgba(38,39,43,0.55)' }}>{room.seats.length} of {room.max} seats</div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {room.seats.map((x, i) => (
+              <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2" style={{ background: x.you ? 'rgba(38,39,43,0.08)' : 'rgba(38,39,43,0.04)', opacity: x.online ? 1 : 0.6 }}>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <Avatar index={i % SEAT_TONES.length} name={x.name} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold">
+                      <span className="truncate">{x.name}{x.you ? ' (you)' : ''}</span>
+                      {x.host && <Crown size={13} aria-label="Host" style={{ color: PALETTE.yellow.shade }} />}
+                      {!x.online && <WifiOff size={13} aria-label="Offline" />}
+                    </div>
+                    <div className="text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>
+                      {x.bot ? (x.difficulty === 'strategic' ? 'Strategic bot' : 'Easy bot') : x.online ? 'Classmate' : 'Reconnecting…'}
+                      {playing && !x.inHand ? ' · next hand' : ''}{x.score ? ` · ${x.score} pts` : ''}
+                    </div>
+                  </div>
+                </div>
+                {room.host && !x.you && !(playing && x.inHand) && (
+                  <div className="flex items-center gap-1">
+                    {x.bot && (
+                      <Segmented id={`bot-${x.id}`} value={x.difficulty} onChange={(v) => onSend({ type: 'setBot', seat: x.id, difficulty: v })}
+                        options={[{ value: 'easy', label: 'Easy', icon: Dices }, { value: 'strategic', label: 'Strategic', icon: Brain }]} />
+                    )}
+                    <IconButton label={x.bot ? `Remove ${x.name}` : `Give ${x.name}'s seat to someone else`} onClick={() => onSend({ type: 'removeSeat', seat: x.id })}><X size={17} /></IconButton>
+                  </div>
+                )}
+                {x.you && !(playing && x.inHand) && room.seats.length > 0 && (
+                  <GhostButton onClick={() => onSend({ type: 'unseat' })}>Stand up</GhostButton>
+                )}
+              </div>
+            ))}
+            {Array.from({ length: Math.max(0, room.max - room.seats.length) }, (_, i) => (
+              <div key={`empty${i}`} className="flex h-[52px] items-center rounded-2xl px-3 text-sm" style={{ border: '1px dashed rgba(38,39,43,0.2)', color: 'rgba(38,39,43,0.45)' }}>
+                Empty seat
+              </div>
+            ))}
+          </div>
+          {room.host && full && room.max < 8 && <div className="mt-3 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>Table full. Add seats in the house rules to fit more players.</div>}
+          {room.host && !full && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <GhostButton onClick={() => onSend({ type: 'addBot', difficulty: 'easy' })}><Plus size={16} /> Easy bot</GhostButton>
+              <GhostButton onClick={() => onSend({ type: 'addBot', difficulty: 'strategic' })}><Plus size={16} /> Strategic bot</GhostButton>
+            </div>
+          )}
+          {!me && !full && <div className="mt-3"><PrimaryButton onClick={() => onSend({ type: 'seat' })}>Take a seat</PrimaryButton></div>}
+          {!me && full && <div className="mt-3 text-sm" style={{ color: 'rgba(38,39,43,0.6)' }}>Every seat is taken. You’re watching; ask the host for a seat.</div>}
+        </Panel>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {room.host ? (
+            <PrimaryButton className="flex-1" onClick={() => onSend({ type: 'start' })} kbd={wide ? '↵' : null}>
+              {room.seats.length < 2 ? 'Add a bot or wait for a classmate' : playing ? 'Hand in progress' : 'Deal cards'}
+            </PrimaryButton>
+          ) : (
+            <div className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold" style={{ background: 'rgba(38,39,43,0.06)' }}>
+              {playing ? 'Hand in progress' : <>Waiting for {room.hostName || 'the host'} to deal <ThinkingDots /></>}
+            </div>
+          )}
+          <GhostButton onClick={onLeave}>Leave room</GhostButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {}) {
   const vp = useViewport();
   const reduceMotion = useReducedMotion();
@@ -1156,46 +1062,47 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     return saved;
   });
   const [stats, setStats] = useState(() => ({ ...DEFAULT_STATS, ...loadJSON(STATS_KEY) }));
-  const [state, dispatch, store] = useGameStore();
-
-  // Hand layout first, then shrink the centre pile to whatever height is left — big hands on small phones stay on screen.
-  const handCount = state.players[0]?.hand.length || 0;
-  const oppCount = Math.max(0, state.players.length - 1);
-  const layout = useMemo(
-    () => handLayout(handCount, { width: base.handWidth, cardW: base.hand, minStep: base.minStep }),
-    [handCount, base],
-  );
-  const sizes = useMemo(() => {
-    const tableH = vp.h - 56 - 64 - layout.height - 10; // minus top bar, action bar, hand
-    const seatBlock = base.wide ? (oppCount === 2 ? 0 : base.opp * 1.4 + 70) : base.opp * 1.4 + 46;
-    const reserve = base.wide ? 118 : 126; // banner, labels, toast room
-    return { ...base, pile: Math.round(clamp((tableH - seatBlock - reserve) / 1.82, 44, base.pile)) };
-  }, [base, layout.height, vp.h, oppCount]);
-
-  const [flights, setFlights] = useState([]); // cards currently animating between places
-  const [picker, setPicker] = useState(null); // { cardId } while choosing a wild colour
-  const [selected, setSelected] = useState(null); // keyboard / drawn-card highlight
+  const [profile, setProfile] = useState(() => {
+    const p = loadJSON(PROFILE_KEY);
+    return { name: typeof p.name === 'string' ? p.name.slice(0, 18) : '', token: /^[a-z0-9]{16,64}$/i.test(p.token || '') ? p.token : newToken() };
+  });
+  const [conn, setConn] = useState('connecting');
+  const [room, setRoom] = useState(null);
+  const [display, setDisplay] = useState(null);
+  const [flights, setFlights] = useState([]);
+  const [picker, setPicker] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [shake, setShake] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [bubbles, setBubbles] = useState({});
   const [ripple, setRipple] = useState(null);
   const [thud, setThud] = useState(0);
-  const [modal, setModal] = useState(null); // 'settings' | 'stats' | null
+  const [modal, setModal] = useState(null); // 'settings' | 'stats' | 'leave'
   const [overOpen, setOverOpen] = useState(false);
-  const [match, setMatch] = useState({ key: '', hands: 0, scores: {} });
+  const [animating, setAnimating] = useState(false);
+  const [homeTab, setHomeTab] = useState('class');
+  const [joinCode, setJoinCode] = useState(() => roomFromPath() || '');
+  const [homeErr, setHomeErr] = useState('');
+  const [sent, setSent] = useState(false); // a move is on its way to the server
+  const [openRooms, setOpenRooms] = useState(null);
+  const [swapPick, setSwapPick] = useState(null); // { cardId } while choosing who to swap hands with
 
   const settingsRef = useLatest(settings);
   const reduceRef = useLatest(reduceMotion);
   const pickerRef = useLatest(picker);
-  const geomRef = useLatest(sizes);
-
-  const epochRef = useRef(0); // bumps on every new game; stale async sequences check it and bail out
-  const busyRef = useRef(false); // an animated sequence owns the table — ignore human input
-  const catchingRef = useRef(0); // challenge draws in progress
-  const handledTurnRef = useRef(-1);
+  const swapRef = useLatest(swapPick);
+  const profileRef = useLatest(profile);
+  const roomRef = useLatest(room);
+  const displayRef = useRef(null);
+  const wsRef = useRef(null);
+  const wantRoomRef = useRef(roomFromPath());
+  const queueRef = useRef([]);
+  const runningRef = useRef(false);
   const timersRef = useRef(new Set());
   const resolversRef = useRef(new Map());
   const seqRef = useRef(0);
+  const lastTryRef = useRef(null);
+  const overSeqRef = useRef(-1);
 
   const deckRef = useRef(null);
   const discardRef = useRef(null);
@@ -1206,35 +1113,40 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
 
   useEffect(() => { Sound.setEnabled(settings.sound); saveJSON(SETTINGS_KEY, settings); }, [settings]);
   useEffect(() => { saveJSON(STATS_KEY, stats); }, [stats]);
+  useEffect(() => { saveJSON(PROFILE_KEY, profile); }, [profile]);
   useEffect(() => () => timersRef.current.forEach(clearTimeout), []);
 
+  // ── Sizes: hand first, then shrink the pile to whatever height is left ────
+  const handCount = display?.players[0]?.hand.length || 0;
+  const oppCount = Math.max(0, (display?.players.length || 1) - 1);
+  const layout = useMemo(() => handLayout(handCount, { width: base.handWidth, cardW: base.hand, minStep: base.minStep }), [handCount, base]);
+  const sizes = useMemo(() => {
+    const tableH = vp.h - 56 - 64 - layout.height - 10;
+    const seatBlock = base.wide ? (oppCount === 2 || oppCount === 6 ? 0 : base.opp * 1.4 + 70) : (base.opp * 1.4 + 46) * (oppCount > 4 ? 2 : 1);
+    const reserve = base.wide ? 118 : 126;
+    return { ...base, pile: Math.round(clamp((tableH - seatBlock - reserve) / 1.82, 44, base.pile)) };
+  }, [base, layout.height, vp.h, oppCount]);
+  const geomRef = useLatest(sizes);
+
   // ── Timing helpers ─────────────────────────────────────────────────────────
-  const dur = (sec) => sec * SPEEDS[settingsRef.current.speed].anim * (reduceRef.current ? 0.6 : 1);
+  const dur = (sec) => sec * (SPEEDS[displayRef.current?.speed]?.anim ?? 1) * (reduceRef.current ? 0.6 : 1);
   const later = (fn, ms) => {
     const id = setTimeout(() => { timersRef.current.delete(id); fn(); }, Math.max(0, ms));
     timersRef.current.add(id);
     return id;
   };
-  const sleep = (ms) => new Promise((r) => later(r, ms));
-  const wait = (sec) => sleep(dur(sec) * 1000);
-  const alive = (epoch) => epoch === epochRef.current;
-  async function waitUntil(pred, epoch, maxMs = 6000) {
-    const t0 = performance.now();
-    while (alive(epoch) && !pred() && performance.now() - t0 < maxMs) await sleep(60);
-  }
 
-  // ── Feedback: toasts and speech bubbles ────────────────────────────────────
+  // ── Feedback ───────────────────────────────────────────────────────────────
   const toast = (text, tone = 'ink') => {
     const id = ++seqRef.current;
     setToasts((t) => [...t.slice(-1), { id, text, tone }]);
-    later(() => setToasts((t) => t.filter((x) => x.id !== id)), 1900);
+    later(() => setToasts((t) => t.filter((x) => x.id !== id)), 2100);
   };
-  const say = (pi, text, tone = 'ink') => {
+  const say = (d, text, tone = 'ink') => {
     const id = ++seqRef.current;
-    setBubbles((b) => ({ ...b, [pi]: { id, text, tone } }));
-    later(() => setBubbles((b) => (b[pi]?.id === id ? { ...b, [pi]: null } : b)), 1500);
+    setBubbles((b) => ({ ...b, [d]: { id, text, tone } }));
+    later(() => setBubbles((b) => (b[d]?.id === id ? { ...b, [d]: null } : b)), 1500);
   };
-  const nameOf = (i) => store.current.players[i]?.name ?? '';
 
   // ── Geometry: screen points for flights ────────────────────────────────────
   const pointOf = (el, s) => {
@@ -1244,24 +1156,19 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   };
   const deckPoint = () => pointOf(deckRef.current, 1);
   const discardPoint = (rot = 0, dx = 0, dy = 0) => { const p = pointOf(discardRef.current, 1); return { ...p, x: p.x + dx, y: p.y + dy, rot }; };
-  const seatPoint = (pi) => pointOf(seatEls.current[pi], geomRef.current.opp / geomRef.current.pile);
+  const seatPoint = (d) => pointOf(seatEls.current[d], geomRef.current.opp / geomRef.current.pile);
   const handSlotPoint = (cardId, handOverride, lifted = false) => {
     const g = geomRef.current;
-    const hand = handOverride || store.current.players[0]?.hand || [];
+    const hand = handOverride || displayRef.current?.players[0]?.hand || [];
     const el = handRef.current;
     const i = hand.findIndex((c) => c.id === cardId);
-    if (!el || i < 0) return pointOf(el, g.hand / g.pile);
+    if (!el || i < 0) { const p = pointOf(el, g.hand / g.pile); return el ? { ...p, y: el.getBoundingClientRect().top + HAND_PAD + (g.hand * 1.4) / 2 } : p; }
     const r = el.getBoundingClientRect();
     const slot = handLayout(hand.length, { width: g.handWidth, cardW: g.hand, minStep: g.minStep }).slots[i];
-    return {
-      x: r.left + r.width / 2 + slot.x,
-      y: r.top + HAND_PAD + slot.y + (g.hand * 1.4) / 2 - (lifted ? LIFT_PLAYABLE : 0),
-      rot: slot.rot,
-      s: g.hand / g.pile,
-    };
+    return { x: r.left + r.width / 2 + slot.x, y: r.top + HAND_PAD + slot.y + (g.hand * 1.4) / 2 - (lifted ? LIFT_PLAYABLE : 0), rot: slot.rot, s: g.hand / g.pile };
   };
 
-  // ── Flight layer: fly() resolves when the card lands ───────────────────────
+  // ── Flight layer ───────────────────────────────────────────────────────────
   const fly = (spec) => new Promise((resolve) => {
     const id = ++seqRef.current;
     resolversRef.current.set(id, resolve);
@@ -1273,389 +1180,428 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     setFlights((f) => f.filter((x) => x.id !== id));
     r?.();
   }, []);
+  const dropFlights = () => { for (const r of resolversRef.current.values()) r(); resolversRef.current.clear(); setFlights([]); };
 
-  // ── Sequences (each is one animated, awaited state transition) ─────────────
-  function reshuffleIfNeeded() {
-    const s = store.current;
-    if (s.drawPile.length > 0 || s.discard.length < 2) return;
-    dispatch({ type: 'RESHUFFLE', pile: shuffle(s.discard.slice(0, -1).map((e) => e.card)) });
-    toast('Discards shuffled back into the deck');
-  }
-
-  /** Draw `count` cards for a player with staggered, elastic flights. Returns the drawn card ids. */
-  async function drawCards(pi, count, epoch) {
-    const ids = [];
-    const landings = [];
-    for (let k = 0; k < count; k++) {
-      reshuffleIfNeeded();
-      const before = store.current;
-      const ns = dispatch({ type: 'DRAW_ONE', player: pi });
-      if (ns === before) break; // deck truly empty
-      const card = ns.lastDraw.card;
-      ids.push(card.id);
-      Sound.draw();
-      landings.push(fly({
-        card, toSeat: pi === 0 ? null : pi,
-        from: deckPoint(), to: pi === 0 ? () => handSlotPoint(card.id) : seatPoint(pi),
-        faceFrom: false, faceTo: pi === 0, duration: dur(0.26), ease: EASE_DRAW, arc: 36, pop: 0.06,
-      }));
-      if (k < count - 1) { await wait(0.075); if (!alive(epoch)) return ids; }
-    }
-    await Promise.all(landings);
-    return ids;
-  }
-
-  /** Play a card: validate via the reducer, fly it to the pile, then announce its effect and start the next turn. */
-  async function playCard(pi, cardId, color) {
-    const epoch = epochRef.current;
-    const before = store.current;
-    const card = before.players[pi]?.hand.find((c) => c.id === cardId);
-    if (!card) return false;
-    const from = pi === 0 ? handSlotPoint(cardId, before.players[0].hand, true) : seatPoint(pi);
-    const rot = rand(-14, 14);
-    const dx = rand(-5, 5);
-    const dy = rand(-4, 4);
-    const ns = dispatch({ type: 'PLAY_CARD', player: pi, cardId, color, rot, dx, dy, now: performance.now() });
-    if (ns === before) {
-      if (pi === 0) { Sound.error(); setShake({ id: cardId, k: performance.now() }); }
-      return false;
-    }
-    busyRef.current = true;
-    if (pi === 0) setSelected(null);
-    Sound.flip();
-    await fly({
-      card, chosen: isWild(card) ? ns.currentColor : null, from, to: discardPoint(rot, dx, dy),
-      faceFrom: pi === 0, faceTo: true, duration: dur(0.25), ease: EASE_PLAY, arc: pi === 0 ? 70 : 34, pop: 0.1,
-    });
-    if (!alive(epoch)) return true;
-    Sound.play();
-    setThud((t) => t + 1);
-    if (pi === 0) setStats((st) => ({ ...st, cardsPlayed: st.cardsPlayed + 1 }));
-    announcePlay(pi, card, ns);
-    if (ns.phase === 'GAME_OVER') { finishRound(ns); busyRef.current = false; return true; }
-    if (!ns.players[pi].isHuman && ns.players[pi].uno === 'grace') scheduleAiUnoCall(pi, epoch);
-    await wait(0.06);
-    if (!alive(epoch)) return true;
-    dispatch({ type: 'BEGIN_TURN' });
-    busyRef.current = false;
-    return true;
-  }
-
-  function announcePlay(pi, card, ns) {
-    const n = ns.players.length;
-    const victim = mod(pi + ns.direction, n);
-    if (isWild(card)) {
-      Sound.wild();
-      setRipple({ color: ns.currentColor, k: ++seqRef.current });
-      if (pi !== 0) say(pi, PALETTE[ns.currentColor].name, 'ink');
-    }
-    if (card.type === 'skip') say(victim, 'Skipped');
-    if (card.type === 'reverse') {
-      if (n === 2) say(victim, 'Skipped');
-      else toast('Direction reversed');
-    }
-    if (card.type === 'draw2' || card.type === 'wild4') {
-      const stacked = ns.pendingDraw > (card.type === 'draw2' ? 2 : 4);
-      toast(stacked ? `Stacked! +${ns.pendingDraw} on ${victim === 0 ? 'you' : nameOf(victim)}` : `+${ns.pendingDraw} for ${victim === 0 ? 'you' : nameOf(victim)}`, 'red');
-    }
-  }
-
-  /** Penalty: draw the whole pending stack, then lose the turn. */
-  async function takePenalty(pi, epoch) {
-    busyRef.current = true;
-    const n = store.current.pendingDraw;
-    Sound.penalty();
-    if (pi !== 0) say(pi, `+${n}`, 'red');
-    await drawCards(pi, n, epoch);
-    if (!alive(epoch)) return;
-    dispatch({ type: 'ACCEPT_PENALTY' });
-    dispatch({ type: 'END_TURN' });
-    await wait(0.05);
-    if (!alive(epoch)) return;
-    dispatch({ type: 'BEGIN_TURN' });
-    busyRef.current = false;
-  }
-
-  /** True while an UNOFFICIAL! window is open or being resolved — AI turns wait so calls and catches stay fair. */
-  const unoBlocking = () => {
-    const now = performance.now();
-    return catchingRef.current > 0 || store.current.players.some((p) =>
-      p.uno === 'grace' || p.uno === 'caught' || (p.uno === 'exposed' && now - p.exposedAt < EXPOSE_REACT_MS));
+  // ── Connection ─────────────────────────────────────────────────────────────
+  const api = useRef({});
+  useEffect(() => {
+    let stop = false;
+    let retry = 0;
+    let timer = null;
+    const connect = () => {
+      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/unofficial/ws`);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        retry = 0;
+        setConn('open');
+        const p = profileRef.current;
+        ws.send(JSON.stringify({ type: 'hello', token: p.token, name: p.name }));
+        if (wantRoomRef.current && p.name) ws.send(JSON.stringify({ type: 'join', room: wantRoomRef.current, name: p.name }));
+      };
+      ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } api.current.onMessage(m); };
+      ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+        setConn('closed');
+        if (!stop) timer = setTimeout(connect, Math.min(4000, 400 * 2 ** retry++));
+      };
+    };
+    connect();
+    return () => { stop = true; clearTimeout(timer); wsRef.current?.close(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const send = (m) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) { ws.send(JSON.stringify(m)); return true; }
+    toast('Reconnecting… try again in a moment', 'red');
+    return false;
   };
 
-  // AI_TURN: think → (wait for open calls) → stack / take penalty / play / draw-then-maybe-play.
-  async function runAiTurn(key) {
-    const epoch = epochRef.current;
-    const pi = store.current.current;
-    await sleep(SPEEDS[settingsRef.current.speed].think * rand(0.75, 1.25));
-    await waitUntil(() => !unoBlocking(), epoch);
-    let s = store.current;
-    if (!alive(epoch) || s.turnKey !== key || s.phase !== 'AI_TURN') return;
+  function resetTable() {
+    queueRef.current = [];
+    dropFlights();
+    displayRef.current = null;
+    setDisplay(null); setPicker(null); setSwapPick(null); setSelected(null); setOverOpen(false); setBubbles({}); setRipple(null); setSent(false);
+  }
 
-    if (s.pendingDraw > 0) {
-      const stack = aiChooseStack(s, pi);
-      if (stack) await playCard(pi, stack.cardId, stack.color);
-      else await takePenalty(pi, epoch);
+  function onMessage(m) {
+    switch (m.type) {
+      case 'welcome':
+        if (typeof window !== 'undefined' && window.UO_BUILD && m.build && m.build !== window.UO_BUILD) {
+          try { if (sessionStorage.getItem('uo-reloaded') !== m.build) { sessionStorage.setItem('uo-reloaded', m.build); location.reload(); return; } } catch { /* stay on this version */ }
+        }
+        if (m.token && m.token !== profileRef.current.token) setProfile((p) => ({ ...p, token: m.token }));
+        return;
+      case 'room': {
+        const prev = roomRef.current;
+        roomRef.current = m.room;
+        setRoom(m.room);
+        wantRoomRef.current = m.room.id;
+        const path = `/unofficial/room/${m.room.id}`;
+        if (location.pathname !== path) history.replaceState(null, '', path);
+        if (!prev || prev.id !== m.room.id) { setHomeErr(''); if (m.room.status === 'waiting') resetTable(); }
+        return;
+      }
+      case 'game':
+        m.receivedAt = performance.now();
+        queueRef.current.push(m);
+        if (!runningRef.current) runQueue();
+        return;
+      case 'error':
+        setSent(false);
+        if (m.code === 'noroom') {
+          wantRoomRef.current = null; roomRef.current = null; setRoom(null); resetTable();
+          if (location.pathname !== '/unofficial') history.replaceState(null, '', '/unofficial');
+          setHomeErr(m.text); setHomeTab('class');
+          return;
+        }
+        Sound.error();
+        if (m.code === 'badcard' && lastTryRef.current) setShake({ id: lastTryRef.current, k: performance.now() });
+        else if (!['turn', 'uno', 'catch'].includes(m.code)) toast(m.text, 'red');
+        return;
+      case 'rooms': setOpenRooms(m.rooms); return;
+      case 'notice': toast(m.text); return;
+      case 'left':
+        wantRoomRef.current = null; roomRef.current = null; setRoom(null); resetTable();
+        if (location.pathname !== '/unofficial') history.pushState(null, '', '/unofficial');
+        return;
+      default:
+    }
+  }
+
+  // ── Event queue: each server change is animated in order ───────────────────
+  async function runQueue() {
+    runningRef.current = true;
+    setAnimating(true);
+    while (queueRef.current.length) {
+      const m = queueRef.current.shift();
+      const fast = document.hidden || queueRef.current.length > 3;
+      try { await applyGame(m, fast); } catch (e) { console.error(e); commit(adaptView(m.view, m.receivedAt)); }
+    }
+    runningRef.current = false;
+    setAnimating(false);
+  }
+  function commit(next) { displayRef.current = next; setDisplay(next); }
+
+  async function applyGame(m, fast) {
+    const prev = displayRef.current;
+    const next = adaptView(m.view, m.receivedAt);
+    const ev = m.ev || { kind: 'sync' };
+    setSent(false);
+    if (ev.kind === 'deal') { setOverOpen(false); setPicker(null); setSwapPick(null); setSelected(null); overSeqRef.current = -1; }
+    if (fast || (!prev && ev.kind !== 'deal')) { commit(next); react(ev, next, prev); return; }
+    const D = (i) => next.toD(i);
+
+    if (ev.kind === 'deal') {
+      const n = next.players.length;
+      const mine = next.players[0].hand.slice();
+      const landings = [];
+      ev.order.forEach((si, k) => {
+        const d = D(si);
+        const card = d === 0 && !next.spectator ? mine.shift() : { id: `deal${m.seq}-${k}`, color: 'wild', type: 'wild' };
+        if (!card) return;
+        later(() => Sound.deal(), dur(0.045) * 1000 * k);
+        landings.push(fly({
+          card, toSeat: d === 0 ? null : d, delay: dur(0.045) * k,
+          from: deckPoint(), to: d === 0 ? () => handSlotPoint(card.id) : seatPoint(d),
+          faceFrom: false, faceTo: d === 0 && !next.spectator, duration: dur(0.22), ease: EASE_DEAL, arc: 24, pop: 0.04,
+        }));
+      });
+      const topE = next.discard[next.discard.length - 1];
+      const flipDelay = dur(0.045) * ev.order.length + dur(0.22);
+      landings.push(fly({ card: topE.card, from: deckPoint(), to: discardPoint(topE.rot), delay: flipDelay, faceFrom: false, faceTo: true, duration: dur(0.26), ease: EASE_PLAY, arc: 30 }));
+      commit(next);
+      await Promise.all(landings);
+      Sound.play();
+      toast(next.current === 0 ? 'You lead off' : `${next.players[next.current].name} leads off`);
+      void n;
       return;
     }
-    const move = aiChooseMove(s, pi);
-    if (move.type === 'play') { await playCard(pi, move.cardId, move.color); return; }
 
-    busyRef.current = true;
-    const [id] = await drawCards(pi, 1, epoch);
-    if (!alive(epoch)) return;
-    dispatch({ type: 'MARK_DRAWN', cardId: id ?? null, inferLack: true });
-    s = store.current;
-    const drawn = id && s.players[pi].hand.find((c) => c.id === id);
-    if (drawn && isPlayable(drawn, s) && aiWantsDrawn(s, pi, drawn)) {
-      await wait(0.18);
-      if (!alive(epoch)) return;
-      await playCard(pi, drawn.id, isWild(drawn) ? (s.players[pi].difficulty === 'strategic' ? aiBestColor(s, pi, drawn) : pick(COLORS)) : null);
+    if (ev.kind === 'play') {
+      const d = D(ev.player);
+      const from = d === 0 && prev && !next.spectator ? handSlotPoint(ev.card.id, prev.players[0].hand, true) : seatPoint(d);
+      const landed = fly({
+        card: ev.card, chosen: isWild(ev.card) ? ev.color : null, from, to: discardPoint(ev.rot, ev.dx, ev.dy),
+        faceFrom: d === 0 && !next.spectator, faceTo: true, duration: dur(0.25), ease: EASE_PLAY, arc: d === 0 ? 70 : 34, pop: 0.1,
+      });
+      if (d === 0) setSelected(null);
+      if (ev.swap && prev) {
+        // Keep everyone's old hands on the table until the swap has been shown.
+        commit({
+          ...next, players: next.players.map((p, i) => {
+            const pp = prev.players[i];
+            const hand = i === 0 && !next.spectator ? pp.hand.filter((c) => c.id !== ev.card.id)
+              : Array.from({ length: Math.max(0, pp.count - (i === d ? 1 : 0)) }, (_, k) => ({ id: `h${p.seat}-${k}`, hidden: true }));
+            return { ...p, hand, count: hand.length };
+          }),
+        });
+      } else commit(next);
+      Sound.flip();
+      await landed;
+      Sound.play();
+      setThud((t) => t + 1);
+      react(ev, next, prev);
+      if (ev.swap) {
+        const at = (di) => (di === 0 && !next.spectator ? handSlotPoint(null) : seatPoint(di));
+        const pairs = ev.swap.kind === 'swap' ? [[D(ev.swap.a), D(ev.swap.b)], [D(ev.swap.b), D(ev.swap.a)]]
+          : next.players.map((_, i) => [i, mod(i + ev.swap.direction, next.players.length)]);
+        const moves = [];
+        pairs.forEach(([from, to], j) => {
+          for (let k = 0; k < 3; k++) {
+            const fp = at(from);
+            const tp = at(to);
+            moves.push(fly({ card: { id: `swap${m.seq}-${j}-${k}`, color: 'wild', type: 'wild' }, from: { ...fp, s: Math.min(fp.s, 0.7) }, to: { ...tp, s: Math.min(tp.s, 0.7) },
+              delay: dur(0.06) * k, faceFrom: false, faceTo: false, duration: dur(0.3), ease: EASE_PLAY, arc: 40, pop: 0.05 }));
+          }
+        });
+        Sound.draw();
+        await Promise.all(moves);
+        commit(next);
+      }
       return;
     }
-    say(pi, 'Pass');
-    dispatch({ type: 'END_TURN' });
-    dispatch({ type: 'BEGIN_TURN' });
-    busyRef.current = false;
-  }
 
-  // PLAYER_TURN start: force the draw when nothing fits (or when a penalty can't be stacked).
-  function humanTurnStart(key) {
-    const epoch = epochRef.current;
-    const s = store.current;
-    const me = s.players[0];
-    Sound.turn();
-    const anyPlayable = me.hand.some((c) => isPlayable(c, s));
-    const stillMyTurn = () => alive(epoch) && store.current.turnKey === key && store.current.phase === 'PLAYER_TURN' && !busyRef.current && !pickerRef.current;
-    if (s.pendingDraw > 0) {
-      if (!anyPlayable) later(() => { if (stillMyTurn()) takePenalty(0, epoch); }, dur(0.6) * 1000 + 250);
+    if (ev.kind === 'draw') {
+      const d = D(ev.player);
+      const mineIds = d === 0 && ev.cards ? ev.cards : null;
+      const landings = [];
+      for (let k = 0; k < ev.count; k++) {
+        const card = mineIds ? mineIds[k] : { id: `draw${m.seq}-${k}`, color: 'wild', type: 'wild' };
+        later(() => Sound.draw(), dur(0.075) * 1000 * k);
+        landings.push(fly({
+          card, toSeat: d === 0 ? null : d, delay: dur(0.075) * k,
+          from: deckPoint(), to: d === 0 ? () => handSlotPoint(card.id) : seatPoint(d),
+          faceFrom: false, faceTo: d === 0 && !!mineIds, duration: dur(0.26), ease: EASE_DRAW, arc: 36, pop: 0.06,
+        }));
+      }
+      commit(next);
+      react(ev, next, prev);
+      await Promise.all(landings);
+      const lastDrawn = mineIds && mineIds[mineIds.length - 1];
+      if (d === 0 && ev.reason === 'turn' && lastDrawn && next.phase === 'TURN' && next.current === 0 && isPlayable(lastDrawn, next, next.players[0].hand)) setSelected(lastDrawn.id);
       return;
     }
-    if (!anyPlayable) later(() => { if (stillMyTurn() && !store.current.hasDrawn) humanDraw(); }, dur(0.5) * 1000 + 450);
+
+    commit(next);
+    react(ev, next, prev);
   }
 
-  async function humanDraw() {
-    const s = store.current;
-    if (s.phase !== 'PLAYER_TURN' || busyRef.current || pickerRef.current) return;
-    const epoch = epochRef.current;
-    if (s.pendingDraw > 0) { await takePenalty(0, epoch); return; }
-    if (s.hasDrawn) { humanPass(); return; }
-    busyRef.current = true;
-    const [id] = await drawCards(0, 1, epoch);
-    if (!alive(epoch)) return;
-    if (!id) toast('The deck is empty — passing');
-    dispatch({ type: 'MARK_DRAWN', cardId: id ?? null, inferLack: true });
-    const ns = store.current;
-    const drawn = id && ns.players[0].hand.find((c) => c.id === id);
-    if (drawn && isPlayable(drawn, ns)) { setSelected(drawn.id); busyRef.current = false; return; }
-    await wait(0.22);
-    if (!alive(epoch)) return;
-    dispatch({ type: 'END_TURN' });
-    dispatch({ type: 'BEGIN_TURN' });
-    busyRef.current = false;
+  /** Sounds, bubbles and toasts for an event (after its animation, or straight away). */
+  function react(ev, next, prev) {
+    const D = (i) => next.toD(i);
+    const nameOf = (d) => (d === 0 && !next.spectator ? 'you' : next.players[d]?.name || '');
+    switch (ev.kind) {
+      case 'turn':
+        if (next.current === 0 && !next.spectator) { Sound.turn(); setSelected(null); }
+        return;
+      case 'play': {
+        const card = ev.card;
+        const d = D(ev.player);
+        const n = next.players.length;
+        const victim = mod(d + next.direction, n);
+        if (d === 0 && !next.spectator) setStats((st) => ({ ...st, cardsPlayed: st.cardsPlayed + 1 }));
+        if (isWild(card)) {
+          Sound.wild();
+          setRipple({ color: ev.color, k: ++seqRef.current });
+          if (d !== 0) say(d, PALETTE[ev.color].name);
+        }
+        if (ev.swap) {
+          if (ev.swap.kind === 'swap') toast(`${d === 0 && !next.spectator ? 'You' : next.players[d].name} swapped hands with ${nameOf(D(ev.swap.b))}`);
+          else toast('Zero! Every hand moves one seat along');
+        }
+        if (card.type === 'skip') say(victim, 'Skipped');
+        if (card.type === 'reverse') { if (n === 2) say(victim, 'Skipped'); else toast('Direction reversed'); }
+        if (card.type === 'draw2' || card.type === 'wild4') {
+          const stacked = ev.pending > (card.type === 'draw2' ? 2 : 4);
+          const who = nameOf(victim);
+          toast(stacked ? `Stacked! +${ev.pending} on ${who}` : `+${ev.pending} for ${who}`, 'red');
+        }
+        return;
+      }
+      case 'draw': {
+        const d = D(ev.player);
+        if (ev.reshuffled) toast('Discards shuffled back into the deck');
+        if (ev.reason === 'penalty') { Sound.penalty(); if (d !== 0) say(d, `+${ev.count}`, 'red'); }
+        return;
+      }
+      case 'pass': { const d = D(ev.player); if (d !== 0 || next.spectator) say(d, 'Pass'); return; }
+      case 'uno': {
+        const d = D(ev.player);
+        Sound.uno();
+        say(d, 'UNOFFICIAL!', 'red');
+        if (d === 0 && !next.spectator) setStats((st) => ({ ...st, unoCalls: st.unoCalls + 1 }));
+        return;
+      }
+      case 'exposed': {
+        const d = D(ev.player);
+        Sound.tick();
+        toast(d === 0 && !next.spectator ? 'You missed your UNOFFICIAL! call' : `${nameOf(d)} didn't call — catch them!`, 'red');
+        return;
+      }
+      case 'catch': {
+        const by = D(ev.by);
+        const target = D(ev.target);
+        Sound.alarm();
+        if (by !== 0 || next.spectator) say(by, 'Caught you!', 'red');
+        const pen = ev.penalty || 2;
+        toast(by === 0 && !next.spectator ? `You caught ${nameOf(target)} — +${pen}` : target === 0 && !next.spectator ? `${nameOf(by)} caught you — draw ${pen}` : `${nameOf(by)} caught ${nameOf(target)} — +${pen}`, 'red');
+        if (by === 0 && !next.spectator) setStats((st) => ({ ...st, catches: st.catches + 1 }));
+        if (target === 0 && !next.spectator) setStats((st) => ({ ...st, caught: st.caught + 1 }));
+        return;
+      }
+      case 'over': {
+        if (overSeqRef.current === next.turnKey) return;
+        overSeqRef.current = next.turnKey;
+        if (next.spectator) return;
+        const won = next.winner === 0;
+        if (won) Sound.win(); else Sound.lose();
+        setStats((st) => {
+          const streak = won ? st.streak + 1 : 0;
+          return {
+            ...st, played: st.played + 1, wins: st.wins + (won ? 1 : 0), points: st.points + (won ? next.roundPoints : 0),
+            bestRound: won ? Math.max(st.bestRound, next.roundPoints) : st.bestRound, streak, bestStreak: Math.max(st.bestStreak, streak),
+          };
+        });
+        later(() => setOverOpen(true), dur(0.5) * 1000 + 200);
+        return;
+      }
+      default:
+        void prev;
+    }
   }
 
-  function humanPass() {
-    const s = store.current;
-    if (s.phase !== 'PLAYER_TURN' || !s.hasDrawn || busyRef.current) return;
-    setSelected(null);
-    dispatch({ type: 'END_TURN' });
-    dispatch({ type: 'BEGIN_TURN' });
-  }
+  // ── Your moves (sent to the server, which checks them) ─────────────────────
+  const s = display;
+  const me = s && !s.spectator ? s.players[0] : null;
+  const myTurn = !!(s && me && s.phase === 'TURN' && s.current === 0);
+  const canAct = myTurn && !animating && !sent && conn === 'open';
 
   function humanPlay(cardId) {
     Sound.unlock();
-    const s = store.current;
-    if (s.phase !== 'PLAYER_TURN' || busyRef.current || pickerRef.current) return;
-    const card = s.players[0].hand.find((c) => c.id === cardId);
+    const st = displayRef.current;
+    if (!canAct || pickerRef.current || swapRef.current || !st) return;
+    const card = st.players[0].hand.find((c) => c.id === cardId);
     if (!card) return;
-    if (!isPlayable(card, s) || (s.drawnCardId && s.drawnCardId !== cardId)) {
+    if (!isPlayable(card, st, st.players[0].hand) || (st.drawnCardId && st.drawnCardId !== cardId)) {
       Sound.error();
       setShake({ id: cardId, k: performance.now() });
       return;
     }
     if (isWild(card)) { setSelected(cardId); setPicker({ cardId }); return; }
-    playCard(0, cardId, null);
+    if (st.rules.sevenZero && card.type === 'number' && card.value === 7 && st.players[0].hand.length > 1) { setSelected(cardId); setSwapPick({ cardId }); return; }
+    lastTryRef.current = cardId;
+    if (send({ type: 'play', cardId })) setSent(true);
   }
-
   function chooseColor(color) {
     const p = pickerRef.current;
     if (!p) return;
     pickerRef.current = null;
     setPicker(null);
-    playCard(0, p.cardId, color);
+    lastTryRef.current = p.cardId;
+    if (send({ type: 'play', cardId: p.cardId, color })) setSent(true);
   }
-
-  function humanCallUno() {
+  function chooseSwap(d) {
+    const p = swapRef.current;
+    const st = displayRef.current;
+    if (!p || !st || d < 1 || d >= st.players.length) return;
+    swapRef.current = null;
+    setSwapPick(null);
+    lastTryRef.current = p.cardId;
+    if (send({ type: 'play', cardId: p.cardId, target: st.toS(d) })) setSent(true);
+  }
+  function humanDraw() {
     Sound.unlock();
-    const before = store.current;
-    const ns = dispatch({ type: 'CALL_UNO', player: 0 });
-    if (ns === before) { Sound.error(); return; }
-    Sound.uno();
-    say(0, 'UNOFFICIAL!', 'red');
-    setStats((st) => ({ ...st, unoCalls: st.unoCalls + 1 }));
+    if (!canAct || pickerRef.current || swapRef.current) return;
+    if (send({ type: 'draw' })) setSent(true);
+  }
+  function humanPass() { if (canAct && s.hasDrawn && send({ type: 'pass' })) { setSelected(null); setSent(true); } }
+  function humanCallUno() { Sound.unlock(); send({ type: 'uno' }); }
+  function humanCatch(d) {
+    const st = displayRef.current;
+    if (!st) return;
+    const target = d ?? st.players.findIndex((p, i) => i > 0 && p.uno === 'exposed');
+    if (target > 0) send({ type: 'catch', target: st.toS(target) });
   }
 
-  function humanCatch(target) {
-    const s = store.current;
-    const t = target ?? s.players.findIndex((p) => !p.isHuman && p.uno === 'exposed');
-    if (t > 0) runChallenge(t, 0);
-  }
-
-  /** A challenge: the exposed player draws two. */
-  async function runChallenge(target, by) {
-    const epoch = epochRef.current;
-    const before = store.current;
-    const ns = dispatch({ type: 'CHALLENGE', target, by });
-    if (ns === before) return;
-    catchingRef.current += 1;
-    Sound.alarm();
-    if (by !== 0) say(by, 'Caught you!', 'red');
-    toast(by === 0 ? `You caught ${nameOf(target)} — +2` : target === 0 ? `${nameOf(by)} caught you — draw 2` : `${nameOf(by)} caught ${nameOf(target)} — +2`, 'red');
-    if (by === 0) setStats((st) => ({ ...st, catches: st.catches + 1 }));
-    if (target === 0) setStats((st) => ({ ...st, caught: st.caught + 1 }));
-    await drawCards(target, 2, epoch);
-    if (alive(epoch)) catchingRef.current = Math.max(0, catchingRef.current - 1);
-  }
-
-  /** Grace window expired without a call: announce it and let AI opponents react. */
-  function onExposed(i) {
-    const epoch = epochRef.current;
-    const s = store.current;
-    Sound.tick();
-    toast(i === 0 ? 'You missed your UNOFFICIAL! call' : `${s.players[i].name} didn't call — catch them!`, 'red');
-    s.players.forEach((q, j) => {
-      if (j === i || q.isHuman) return;
-      const strategic = q.difficulty === 'strategic';
-      if (!strategic && Math.random() > 0.4) return; // Easy players often don't notice
-      later(() => { if (alive(epoch)) runChallenge(i, j); }, strategic ? rand(200, 360) : rand(800, 1500));
-    });
-  }
-
-  /** AI players call UNOFFICIAL! after a human-ish delay — Easy ones sometimes forget or call too late. */
-  function scheduleAiUnoCall(pi, epoch) {
-    const strategic = store.current.players[pi].difficulty === 'strategic';
-    if (Math.random() > (strategic ? 0.94 : 0.7)) return;
-    later(() => {
-      if (!alive(epoch)) return;
-      const before = store.current;
-      if (dispatch({ type: 'CALL_UNO', player: pi }) !== before) { Sound.uno(); say(pi, 'UNOFFICIAL!', 'red'); }
-    }, strategic ? rand(160, 700) : rand(350, 2500));
-  }
-
-  function finishRound(ns) {
-    const won = ns.winner === 0;
-    if (won) Sound.win(); else Sound.lose();
-    setStats((st) => {
-      const streak = won ? st.streak + 1 : 0;
-      return {
-        ...st, played: st.played + 1, wins: st.wins + (won ? 1 : 0), points: st.points + (won ? ns.roundPoints : 0),
-        bestRound: won ? Math.max(st.bestRound, ns.roundPoints) : st.bestRound, streak, bestStreak: Math.max(st.bestStreak, streak),
-      };
-    });
-    setMatch((m) => ({ ...m, hands: m.hands + 1, scores: { ...m.scores, [ns.winner]: (m.scores[ns.winner] || 0) + ns.roundPoints } }));
-    later(() => setOverOpen(true), dur(0.5) * 1000 + 200);
-  }
-
-  // NEW_GAME → DEAL: reset everything, deal seven cards each in rotation, flip the starter, begin.
-  async function startGame() {
+  // ── Rooms ─────────────────────────────────────────────────────────────────
+  const nameOk = () => {
+    const nm = profile.name.trim();
+    if (!nm) { setHomeErr('Pick a nickname first, so classmates know who you are.'); return null; }
+    return nm;
+  };
+  function createRoom() {
     Sound.unlock();
-    epochRef.current += 1;
-    const epoch = epochRef.current;
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current.clear();
-    resolversRef.current.clear();
-    pickerRef.current = null;
-    setFlights([]); setPicker(null); setSelected(null); setToasts([]); setBubbles({}); setOverOpen(false); setModal(null); setRipple(null);
-    catchingRef.current = 0;
-    handledTurnRef.current = -1;
-    busyRef.current = true;
-
-    const st = settingsRef.current;
-    const opponents = Array.from({ length: st.opponents }, (_, i) => ({ name: OPPONENT_NAMES[i], difficulty: st.difficulties[i] }));
-    const rosterKey = opponents.map((o) => `${o.name}:${o.difficulty}`).join('|');
-    setMatch((m) => (m.key === rosterKey ? m : { key: rosterKey, hands: 0, scores: {} }));
-    const n = opponents.length + 1;
-    const starter = Math.floor(Math.random() * n);
-    dispatch({ type: 'NEW_GAME', opponents, stacking: st.stacking, deck: shuffle(buildDeck()), starter });
-
-    await nextFrame();
-    await nextFrame(); // the table has mounted; deck / seat / hand geometry is measurable
-    if (!alive(epoch)) return;
-    const landings = [];
-    for (let r = 0; r < HAND_SIZE; r++) {
-      for (let k = 0; k < n; k++) {
-        const pi = (starter + k) % n;
-        const card = dispatch({ type: 'DRAW_ONE', player: pi }).lastDraw.card;
-        Sound.deal();
-        landings.push(fly({
-          card, toSeat: pi === 0 ? null : pi,
-          from: deckPoint(), to: pi === 0 ? () => handSlotPoint(card.id) : seatPoint(pi),
-          faceFrom: false, faceTo: pi === 0, duration: dur(0.22), ease: EASE_DEAL, arc: 24, pop: 0.04,
-        }));
-        await wait(0.045);
-        if (!alive(epoch)) return;
-      }
-    }
-    await Promise.all(landings);
-    if (!alive(epoch)) return;
-    const rot = rand(-10, 10);
-    const top = dispatch({ type: 'FLIP_START', rot }).discard[0].card;
-    Sound.flip();
-    await fly({ card: top, from: deckPoint(), to: discardPoint(rot), faceFrom: false, faceTo: true, duration: dur(0.26), ease: EASE_PLAY, arc: 30 });
-    if (!alive(epoch)) return;
-    Sound.play();
-    await wait(0.1);
-    if (!alive(epoch)) return;
-    dispatch({ type: 'BEGIN_TURN' });
-    busyRef.current = false;
-    toast(starter === 0 ? 'You lead off' : `${opponents[starter - 1].name} leads off`);
+    const nm = nameOk(); if (!nm) return;
+    send({ type: 'name', name: nm });
+    send({ type: 'create', settings: { stacking: settings.stacking, speed: settings.speed, private: true } });
   }
-
-  // ── Turn driver: whenever a new turn begins, hand control to the AI or prime the human turn.
+  function quickPlay() {
+    Sound.unlock();
+    const nm = nameOk(); if (!nm) return;
+    send({ type: 'name', name: nm });
+    send({ type: 'quick', settings: { stacking: settings.stacking, speed: settings.speed } });
+  }
+  function joinRoom(codeArg) {
+    Sound.unlock();
+    const nm = nameOk(); if (!nm) return;
+    const code = codeFromInput(typeof codeArg === 'string' ? codeArg : joinCode);
+    if (!code) { setHomeErr('That doesn’t look like a room code. It’s the 5 letters and numbers at the end of the room link.'); return; }
+    wantRoomRef.current = code;
+    send({ type: 'name', name: nm });
+    send({ type: 'join', room: code, name: nm });
+  }
+  function practice() {
+    Sound.unlock();
+    const nm = profile.name.trim();
+    if (nm) send({ type: 'name', name: nm });
+    send({ type: 'solo', bots: settings.difficulties.slice(0, settings.opponents), settings: { stacking: settings.stacking, speed: settings.speed } });
+  }
+  function leaveRoom() { setModal(null); send({ type: 'leave' }); }
+  const roomLink = room ? `${location.origin}/unofficial/room/${room.id}` : '';
+  function copyLink() {
+    const done = () => toast('Link copied');
+    try { navigator.clipboard.writeText(roomLink).then(done, () => toast('Select the link and copy it')); } catch { toast('Select the link and copy it'); }
+  }
+  // The open-rooms list refreshes while you're on the home screen.
+  const onHome = !room && homeTab === 'class' && conn === 'open';
   useEffect(() => {
-    const s = store.current;
-    if (handledTurnRef.current === s.turnKey) return;
-    if (s.phase === 'AI_TURN') { handledTurnRef.current = s.turnKey; runAiTurn(s.turnKey); }
-    else if (s.phase === 'PLAYER_TURN') { handledTurnRef.current = s.turnKey; humanTurnStart(s.turnKey); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.phase, state.turnKey]);
-
-  // ── UNOFFICIAL! window ticker: expire grace periods (2 s) into exposures.
-  const api = useRef({});
-  useEffect(() => {
-    const id = setInterval(() => {
-      const s = store.current;
-      const now = performance.now();
-      s.players.forEach((p, i) => {
-        if (p.uno === 'grace' && now >= p.unoDeadline) {
-          const before = store.current;
-          if (dispatch({ type: 'UNO_EXPIRE', player: i, now }) !== before) api.current.onExposed(i);
-        }
-      });
-    }, 100);
+    if (!onHome) return undefined;
+    send({ type: 'rooms' });
+    const id = setInterval(() => send({ type: 'rooms' }), 4000);
     return () => clearInterval(id);
-  }, [dispatch, store]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onHome]);
+  useEffect(() => {
+    const onPop = () => { if (!roomFromPath() && roomRef.current) send({ type: 'leave' }); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // ── Keyboard: Space draw/keep · 1–9,0 select (again = play) · ←/→ · Enter play · U call · C catch · M mute
+  // ── Keyboard ──────────────────────────────────────────────────────────────
   function onKey(e) {
     Sound.unlock();
     const k = e.key.toLowerCase();
-    const s = store.current;
     if (pickerRef.current) {
       const map = { r: 'red', y: 'yellow', g: 'green', b: 'blue', 1: 'red', 2: 'yellow', 3: 'green', 4: 'blue' };
       if (map[k]) { e.preventDefault(); chooseColor(map[k]); } else if (k === 'escape') { setPicker(null); setSelected(null); }
       return;
     }
+    if (swapRef.current) {
+      if (/^[1-7]$/.test(k)) { e.preventDefault(); chooseSwap(Number(k)); } else if (k === 'escape') { setSwapPick(null); setSelected(null); }
+      return;
+    }
     if (modal) { if (k === 'escape') setModal(null); return; }
     if (k === 'm') { setSettings((x) => ({ ...x, sound: !x.sound })); return; }
-    if (s.phase === 'MENU' || overOpen || s.phase === 'GAME_OVER') {
-      if (k === 'enter' || (k === ' ' && s.phase !== 'MENU')) { e.preventDefault(); startGame(); }
+    const st = displayRef.current;
+    if (!room || !st || st.spectator) return;
+    if (st.phase === 'GAME_OVER') {
+      if ((k === 'enter' || k === ' ') && room.host) { e.preventDefault(); send({ type: 'start' }); }
       else if (k === 'escape') setOverOpen(false);
       return;
     }
-    const hand = s.players[0].hand;
-    if (k === ' ') { e.preventDefault(); humanDraw(); return; }
+    const hand = st.players[0].hand;
+    if (k === ' ') { e.preventDefault(); if (st.hasDrawn && st.pendingDraw === 0) humanPass(); else humanDraw(); return; }
     if (k === 'u') { humanCallUno(); return; }
     if (k === 'c') { humanCatch(); return; }
     if (/^[0-9]$/.test(k)) {
@@ -1675,7 +1621,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     }
     if (k === 'enter' && selected) { e.preventDefault(); humanPlay(selected); }
   }
-  api.current = { onExposed, onKey };
+  api.current = { onMessage, onKey };
   useEffect(() => {
     const handler = (e) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1687,26 +1633,23 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   }, []);
 
   // ── Derived view state ─────────────────────────────────────────────────────
-  const s = state;
-  const inGame = s.phase !== 'MENU';
-  const me = s.players[0];
-  const myTurn = s.phase === 'PLAYER_TURN';
+  const screen = !room ? 'home' : (room.status === 'waiting' || !s || s.spectator) ? 'lobby' : 'table';
   const flyingIds = useMemo(() => new Set(flights.map((f) => f.card.id)), [flights]);
   const incoming = useMemo(() => {
-    const m = {};
-    flights.forEach((f) => { if (f.toSeat) m[f.toSeat] = (m[f.toSeat] || 0) + 1; });
-    return m;
+    const out = {};
+    flights.forEach((f) => { if (f.toSeat) out[f.toSeat] = (out[f.toSeat] || 0) + 1; });
+    return out;
   }, [flights]);
   const playableIds = useMemo(() => {
     if (!myTurn || !me) return new Set();
-    return new Set(me.hand.filter((c) => isPlayable(c, s) && (!s.drawnCardId || s.drawnCardId === c.id)).map((c) => c.id));
+    return new Set(me.hand.filter((c) => isPlayable(c, s, me.hand) && (!s.drawnCardId || s.drawnCardId === c.id)).map((c) => c.id));
   }, [s, me, myTurn]);
-  const visibleDiscard = s.discard.filter((e) => !flyingIds.has(e.card.id));
-  const shownColor = visibleDiscard.length ? visibleDiscard[visibleDiscard.length - 1].color : s.currentColor;
-  const exposedOpps = s.players.filter((p) => !p.isHuman && p.uno === 'exposed').map((p) => p.id);
-  const canDraw = myTurn && !picker && !(s.hasDrawn && s.pendingDraw === 0);
-  const forcedDraw = myTurn && playableIds.size === 0 && !s.hasDrawn;
-  const n = s.players.length;
+  const visibleDiscard = s ? s.discard.filter((e) => !flyingIds.has(e.card.id)) : [];
+  const shownColor = visibleDiscard.length ? visibleDiscard[visibleDiscard.length - 1].color : s?.currentColor;
+  const exposedOpps = s ? s.players.map((p, i) => (i > 0 && p.uno === 'exposed' ? i : -1)).filter((i) => i > 0) : [];
+  const canDraw = canAct && !picker && !(s.hasDrawn && s.pendingDraw === 0);
+  const mustDraw = myTurn && playableIds.size === 0 && !s.hasDrawn;
+  const inGameRoom = screen === 'table';
 
   let unoMode = 'idle';
   if (me) {
@@ -1716,44 +1659,43 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   }
 
   let banner = { text: '', tone: 'muted' };
-  if (s.phase === 'DEAL') banner = { text: 'Dealing', tone: 'muted', dots: true };
-  else if (s.phase === 'GAME_OVER') banner = { text: s.winner === 0 ? 'You win the hand!' : `${s.players[s.winner].name} wins the hand`, tone: s.winner === 0 ? 'win' : 'ink' };
-  else if (inGame) {
+  if (s && inGameRoom) {
     const p = s.players[s.current];
-    if (p.isHuman) {
-      if (s.pendingDraw > 0) banner = { text: playableIds.size ? `Stack it, or take +${s.pendingDraw}` : `Taking +${s.pendingDraw}`, tone: 'alert' };
+    if (s.phase === 'DEAL') banner = { text: 'Dealing', tone: 'muted', dots: true };
+    else if (s.phase === 'GAME_OVER') banner = { text: s.winner === 0 ? 'You win the hand!' : `${s.players[s.winner].name} wins the hand`, tone: s.winner === 0 ? 'win' : 'ink' };
+    else if (s.current === 0) {
+      if (s.pendingDraw > 0) banner = { text: playableIds.size ? `Stack it, or take +${s.pendingDraw}` : `Tap the deck to take +${s.pendingDraw}`, tone: 'alert', clock: true };
       else if (s.hasDrawn) banner = { text: playableIds.size ? 'Play the drawn card — or keep it' : 'No luck — passing', tone: 'you' };
-      else if (!playableIds.size) banner = { text: 'No match — drawing', tone: 'you', dots: true };
-      else banner = { text: 'Your turn', tone: 'you' };
-    } else {
-      banner = s.pendingDraw > 0
-        ? { text: `${p.name} faces +${s.pendingDraw}`, tone: 'alert' }
-        : { text: `${p.name} is thinking`, tone: 'muted', dots: true };
-    }
+      else if (!playableIds.size) banner = { text: 'Nothing fits — tap the deck', tone: 'you', clock: true };
+      else banner = { text: 'Your turn', tone: 'you', clock: true };
+    } else if (s.pendingDraw > 0) banner = { text: `${p.name} faces +${s.pendingDraw}`, tone: 'alert', clock: p.isHuman };
+    else banner = { text: `${p.name} is ${p.isHuman && !p.online ? 'away — a bot will play' : 'thinking'}`, tone: 'muted', dots: true, clock: p.isHuman };
   }
 
+  // Opponents sit clockwise from your left: up the left side, across the top, down the right.
   const seatOrder = (() => {
-    const opp = s.players.slice(1).map((p) => p.id);
-    if (!sizes.wide) return { row: opp };
-    if (opp.length === 1) return { top: opp[0] };
-    if (opp.length === 2) return { left: opp[0], right: opp[1] };
-    return { left: opp[0], top: opp[1], right: opp[2] };
+    const opp = s ? s.players.slice(1).map((_, i) => i + 1) : [];
+    const k = opp.length;
+    if (!sizes.wide) return { rows: k > 4 ? [opp.slice(0, Math.ceil(k / 2)), opp.slice(Math.ceil(k / 2))] : [opp] };
+    const side = k <= 1 ? 0 : k <= 5 ? 1 : 2;
+    return { left: opp.slice(0, side).reverse(), top: opp.slice(side, k - side), right: opp.slice(k - side) };
   })();
 
-  const renderSeat = (pi) => {
-    if (pi === undefined) return null;
-    const p = s.players[pi];
+  const renderSeat = (d) => {
+    if (d === undefined || !s) return null;
+    const p = s.players[d];
     return (
-      <Seat key={pi} player={p} index={pi} count={Math.max(0, p.hand.length - (incoming[pi] || 0))}
-        active={s.current === pi && ['AI_TURN', 'TRANSITION'].includes(s.phase)}
-        thinking={s.current === pi && s.phase === 'AI_TURN' && flights.length === 0}
-        compact={!sizes.wide} cardW={sizes.opp} bubble={bubbles[pi]} onCatch={() => humanCatch(pi)} fanRef={seatRef(pi)} />
+      <Seat key={d} player={p} index={p.seat % SEAT_TONES.length} count={Math.max(0, p.count - (incoming[d] || 0))}
+        active={s.current === d && ['TURN', 'TRANSITION'].includes(s.phase)}
+        thinking={s.current === d && s.phase === 'TURN' && flights.length === 0}
+        compact={!sizes.wide} tight={!sizes.wide && s.players.length > 5} cardW={sizes.opp} bubble={bubbles[d]} onCatch={() => humanCatch(d)} fanRef={seatRef(d)} />
     );
   };
 
   const pileH = Math.round(sizes.pile * 1.4);
   const wellD = Math.round(pileH * 1.3);
-  const deckLayers = clamp(Math.ceil(s.drawPile.length / 20), s.drawPile.length ? 1 : 0, 4);
+  const drawLeft = s?.drawPile.length || 0;
+  const deckLayers = clamp(Math.ceil(drawLeft / 20), drawLeft ? 1 : 0, 4);
   const bannerStyle = {
     you: { background: INK, color: CREAM },
     alert: { background: PALETTE.red.base, color: CREAM },
@@ -1761,19 +1703,22 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     ink: { background: INK, color: CREAM },
     muted: { background: 'rgba(251,247,239,0.75)', color: INK, boxShadow: '0 0 0 1px rgba(38,32,24,0.08)' },
   }[banner.tone];
+  const handCards = me?.hand ?? [];
+  const showKeys = sizes.wide && !sizes.coarse && myTurn;
+  const myScore = me ? me.score : 0;
 
-  const center = (
+  const center = s && (
     <div className="flex flex-col items-center" style={{ gap: sizes.wide ? 14 : 8 }}>
       <div className="flex h-9 items-center justify-center" role="status" aria-live="polite">
         {banner.text && (
-            <motion.div key={banner.text} initial={{ opacity: 0, y: 5, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.14 }}
-              className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-bold ${banner.tone === 'you' ? 'uo-pulse' : ''}`}
-              style={{ ...bannerStyle, '--uo-pulse': 'rgba(38,39,43,0.3)' }}>
-              {banner.tone === 'you' && shownColor && <span className="h-2.5 w-2.5 rounded-full" style={{ background: PALETTE[shownColor].base, boxShadow: `0 0 0 2px ${CREAM}` }} />}
-              {banner.text}
-              {banner.dots && <ThinkingDots />}
-            </motion.div>
+          <motion.div key={banner.text} initial={{ opacity: 0, y: 5, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.14 }}
+            className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-bold ${banner.tone === 'you' ? 'uo-pulse' : ''}`}
+            style={{ ...bannerStyle, '--uo-pulse': 'rgba(38,39,43,0.3)' }}>
+            {banner.tone === 'you' && shownColor && <span className="h-2.5 w-2.5 rounded-full" style={{ background: PALETTE[shownColor].base, boxShadow: `0 0 0 2px ${CREAM}` }} />}
+            {banner.text}
+            {banner.clock && <Countdown deadline={s.turnDeadline} under={s.current === 0 ? 12 : 10} />}
+            {banner.dots && <ThinkingDots />}
+          </motion.div>
         )}
       </div>
 
@@ -1781,24 +1726,24 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         {/* Draw deck */}
         <div className="flex flex-col items-center gap-2">
           <motion.button
-            ref={deckRef} type="button" data-deck="1" onClick={() => { Sound.unlock(); humanDraw(); }} disabled={!canDraw}
+            ref={deckRef} type="button" data-deck="1" onClick={humanDraw} disabled={!canDraw}
             aria-label={s.pendingDraw > 0 && myTurn ? `Take +${s.pendingDraw} (Space)` : 'Draw a card (Space)'}
-            className={`relative ${forcedDraw || (myTurn && s.pendingDraw > 0) ? 'uo-pulse' : ''}`}
+            className={`relative ${canDraw && (mustDraw || s.pendingDraw > 0) ? 'uo-pulse' : ''}`}
             style={{ width: sizes.pile, height: pileH, borderRadius: cardRadius(sizes.pile), cursor: canDraw ? 'pointer' : 'default', '--uo-pulse': 'rgba(195,51,58,0.45)' }}
             whileHover={canDraw ? { y: -4 } : undefined} whileTap={canDraw ? { scale: 0.96 } : undefined}
             transition={{ type: 'spring', stiffness: 600, damping: 30 }}
           >
             {deckLayers === 0 && <div className="absolute inset-0 border-2 border-dashed" style={{ borderRadius: cardRadius(sizes.pile), borderColor: 'rgba(38,39,43,0.2)' }} />}
             {Array.from({ length: deckLayers }, (_, i) => {
-              const d = deckLayers - 1 - i;
+              const dd = deckLayers - 1 - i;
               return (
-                <div key={i} className="absolute inset-0" style={{ transform: `translate(${d * 1.6}px, ${d * 1.6}px)`, borderRadius: cardRadius(sizes.pile), boxShadow: SHADOW_REST }}>
+                <div key={i} className="absolute inset-0" style={{ transform: `translate(${dd * 1.6}px, ${dd * 1.6}px)`, borderRadius: cardRadius(sizes.pile), boxShadow: SHADOW_REST }}>
                   <CardBack w={sizes.pile} />
                 </div>
               );
             })}
           </motion.button>
-          <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'rgba(38,39,43,0.55)' }}>{s.drawPile.length} left</span>
+          <span className="text-[11px] font-semibold tabular-nums" style={{ color: 'rgba(38,39,43,0.55)' }}>{drawLeft} left</span>
         </div>
 
         {/* Discard well: ring shows the active colour, arrows show play direction */}
@@ -1836,8 +1781,86 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     </div>
   );
 
-  const handCards = me?.hand ?? [];
-  const showKeys = sizes.wide && !sizes.coarse && myTurn;
+  const home = (
+    <div className="mx-auto flex min-h-full max-w-[980px] flex-col items-center justify-center gap-8 px-5 py-8 md:flex-row md:gap-14">
+      <div className="flex flex-col items-center text-center md:items-start md:text-left">
+        <SampleFan w={sizes.wide ? 92 : 70} />
+        <h1 className="mt-4 font-black italic leading-none" style={{ fontSize: sizes.wide ? 56 : 42, letterSpacing: '-0.045em' }}>
+          Un<span style={{ color: PALETTE.red.base }}>Official</span>
+        </h1>
+        <p className="mt-3 max-w-[340px] text-[15px] leading-snug" style={{ color: 'rgba(38,39,43,0.68)' }}>
+          Match the colour, number or symbol. Empty your hand first, and shout <b>UNOFFICIAL!</b> when you’re down to one, or draw two.
+          Play with classmates, bots, or both.
+        </p>
+        <div className="mt-5 flex gap-5 text-sm">
+          <div><b className="text-lg tabular-nums">{stats.wins}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>wins</span></div>
+          <div><b className="text-lg tabular-nums">{stats.played}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>played</span></div>
+          <div><b className="text-lg tabular-nums">{winRate(stats)}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>win rate</span></div>
+        </div>
+      </div>
+      <Panel className="max-w-[460px]">
+        <label htmlFor="uo-nick" className="text-sm font-bold">Your nickname</label>
+        <div className="mt-2"><TextInput id="uo-nick" label="Your nickname" value={profile.name} placeholder="e.g. Sam"
+          onChange={(v) => { setProfile((p) => ({ ...p, name: v.slice(0, 18) })); setHomeErr(''); }} /></div>
+        <div className="mt-5"><Segmented id="home-tab" value={homeTab} onChange={(v) => { setHomeTab(v); setHomeErr(''); }}
+          options={[{ value: 'class', label: 'With classmates', icon: Users }, { value: 'practice', label: 'Practice', icon: Bot }]} /></div>
+        {homeTab === 'class' ? (
+          <div className="mt-5 flex flex-col gap-4">
+            <div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <PrimaryButton className="flex-1" onClick={quickPlay}>Play now</PrimaryButton>
+                <GhostButton onClick={createRoom}>Create a private room</GhostButton>
+              </div>
+              <div className="mt-2 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>
+                Play now puts you in an open room, or opens one for others to join. A private room is only reachable by its link or code. Either way, the host sets the seats and house rules and fills empty seats with bots.
+              </div>
+            </div>
+            <div className="h-px" style={{ background: 'rgba(38,39,43,0.1)' }} />
+            <div>
+              <label htmlFor="uo-code" className="text-sm font-bold">Join a classmate</label>
+              <div className="text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>Type their room code, or paste the link.</div>
+              <div className="mt-3 flex gap-2">
+                <TextInput id="uo-code" label="Room code" value={joinCode} placeholder="Room code" maxLength={200} onEnter={joinRoom}
+                  onChange={(v) => { setJoinCode(v); setHomeErr(''); }} />
+                <GhostButton onClick={joinRoom}>Join</GhostButton>
+              </div>
+            </div>
+            <div className="h-px" style={{ background: 'rgba(38,39,43,0.1)' }} />
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-bold">Open rooms</div>
+                <IconButton label="Refresh open rooms" onClick={() => send({ type: 'rooms' })}><RefreshCw size={16} /></IconButton>
+              </div>
+              {!openRooms || !openRooms.length ? (
+                <div className="mt-1 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>{openRooms ? 'No open rooms right now. Press Play now to open one.' : 'Looking for rooms…'}</div>
+              ) : (
+                <div className="mt-1 flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
+                  {openRooms.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl px-3 py-1.5" style={{ background: 'rgba(38,39,43,0.045)' }}>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{r.host ? `${r.host}’s room` : `Room ${r.id}`}</div>
+                        <div className="text-xs tabular-nums" style={{ color: 'rgba(38,39,43,0.55)' }}>
+                          {r.players}/{r.max} seats{r.bots ? ` · ${r.bots} bot${r.bots === 1 ? '' : 's'}` : ''} · {r.status === 'waiting' ? 'Waiting' : 'Playing'}
+                        </div>
+                      </div>
+                      <GhostButton onClick={() => { setJoinCode(r.id); joinRoom(r.id); }}>{r.status === 'waiting' && r.players < r.max ? 'Join' : 'Watch'}</GhostButton>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <SetupPanel scope="practice" settings={settings} onChange={setSettings} />
+            <PrimaryButton className="mt-6 w-full" onClick={practice}>Deal cards</PrimaryButton>
+          </div>
+        )}
+        {homeErr && <p role="alert" className="mt-3 text-sm font-semibold" style={{ color: PALETTE.red.base }}>{homeErr}</p>}
+        {conn !== 'open' && <p className="mt-3 flex items-center gap-2 text-xs font-semibold" style={{ color: 'rgba(38,39,43,0.55)' }}>Connecting to the game server <ThinkingDots /></p>}
+      </Panel>
+    </div>
+  );
 
   return (
     <div className="relative w-full select-none overflow-hidden" onPointerDown={() => Sound.unlock()}
@@ -1856,22 +1879,30 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
             )}
             <Wordmark size={sizes.wide ? 22 : 19} />
           </div>
-          {inGame && sizes.wide && (
+          {room && sizes.wide && (
             <div className="absolute left-1/2 -translate-x-1/2 text-xs font-semibold" style={{ color: 'rgba(38,39,43,0.5)' }}>
-              Hand {match.hands + (s.phase === 'GAME_OVER' ? 0 : 1)} · You {match.scores[0] || 0} pts · {s.rules.stacking ? 'Stacking on' : 'No stacking'} · {SPEEDS[settings.speed].label}
+              Room {room.id} · Hand {room.hands + (room.status === 'over' ? 0 : 1)} · You {myScore} pts · {room.settings.stacking ? 'Stacking on' : 'No stacking'} · {SPEEDS[room.settings.speed]?.label}
             </div>
           )}
           <div className="flex items-center">
+            {conn !== 'open' && <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold" style={{ color: PALETTE.red.base }}><WifiOff size={15} />{sizes.wide ? 'Reconnecting' : ''}</span>}
             <IconButton label="Statistics" onClick={() => setModal('stats')}><BarChart3 size={19} /></IconButton>
             <IconButton label="Settings" onClick={() => setModal('settings')}><Settings2 size={19} /></IconButton>
             <IconButton label={settings.sound ? 'Mute (M)' : 'Unmute (M)'} onClick={() => setSettings((x) => ({ ...x, sound: !x.sound }))}>
               {settings.sound ? <Volume2 size={19} /> : <VolumeX size={19} />}
             </IconButton>
-            {inGame && <IconButton label="New hand" onClick={startGame}><RotateCcw size={18} /></IconButton>}
+            {room && <IconButton label="Leave room" onClick={() => (inGameRoom && room.status === 'playing' ? setModal('leave') : leaveRoom())}><LogOut size={18} /></IconButton>}
           </div>
         </header>
 
-        {inGame && (
+        {screen === 'home' && <div className="min-h-0 flex-1 overflow-y-auto">{home}</div>}
+        {screen === 'lobby' && room && (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Lobby room={room} onSend={send} onCopy={copyLink} onLeave={leaveRoom} link={roomLink} wide={sizes.wide} />
+          </div>
+        )}
+
+        {screen === 'table' && s && (
           <>
             {/* Table */}
             <div className="relative min-h-0 flex-1">
@@ -1879,24 +1910,23 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
                 style={{ background: MAT, borderRadius: sizes.wide ? 44 : 28, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45), inset 0 0 0 1px rgba(38,32,24,0.06)' }} />
               {sizes.wide ? (
                 <div className="relative grid h-full" style={{ gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', gridTemplateRows: 'auto minmax(0,1fr)' }}>
-                  <div className="col-start-2 row-start-1 flex justify-center pt-6">{renderSeat(seatOrder.top)}</div>
-                  <div className="col-start-1 row-start-2 flex items-center justify-center px-4 pb-6">{renderSeat(seatOrder.left)}</div>
+                  <div className="col-span-3 col-start-1 row-start-1 flex justify-center gap-10 pt-6">{seatOrder.top.map(renderSeat)}</div>
+                  <div className="col-start-1 row-start-2 flex flex-col items-center justify-center gap-10 px-4 pb-6">{seatOrder.left.map(renderSeat)}</div>
                   <div className="col-start-2 row-start-2 flex items-center justify-center px-2 pb-4">{center}</div>
-                  <div className="col-start-3 row-start-2 flex items-center justify-center px-4 pb-6">{renderSeat(seatOrder.right)}</div>
+                  <div className="col-start-3 row-start-2 flex flex-col items-center justify-center gap-10 px-4 pb-6">{seatOrder.right.map(renderSeat)}</div>
                 </div>
               ) : (
                 <div className="relative flex h-full flex-col">
-                  <div className="flex shrink-0 justify-around px-4 pt-3">{seatOrder.row.map(renderSeat)}</div>
+                  {seatOrder.rows.map((row, ri) => <div key={ri} className="flex shrink-0 justify-around gap-1 px-3 pt-3">{row.map(renderSeat)}</div>)}
                   <div className="flex min-h-0 flex-1 items-center justify-center pb-10 pt-2">{center}</div>
                 </div>
               )}
               {/* Toasts */}
-              <div className={`pointer-events-none absolute bottom-3 z-20 flex flex-col gap-1.5 ${sizes.wide ? 'left-8 bottom-6 items-start' : 'inset-x-0 items-center'}`}>
+              <div className={`pointer-events-none absolute bottom-3 z-20 flex flex-col gap-1.5 ${sizes.wide ? 'bottom-6 left-8 items-start' : 'inset-x-0 items-center'}`}>
                 <AnimatePresence initial={false}>
                   {toasts.map((t) => (
                     <motion.div key={t.id} layout initial={{ opacity: 0, y: 8, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }}
-                      transition={{ duration: 0.16 }}
-                      className="rounded-full px-3 py-1 text-xs font-bold"
+                      transition={{ duration: 0.16 }} className="rounded-full px-3 py-1 text-xs font-bold"
                       style={{ background: t.tone === 'red' ? PALETTE.red.base : INK, color: CREAM, boxShadow: SHADOW_SMALL }}>
                       {t.text}
                     </motion.div>
@@ -1911,18 +1941,20 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
                 <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2">
                   <AnimatePresence>{bubbles[0] && <Bubble key={bubbles[0].id} text={bubbles[0].text} tone={bubbles[0].tone} />}</AnimatePresence>
                 </div>
-                <UnoButton mode={unoMode} onClick={humanCallUno} deadline={me?.unoDeadline} compact={!sizes.wide} />
+                {s.rules.unoPenalty !== 0 && <UnoButton mode={unoMode} onClick={humanCallUno} deadline={s.graceDeadline} compact={!sizes.wide} />}
               </div>
-              {exposedOpps.map((id) => (
-                <PrimaryButton key={id} tone={PALETTE.yellow.shade} onClick={() => humanCatch(id)} kbd={sizes.wide ? 'C' : null}>
-                  <Siren size={17} /> Catch {s.players[id].name}
+              {exposedOpps.map((d) => (
+                <PrimaryButton key={d} tone={PALETTE.yellow.shade} onClick={() => humanCatch(d)} kbd={sizes.wide ? 'C' : null}>
+                  <Siren size={17} /> Catch {s.players[d].name}
                 </PrimaryButton>
               ))}
               {myTurn && s.hasDrawn && playableIds.size > 0 && <GhostButton onClick={humanPass} kbd={sizes.wide ? 'Space' : null}>Keep card</GhostButton>}
               {myTurn && s.pendingDraw > 0 && playableIds.size > 0 && (
-                <GhostButton onClick={() => humanDraw()} kbd={sizes.wide ? 'Space' : null}>Take +{s.pendingDraw}</GhostButton>
+                <GhostButton onClick={humanDraw} kbd={sizes.wide ? 'Space' : null}>Take +{s.pendingDraw}</GhostButton>
               )}
-              {s.phase === 'GAME_OVER' && !overOpen && <PrimaryButton onClick={startGame} kbd={sizes.wide ? '↵' : null}>Deal next hand</PrimaryButton>}
+              {s.phase === 'GAME_OVER' && !overOpen && (room.host
+                ? <PrimaryButton onClick={() => send({ type: 'start' })} kbd={sizes.wide ? '↵' : null}>Deal next hand</PrimaryButton>
+                : <span className="flex items-center gap-2 text-sm font-semibold">Waiting for {room.hostName || 'the host'} to deal <ThinkingDots /></span>)}
               {sizes.wide && !sizes.coarse && (
                 <div className="absolute right-5 top-1/2 hidden -translate-y-1/2 text-[11px] font-medium lg:block" style={{ color: 'rgba(38,39,43,0.45)' }}>
                   <b>Space</b> draw · <b>1–9</b> pick · <b>↵</b> play · <b>U</b> call · <b>C</b> catch · <b>M</b> mute
@@ -1930,7 +1962,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
               )}
             </div>
 
-            {/* Player hand */}
+            {/* Your hand */}
             <div className="relative z-10 shrink-0 pb-[max(8px,env(safe-area-inset-bottom))]">
               <div ref={handRef} className="relative mx-auto" style={{ width: sizes.handWidth, height: layout.height }}>
                 {handCards.map((c, i) => {
@@ -1938,12 +1970,12 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
                   if (!slot) return null;
                   const playable = playableIds.has(c.id);
                   const isSel = selected === c.id;
-                  const lift = isSel ? LIFT_SELECTED : playable ? LIFT_PLAYABLE : 0;
+                  const lift = isSel ? LIFT_SELECTED : playable && canAct ? LIFT_PLAYABLE : 0;
                   const shaking = shake?.id === c.id;
                   const r = cardRadius(sizes.hand);
                   return (
                     <motion.button
-                      key={c.id} type="button" data-card={c.id} data-playable={playable ? '1' : '0'}
+                      key={c.id} type="button" data-card={c.id} data-playable={playable && canAct ? '1' : '0'}
                       aria-label={`${cardLabel(c)}${playable ? '' : ', not playable'}`}
                       onClick={() => humanPlay(c.id)}
                       className="absolute top-0 outline-none"
@@ -1980,35 +2012,6 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         {flights.map((f) => <FlyingCard key={f.id} f={f} base={sizes.pile} onDone={onFlightDone} />)}
       </div>
 
-      {/* Start screen */}
-      <AnimatePresence>
-        {s.phase === 'MENU' && (
-          <motion.div className="absolute inset-x-0 bottom-0 top-14 z-30 overflow-y-auto" style={{ background: TABLE }}
-            exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-            <div className="mx-auto flex min-h-full max-w-[980px] flex-col items-center justify-center gap-8 px-5 py-8 md:flex-row md:gap-14">
-              <div className="flex flex-col items-center text-center md:items-start md:text-left">
-                <SampleFan w={sizes.wide ? 92 : 70} />
-                <h1 className="mt-4 font-black italic leading-none" style={{ fontSize: sizes.wide ? 56 : 42, letterSpacing: '-0.045em' }}>
-                  Un<span style={{ color: PALETTE.red.base }}>Official</span>
-                </h1>
-                <p className="mt-3 max-w-[340px] text-[15px] leading-snug" style={{ color: 'rgba(38,39,43,0.68)' }}>
-                  Match the color, number or symbol. Empty your hand first — and shout <b>UNOFFICIAL!</b> when you’re down to one, or pay two.
-                </p>
-                <div className="mt-5 flex gap-5 text-sm">
-                  <div><b className="text-lg tabular-nums">{stats.wins}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>wins</span></div>
-                  <div><b className="text-lg tabular-nums">{stats.played}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>played</span></div>
-                  <div><b className="text-lg tabular-nums">{winRate(stats)}</b> <span style={{ color: 'rgba(38,39,43,0.55)' }}>win rate</span></div>
-                </div>
-              </div>
-              <div className="w-full max-w-[460px] rounded-3xl p-5 sm:p-6" style={{ background: CREAM, boxShadow: '0 24px 50px -24px rgba(30,25,18,0.4), 0 0 0 1px rgba(38,32,24,0.06)' }}>
-                <SetupPanel scope="menu" settings={settings} onChange={setSettings} />
-                <PrimaryButton className="mt-6 w-full" onClick={startGame} kbd={sizes.wide ? '↵' : null}>Deal cards</PrimaryButton>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Wild colour picker */}
       <AnimatePresence>
         {picker && (
@@ -2018,7 +2021,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
             <motion.div role="dialog" aria-label="Choose a color" className="rounded-3xl p-4 sm:p-5"
               style={{ background: CREAM, boxShadow: '0 30px 60px -20px rgba(30,25,18,0.5)' }}
               initial={{ scale: 0.9, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: 'spring', stiffness: 600, damping: 34 }}>
-              <div className="mb-3 text-center text-sm font-bold">Choose a color</div>
+              <div className="mb-3 text-center text-sm font-bold">Choose a colour</div>
               <div className="grid grid-cols-2 gap-2.5">
                 {COLORS.map((c, i) => (
                   <motion.button key={c} type="button" onClick={() => chooseColor(c)} aria-label={`${PALETTE[c].name} (${PALETTE[c].key})`}
@@ -2035,9 +2038,34 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         )}
       </AnimatePresence>
 
-      {/* Game over */}
-      <Modal open={overOpen && s.phase === 'GAME_OVER'} onClose={() => setOverOpen(false)} label="Hand result" width={480}>
-        {s.phase === 'GAME_OVER' && (
+      {/* Sevens & zeros: who to swap hands with */}
+      <AnimatePresence>
+        {swapPick && s && (
+          <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: 'rgba(32,29,24,0.3)' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}
+            onPointerDown={(e) => { if (e.target === e.currentTarget) { setSwapPick(null); setSelected(null); } }}>
+            <motion.div role="dialog" aria-label="Swap hands with" className="w-full max-w-[340px] rounded-3xl p-4 sm:p-5"
+              style={{ background: CREAM, boxShadow: '0 30px 60px -20px rgba(30,25,18,0.5)' }}
+              initial={{ scale: 0.9, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: 'spring', stiffness: 600, damping: 34 }}>
+              <div className="mb-1 flex items-center gap-2 text-sm font-bold"><ArrowRightLeft size={16} /> Swap hands with…</div>
+              <div className="mb-3 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>You’ll have {Math.max(0, (me?.hand.length || 1) - 1)} cards after playing the 7.</div>
+              <div className="flex flex-col gap-1.5">
+                {s.players.slice(1).map((p, i) => (
+                  <motion.button key={p.seat} type="button" whileTap={{ scale: 0.98 }} onClick={() => chooseSwap(i + 1)}
+                    className="flex min-h-[48px] items-center justify-between rounded-2xl px-3 text-left" style={{ background: 'rgba(38,39,43,0.06)' }}>
+                    <span className="flex items-center gap-2.5"><Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} /><span className="text-sm font-semibold">{p.name}</span></span>
+                    <span className="flex items-center gap-2 text-sm tabular-nums"><b>{p.count}</b> card{p.count === 1 ? '' : 's'}{sizes.wide && <kbd className="rounded-md px-1.5 text-[11px]" style={{ background: 'rgba(38,39,43,0.08)' }}>{i + 1}</kbd>}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hand result */}
+      <Modal open={overOpen && screen === 'table' && s?.phase === 'GAME_OVER'} onClose={() => setOverOpen(false)} label="Hand result" width={480}>
+        {s && s.phase === 'GAME_OVER' && (
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-3 pr-10">
               <span className="grid h-12 w-12 place-items-center rounded-2xl"
@@ -2053,42 +2081,67 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
               {s.players.map((p, i) => (
                 <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: i === s.winner ? 'rgba(27,130,87,0.1)' : 'rgba(38,39,43,0.04)' }}>
                   <div className="flex items-center gap-2.5">
-                    <Avatar index={i} name={p.name} size={26} />
+                    <Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} />
                     <span className="text-sm font-semibold">{p.name}</span>
+                    {p.bot && <span className="text-xs" style={{ color: 'rgba(38,39,43,0.5)' }}>bot</span>}
                     {i === s.winner && <Trophy size={14} style={{ color: PALETTE.green.base }} />}
                   </div>
                   <div className="flex items-center gap-4 text-sm tabular-nums">
                     <span style={{ color: 'rgba(38,39,43,0.6)' }}>{p.hand.length} left · {handPoints(p.hand)} pts</span>
-                    <span className="w-14 text-right font-bold">{match.scores[i] || 0}</span>
+                    <span className="w-14 text-right font-bold">{p.score || 0}</span>
                   </div>
                 </div>
               ))}
-              <div className="text-right text-[11px] font-medium" style={{ color: 'rgba(38,39,43,0.45)' }}>Match total over {match.hands} hand{match.hands === 1 ? '' : 's'}</div>
+              <div className="text-right text-[11px] font-medium" style={{ color: 'rgba(38,39,43,0.45)' }}>Room total over {room?.hands || 1} hand{room?.hands === 1 ? '' : 's'}</div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <StatTile label="Wins" value={stats.wins} />
+              <StatTile label="Your wins" value={stats.wins} />
               <StatTile label="Hands played" value={stats.played} />
               <StatTile label="Win rate" value={winRate(stats)} accent={PALETTE.green.base} />
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
-              <PrimaryButton className="flex-1" onClick={startGame} kbd={sizes.wide ? '↵' : null}>Deal again</PrimaryButton>
-              <GhostButton onClick={() => { setOverOpen(false); setModal('settings'); }}>Table settings</GhostButton>
+              {room?.host
+                ? <PrimaryButton className="flex-1" onClick={() => send({ type: 'start' })} kbd={sizes.wide ? '↵' : null}>Deal again</PrimaryButton>
+                : <div className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full text-sm font-semibold" style={{ background: 'rgba(38,39,43,0.06)' }}>Waiting for {room?.hostName || 'the host'} <ThinkingDots /></div>}
+              <GhostButton onClick={leaveRoom}>Leave room</GhostButton>
             </div>
           </div>
         )}
       </Modal>
 
+      {/* Leave mid-hand */}
+      <Modal open={modal === 'leave'} onClose={() => setModal(null)} label="Leave the room" width={420}>
+        <div className="pr-10 text-xl font-black italic tracking-tight">Leave this room?</div>
+        <p className="mt-2 text-sm" style={{ color: 'rgba(38,39,43,0.65)' }}>A bot finishes this hand in your seat. You can come back with the room link.</p>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          <PrimaryButton className="flex-1" tone={PALETTE.red.base} onClick={leaveRoom}>Leave room</PrimaryButton>
+          <GhostButton onClick={() => setModal(null)}>Stay</GhostButton>
+        </div>
+      </Modal>
+
       {/* Settings */}
       <Modal open={modal === 'settings'} onClose={() => setModal(null)} label="Settings">
         <div className="mb-5 pr-10">
-          <div className="text-xl font-black italic tracking-tight">Table settings</div>
-          <div className="text-sm" style={{ color: 'rgba(38,39,43,0.6)' }}>Speed and sound apply now; seats and rules apply on the next deal.</div>
+          <div className="text-xl font-black italic tracking-tight">Settings</div>
+          <div className="text-sm" style={{ color: 'rgba(38,39,43,0.6)' }}>
+            {room ? (room.host ? 'You’re the host. Speed and the turn clock apply now; other rules from the next hand.' : 'The host sets this room’s house rules.') : 'Defaults for new rooms and practice games.'}
+          </div>
         </div>
-        <SetupPanel scope="modal" settings={settings} onChange={setSettings} />
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-          <PrimaryButton className="flex-1" onClick={startGame}>{inGame ? 'Deal a new hand' : 'Deal cards'}</PrimaryButton>
-          <GhostButton onClick={() => setModal(null)}>Done</GhostButton>
+        <div className="flex flex-col gap-5">
+          {room ? (
+            <RulesPanel scope="modal" settings={room.settings} editable={room.host} seated={room.seats.length} onChange={(patch) => send({ type: 'setting', settings: patch })} />
+          ) : <SetupPanel scope="modal" settings={settings} onChange={setSettings} />}
+          {room && (
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold">Sound</div>
+                <div className="text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>Only on this device</div>
+              </div>
+              <Toggle label="Sound" checked={settings.sound} onChange={(v) => setSettings((x) => ({ ...x, sound: v }))} />
+            </div>
+          )}
         </div>
+        <div className="mt-6 flex justify-end"><GhostButton onClick={() => setModal(null)}>Done</GhostButton></div>
       </Modal>
 
       {/* Statistics */}
