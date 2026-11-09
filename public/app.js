@@ -478,6 +478,9 @@
     scheduleRender();
     try {
       while (mine.gq.length && ui === mine) {
+        // Behind (tab was in the background, or updates piled up)? Jump straight to the latest state
+        // instead of replaying every roll and move one by one.
+        if (document.hidden || mine.gq.length > 2) { catchUp(mine); continue; }
         const m = mine.gq.shift();
         const fresh = m.gid !== mine.gid || !game, before = fresh ? null : propSnapshot();
         if (fresh) setupGame(m);
@@ -488,13 +491,36 @@
         const flows = moneyFlows(m.events.filter((ev) => ev.type === 'money'));
         flyMoney(flows);
         cardFx(flows);
-        for (const ev of m.events) { if (ui !== mine) break; await playEvent(ev); }
+        for (const ev of m.events) { if (ui !== mine || mine.skip) break; await playEvent(ev); }
+        mine.skip = false;
         syncPositions();
       }
     } catch (err) { console.error(err); }
     mine.busy = false;
     if (ui === mine) scheduleRender();
   }
+  // Applies every queued update at once with no animation, keeping only what matters on screen.
+  function catchUp(mine) {
+    const q = mine.gq.splice(0);
+    const last = q[q.length - 1];
+    if (q.some((m) => m.gid !== mine.gid) || !game) setupGame(last); else applyGame(last);
+    const evs = [].concat(...q.map((m) => m.events || []));
+    for (const ev of evs) {
+      if (ev.type === 'bankrupt' || ev.type === 'trade') quickEvent(ev);
+      if (ev.type === 'turn' && ev.pid === myPid()) { Sound.turn(); ui.view = ev.pid; }
+    }
+    if (last.events && last.events.length) { const d = [...last.events].reverse().find((e) => e.type === 'dice'); if (d) setDice(d.dice, true); }
+    syncPositions();
+    render();
+    positionTokens(true);
+    if (game.s.over && evs.some((e) => e.type === 'over')) { openModal('over'); }
+  }
+  // Coming back to the tab: cut short whatever animation is playing and catch up.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !ui) return;
+    if (ui.busy) ui.skip = true;
+    if (ui.gq && ui.gq.length) { if (!ui.busy) pumpGame(); }
+  });
   function applyGame(m) {
     game = new Game(m.state);
     meta = m.meta;
@@ -769,6 +795,7 @@
     b.style.transition = animate ? 'transform .32s cubic-bezier(.3,.7,.3,1)' : 'none';
     b.style.transform = on ? `translate(${zoom.x.toFixed(1)}px, ${zoom.y.toFixed(1)}px) scale(${zoom.s.toFixed(3)})` : '';
     b.classList.toggle('zoomed', on);
+    b.style.setProperty('--tkz', on ? (1 / Math.pow(zoom.s, 0.75)).toFixed(3) : '1');
     // our own pinch handling replaces the browser's page zoom over the board (page scrolling still works)
     b.style.touchAction = zoomable() ? (on ? 'none' : 'pan-y') : '';
     if (b.parentElement) b.parentElement.classList.toggle('cam-clip', on || cam.on);
@@ -836,6 +863,10 @@
       if (zoom.pts.size === 1 && zoom.g && zoom.g.kind === 'pinch') { const [p] = zoom.pts.values(); zoom.g = { kind: 'pan', sx: p.x, sy: p.y, x: zoom.x, y: zoom.y, live: true }; }
       else if (!zoom.pts.size) { zoom.g = null; if (zoom.s < 1.04) applyZoom(true); }
     };
+    // While zoomed in, a drag on the board moves the board, never the page (needed on iPhone Safari,
+    // which doesn't always honour touch-action on a transformed element).
+    b.addEventListener('touchmove', (e) => { if (zoom.s > 1 || e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    b.addEventListener('touchstart', (e) => { if (zoomable() && e.touches.length > 1) e.preventDefault(); }, { passive: false });
     b.addEventListener('pointerup', up);
     b.addEventListener('pointercancel', up);
     // a drag or pinch shouldn't also count as a tap on a tile
@@ -1494,14 +1525,9 @@
   function checkTradeLock() {
     if (!game || game.s.over) { ui.savedDraft = null; ui.wasLocked = false; return; }
     const locked = turnLocked();
-    if (locked && ui.modal && ui.modal.kind === 'deal' && ui.draft) {
-      const d = ui.draft;
-      if (!isEmpty(d.give) || !isEmpty(d.get)) {
-        ui.savedDraft = JSON.parse(JSON.stringify(d));
-        closeModal();
-        toast("It's your turn, so your trade is saved. You can finish it after your turn.");
-      } else closeModal();
-    }
+    // If your turn starts while the trade window is open, it stays open (sending is paused until your
+    // turn is over), so you aren't thrown back to the board. Closing it keeps the trade for later.
+    if (locked && !ui.wasLocked && ui.modal && ui.modal.kind === 'deal') renderDealBar();
     if (!locked && ui.wasLocked && ui.savedDraft && !(ui.modal && ui.modal.kind === 'deal')) {
       toast('Your turn is over. Your saved trade is ready.', { action: 'Open trade', onAction: () => openDeal({ resume: true }) });
     }
@@ -1544,12 +1570,13 @@
   function dealBarHTML() {
     const d = ui.draft, to = game.player(d.to), v = dealVerdict(d);
     const err = turnLocked() ? TURN_LOCK_MSG : game.validateTrade(dealSpec());
-    const empty = isEmpty(d.give) && isEmpty(d.get) && !turnLocked();
+    const empty = (isEmpty(d.give) && isEmpty(d.get)) || turnLocked();
     return `<div class="deal-sum"><div class="ds-col"><span class="eyebrow">You give</span><div class="ds-items">${sideHTML(d.give)}</div></div>
         <span class="ds-arrow">${icon('swap')}</span>
         <div class="ds-col"><span class="eyebrow">You get</span><div class="ds-items">${sideHTML(d.get)}</div></div></div>
       <div class="meter ${v.cls}"><div class="meter-track" role="slider" tabindex="0" aria-label="Balance the deal with cash" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(v.pos)}" aria-valuetext="${esc(cashText(d))}" title="Drag to balance the deal with cash"><span class="meter-mid"></span><i style="left:${v.pos.toFixed(1)}%"></i></div>
         <div class="meter-labels"><span>Better for ${esc(to.name)}</span><span>Better for you</span></div></div>
+      ${turnLocked() ? `<div class="deal-lock">It's your turn. Your trade is kept: send it once your turn is over. <button type="button" class="btn sm" data-close>Back to my turn</button></div>` : ''}
       <div class="deal-actions"><span class="verdict ${v.cls}">${esc(v.text)}</span>
         ${v.fix ? `<button class="btn" type="button" data-fix="${v.fix}">${esc(v.fixLabel)}</button>` : ''}
         <button class="btn primary lg" type="button" id="dealSend" ${err ? 'disabled' : ''}>${icon('swap')} Send offer</button></div>
@@ -2058,6 +2085,24 @@
     }
     ui.lastInc = inc;
     setHTML($('#sidebody'), 'side', overviewHTML());
+    renderMobileBar();
+  }
+  function renderMobileBar() {
+    const bar = $('#mBar'), dr = $('#mDrawer');
+    if (!bar || !dr || !game) return;
+    const me = myPid(), p = me != null ? game.player(me) : null;
+    const n = p ? game.ownedBy(p.id).length : 0;
+    const canTrade = p && !p.bankrupt && !game.s.over && !turnLocked();
+    setHTML(bar, 'mbar', `<button type="button" data-m-open="props" class="${ui.drawer === 'props' ? 'on' : ''}">Properties<span class="mb-n">${n}</span></button>`
+      + `<button type="button" data-m-act="newtrade" ${canTrade ? '' : 'disabled'}>Trade</button>`
+      + `<button type="button" data-m-open="log" class="${ui.drawer === 'log' ? 'on' : ''}">Activity</button>`);
+    dr.hidden = !ui.drawer;
+    if (!ui.drawer) return;
+    $('#mdTitle').textContent = ui.drawer === 'props' ? 'Your properties' : 'Activity';
+    const body = ui.drawer === 'props'
+      ? (p ? `${canManageNow(p) && n ? '<p class="md-hint">Tap a property for options.</p>' : ''}${propertiesHTML(p)}` : '<div class="empty">You are watching this game.</div>')
+      : activityHTML();
+    setHTML($('#mdBody'), 'mdrawer', body);
   }
   function overviewHTML() {
     const s = game.s, v = viewerPid();
@@ -2310,6 +2355,10 @@
     requestAnimationFrame(() => { const f = $('#modal [data-autofocus]') || $('#modal button'); if (f) f.focus({ preventScroll: true }); });
   }
   function closeModal() {
+    if (ui.modal && ui.modal.kind === 'deal' && ui.draft && turnLocked() && (!isEmpty(ui.draft.give) || !isEmpty(ui.draft.get))) {
+      ui.savedDraft = JSON.parse(JSON.stringify(ui.draft));
+      setTimeout(() => toast('Your trade is saved. You can finish it after your turn.'), 0);
+    }
     ui.modal = null;
     const m = $('#modal');
     m.hidden = true; m.innerHTML = '';
@@ -2682,21 +2731,39 @@
     });
     $('#players').addEventListener('click', (e) => { const c = e.target.closest('[data-pid]'); if (c) { ui.view = +c.dataset.pid; ui.tab = 'portfolio'; render(); } });
     $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) { ui.tab = b.dataset.tab; render(); } });
-    $('#sidebody').addEventListener('click', (e) => {
+    // The side panel and the phone drawer share the same buttons.
+    const panelClick = (e) => {
       const v = e.target.closest('[data-view]'); if (v) { ui.view = +v.dataset.view; render(); return; }
       const o = e.target.closest('[data-open]'); if (o) { openModal('tile', { i: +o.dataset.open }); return; }
       const m = e.target.closest('[data-m]'); if (m) { act(m.dataset.m, { i: +m.dataset.i }); return; }
       const bs = e.target.closest('[data-buildset]');
       if (bs) { const me = myPid(); buildPlan(me, bs.dataset.buildset).forEach((k) => act('build', { i: k })); return; }
+      const tr = e.target.closest('[data-tr]'); if (tr) { act(tr.dataset.tr, { id: +tr.dataset.id }); return; }
+      const a = e.target.closest('[data-a]'); if (a) { doAction(a.dataset.a, a); return; }
       if (e.target.closest('[data-sellprop], button')) return;
-      const row = e.target.closest('[data-row]'); if (row) { const k = +row.dataset.row; ui.openRow = ui.openRow === k ? null : k; render(); return; }
-    });
-    $('#sidebody').addEventListener('keydown', (e) => {
+      const row = e.target.closest('[data-row]'); if (row) { const k = +row.dataset.row; ui.openRow = ui.openRow === k ? null : k; render(); }
+    };
+    const panelKey = (e) => {
       const row = e.target.closest('[data-row]');
       if (row && (e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); const k = +row.dataset.row; ui.openRow = ui.openRow === k ? null : k; render(); }
-      const tr = e.target.closest('[data-tr]'); if (tr) { act(tr.dataset.tr, { id: +tr.dataset.id }); return; }
-      const a = e.target.closest('[data-a]'); if (a) doAction(a.dataset.a, a);
+    };
+    $('#sidebody').addEventListener('click', panelClick);
+    $('#sidebody').addEventListener('keydown', panelKey);
+    // ---- phones: a bar fixed to the bottom of the screen opens your properties or the activity in a
+    // drawer over the lower part of the screen, so the board stays in view and nothing needs scrolling.
+    const bar = document.createElement('nav');
+    bar.id = 'mBar'; bar.className = 'm-bar'; bar.setAttribute('aria-label', 'Quick access');
+    const drawer = document.createElement('section');
+    drawer.id = 'mDrawer'; drawer.className = 'm-drawer'; drawer.hidden = true;
+    drawer.innerHTML = '<div class="md-head"><b id="mdTitle"></b><button type="button" class="icon-btn" data-mclose aria-label="Close">' + icon('x') + '</button></div><div class="md-body" id="mdBody"></div>';
+    $('#game').appendChild(drawer); $('#game').appendChild(bar);
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-m-open], [data-m-act]'); if (!b) return;
+      if (b.dataset.mAct) { doAction(b.dataset.mAct, b); return; }
+      ui.drawer = ui.drawer === b.dataset.mOpen ? null : b.dataset.mOpen; render();
     });
+    drawer.addEventListener('click', (e) => { if (e.target.closest('[data-mclose]')) { ui.drawer = null; render(); return; } panelClick(e); });
+    drawer.addEventListener('keydown', panelKey);
     $('#rulesBtn').innerHTML = icon('book');
     $('#copyBtn').innerHTML = icon('link');
     $('#leaveBtn').innerHTML = icon('exit');

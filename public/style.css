@@ -3461,3 +3461,33 @@ svg.ic { vertical-align: -0.18em; }
 .prow .row-acts .btn .bp { opacity: .75; font-weight: 500; margin-left: .3em; }
 .prow .row-acts .btn.ghost { grid-column: 1 / -1; min-height: 30px; }
 .build-set { display: flex; width: calc(100% - 10px); margin: 6px 0 4px 10px; justify-content: center; min-height: 36px; }
+.stage:has(.board.zoomed) { touch-action: none; overscroll-behavior: contain; }
+
+/* ================================================================ v32: phone quick-access bar and drawer */
+.m-bar, .m-drawer { display: none; }
+@media (max-width: 700px) {
+  #game:not([hidden]) .m-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--tile); border-top: 1px solid var(--line); }
+  .m-bar button { min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--tile-2); color: var(--text); font: 600 14px var(--font-ui);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .m-bar button.on { border-color: var(--brass); color: var(--brass); }
+  .m-bar button:disabled { opacity: .45; }
+  .m-bar .mb-n { min-width: 20px; padding: 1px 6px; border-radius: 4px; background: var(--tile-3); font-size: 12px; }
+  #game:not([hidden]) { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  #game:not([hidden]) .m-drawer:not([hidden]) { display: flex; flex-direction: column; position: fixed; left: 0; right: 0; z-index: 39;
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px)); max-height: 52vh; background: var(--tile); border-top: 1px solid var(--line);
+    border-radius: 12px 12px 0 0; box-shadow: 0 -10px 30px -12px rgba(0,0,0,.5); }
+  .md-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
+  .md-head b { font-size: 16px; }
+  .md-body { overflow-y: auto; overscroll-behavior: contain; padding: 6px 12px 14px; }
+  .md-hint { margin: 4px 0 6px; font-size: 12.5px; color: var(--muted); }
+  .toasts, #toasts { bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+  .offer-dock { bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
+}
+/* board-space cards (Start, Prison, Free Parking...) have a plain header: light text on it */
+.deed.plain .deed-head .eyebrow { color: var(--muted) !important; }
+.deed.plain .deed-head .deed-name { color: var(--text) !important; }
+.deal-lock { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; padding: 8px 10px; border-radius: 8px;
+  background: rgba(var(--brass-rgb), .12); border: 1px solid rgba(var(--brass-rgb), .35); font-size: 13.5px; }
+/* zoomed in: tokens keep roughly their normal on-screen size instead of growing over the names */
+.board.zoomed .token .tk { transform: scale(var(--tkz, 1)); transition: transform .2s; }
