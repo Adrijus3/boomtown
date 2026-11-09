@@ -42,6 +42,9 @@ const ANIM = {
 const rid = (n) => crypto.randomBytes(16).toString('base64').replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, n);
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 18);
+// A profile photo: a small JPEG, PNG or WebP picture sent as a data URL (the same limit as PoorDown), or '' for none.
+const AVATAR_MAX = 24000;
+const cleanAvatar = (v) => (typeof v === 'string' && v.length <= AVATAR_MAX && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : '');
 const send = (ws, msg) => { if (ws.readyState === 1) ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)); };
 
 function createUnofficial({ build = '', isTaken = () => false } = {}) {
@@ -51,7 +54,7 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
   // ── clients ──────────────────────────────────────────────────────────────
   function getClient(token) {
     if (typeof token === 'string' && /^[a-z0-9]{16,64}$/i.test(token) && clients.has(token)) return clients.get(token);
-    const c = { id: rid(10), token: typeof token === 'string' && /^[a-z0-9]{16,64}$/i.test(token) ? token : rid(24) + rid(8), name: '', sockets: new Set(), roomId: null, idleSince: null };
+    const c = { id: rid(10), token: typeof token === 'string' && /^[a-z0-9]{16,64}$/i.test(token) ? token : rid(24) + rid(8), name: '', avatar: '', sockets: new Set(), roomId: null, idleSince: null };
     clients.set(c.token, c);
     return c;
   }
@@ -121,6 +124,7 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
       seated: seatIndex(room, c.id) >= 0,
       seats: room.seats.map((x) => ({
         id: x.id, name: x.name, bot: x.bot, difficulty: x.bot ? x.difficulty : null, you: !x.bot && x.clientId === c.id,
+        avatar: x.bot ? '' : (clientById(x.clientId) || {}).avatar || '',
         host: !x.bot && x.clientId === room.hostId, online: isOnline(room, x),
         inHand: room.status === 'playing' ? room.gameSeats.includes(x) : true, score: room.scores[x.id] || 0,
       })),
@@ -163,7 +167,7 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
       players: s.players.map((p, i) => {
         const seat = room.gameSeats[i];
         return {
-          name: seat.name, bot: seat.bot, difficulty: seat.bot ? seat.difficulty : null, count: p.hand.length,
+          id: seat.id, name: seat.name, bot: seat.bot, difficulty: seat.bot ? seat.difficulty : null, count: p.hand.length,
           uno: p.uno, unoLeft: p.uno === 'grace' ? Math.max(0, p.unoDeadline - now) : 0, armed: i === you && p.armed,
           online: isOnline(room, seat), score: room.scores[seat.id] || 0,
         };
@@ -454,6 +458,7 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
       c.sockets.add(ws);
       c.idleSince = null;
       if (msg.name) c.name = cleanName(msg.name);
+      if (msg.avatar !== undefined) c.avatar = cleanAvatar(msg.avatar);
       send(ws, { type: 'welcome', id: c.id, token: c.token, build });
       return;
     }
@@ -464,6 +469,13 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
     const isHost = room && room.hostId === c.id;
 
     switch (msg.type) {
+      case 'profile': {
+        // A new profile photo (or '' to remove it). Classmates in the room see it on the next seat update.
+        const a = cleanAvatar(msg.avatar);
+        if (msg.avatar && !a) return fail('That photo could not be used. Try another one.', 'photo');
+        if (a !== c.avatar) { c.avatar = a; if (room) broadcastRoom(room); }
+        return;
+      }
       case 'name': {
         c.name = cleanName(msg.name);
         if (room) { const i = seatIndex(room, c.id); if (i >= 0 && c.name) { room.seats[i].name = c.name; broadcastRoom(room); } }
@@ -589,7 +601,7 @@ function createUnofficial({ build = '', isTaken = () => false } = {}) {
   }
 
   // ── sockets ──────────────────────────────────────────────────────────────
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 }); // room for a profile photo
   wss.on('connection', (ws) => {
     ws.client = null;
     ws.isAlive = true;

@@ -64,6 +64,12 @@ function player(name, token) {
   const http = require('http');
   const loc = await new Promise((res) => http.get(`http://localhost:${PORT}/join/${code}`, (r) => res(r.headers.location)));
   if (loc !== `/unofficial/room/${code}`) fail(`portal join redirect went to ${loc}`);
+  // profile photos: a valid one reaches classmates via the seat list, anything else is refused
+  const PHOTO = 'data:image/jpeg;base64,' + Buffer.from('fake jpeg bytes for the test').toString('base64');
+  A.send({ type: 'profile', avatar: PHOTO });
+  B.send({ type: 'profile', avatar: 'data:text/html;base64,PHNjcmlwdD4=' });
+  await new Promise((r) => setTimeout(r, 200));
+  if (!B.errors.some((e) => /photo/.test(e))) fail('a non-image photo was accepted'); B.errors = [];
   B.send({ type: 'rooms' }); await new Promise((r) => setTimeout(r, 200));
   if (!B.list || !B.list.some((r) => r.id === code)) fail('public room missing from the open-rooms list');
   B.send({ type: 'quick' }); // Play now finds Ada's open room
@@ -73,6 +79,8 @@ function player(name, token) {
   B.send({ type: 'addBot', difficulty: 'easy' }); // not the host: refused
   await new Promise((r) => setTimeout(r, 300));
   if (A.room.seats.length !== 6) fail(`expected 6 seats, got ${A.room.seats.length}`);
+  if (B.room.seats.find((x) => x.name === 'Ada').avatar !== PHOTO) fail('Ben does not see Ada\'s photo');
+  if (B.room.seats.some((x) => x.bot && x.avatar)) fail('a bot has a photo');
   const st = A.room.settings;
   if (st.maxSeats !== 6 || st.handSize !== 5 || !st.sevenZero || st.unoPenalty !== 4 || st.turnClock !== 15 || 'bogus' in st) fail(`settings not applied: ${JSON.stringify(st)}`);
   if (!B.errors.some((e) => /host/.test(e))) fail('non-host could add a bot'); B.errors = [];
@@ -82,7 +90,7 @@ function player(name, token) {
     await new Promise((r) => setTimeout(r, 200));
     lastInfo = `hands ${A.hands}, phase ${A.view && A.view.phase}, current ${A.view && A.view.current}, A you ${A.view && A.view.you}, B you ${B.view && B.view.you}, room ${A.room && A.room.status}, pending ${A.view && A.view.pendingDraw}, drawn ${A.view && A.view.hasDrawn}, counts ${A.view && A.view.players.map((p) => p.count + p.uno[0] + (p.online ? '' : '!')).join(' ')}`;
     if (A.view && A.view.phase === 'GAME_OVER' && A.room.status === 'over') { A.send({ type: 'start' }); await new Promise((r) => setTimeout(r, 300)); }
-    if (A.hands === 0 && !dropped && A.view && A.view.phase === 'TURN' && A.view.turnKey > 20) {
+    if (A.hands === 0 && !dropped && A.view && A.view.phase === 'TURN' && A.view.turnKey > 6) {
       dropped = true; B.ws.terminate(); // Ben's wifi drops
       const t0 = Date.now(); const hBefore = A.hands;
       while (Date.now() - t0 < 9000 && A.hands === hBefore) await new Promise((r) => setTimeout(r, 200)); // a bot covers his turns
@@ -93,6 +101,6 @@ function player(name, token) {
   }
   if (A.errors.length || B.errors.length) fail(`errors: ${A.errors.concat(B.errors).join('; ')}`);
   const kinds = Object.keys(A.events).sort().join(',');
-  console.log(`UnOfficial rooms: 2 hands, 6 seats (2 classmates + 4 bots), all house rules on: OK (play-now, open rooms, drop/rejoin ${rejoined ? 'OK' : 'skipped'}, ${A.swaps || 0} swaps/rotations; events: ${kinds})`);
+  console.log(`UnOfficial rooms: 2 hands, 6 seats (2 classmates + 4 bots), all house rules on: OK (photos, play-now, open rooms, drop/rejoin ${rejoined ? 'OK' : 'skipped'}, ${A.swaps || 0} swaps/rotations; events: ${kinds})`);
   clearTimeout(deadline); A.ws.close(); B.ws.close(); srv.kill(); process.exit(0);
 })().catch((e) => fail(e.stack));

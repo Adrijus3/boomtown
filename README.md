@@ -28,6 +28,8 @@ The host of a room:
 
 Rule changes during a hand apply from the next deal; speed and the turn clock apply straight away.
 
+Everyone can add a **profile photo** on UnOfficial's home screen, by tapping their own seat in the waiting room, or from Settings during a game. Drag and zoom it into the circle. It's shrunk to a few kilobytes, kept on the device in the same place PoorDown keeps its photo (so one photo shows in both games), and only shared with the people in your room.
+
 The server runs every hand (`unofficial/rooms.js`, using the rules in `unofficial/engine.js`) and sends each player only their own cards. If a classmate's connection drops, a bot plays their turns after 5 seconds until they reopen the room link. When the turn clock runs out, a bot plays that one turn for them. You draw by tapping the deck yourself; the game only draws for you when the turn clock runs out. UnOfficial rooms live in memory, so a restart or redeploy ends the hands in progress.
 
 The page is one self-contained file (`public/unofficial/index.html`, scripts and styles inlined), so the server just sends it. Its source is the React client in `unofficial/src/UnOfficial.jsx`. After changing it, rebuild the page and commit the result:

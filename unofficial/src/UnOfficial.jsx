@@ -20,7 +20,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from 'framer-motion';
 import {
-  ArrowLeft, ArrowRightLeft, BarChart3, Bot, Brain, Check, Copy, Crown, Dices, LogOut, Megaphone, Minus, Plus, RefreshCw, Settings2, Siren, Trophy, Users,
+  ArrowLeft, ArrowRightLeft, BarChart3, Bot, Brain, Camera, Check, Copy, Crown, Dices, LogOut, Megaphone, Minus, Plus, RefreshCw, Settings2, Siren, Trophy, Users,
   Volume2, VolumeX, WifiOff, X,
 } from 'lucide-react';
 import Engine from '../engine.js';
@@ -527,7 +527,11 @@ function Toggle({ checked, onChange, label }) {
   );
 }
 
-function Avatar({ index, name, size = 28 }) {
+function Avatar({ index, name, size = 28, src = '' }) {
+  if (src) {
+    return <img src={src} alt="" width={size} height={size} draggable={false} className="block shrink-0 rounded-full object-cover"
+      style={{ width: size, height: size, boxShadow: `0 0 0 1.5px ${CREAM}` }} />;
+  }
   return (
     <span className="grid shrink-0 place-items-center rounded-full font-black italic"
       style={{ width: size, height: size, background: SEAT_TONES[index], color: CREAM, fontSize: size * 0.46 }}>
@@ -668,7 +672,7 @@ function Bubble({ text, tone }) {
 }
 
 /** Opponent seat: a fan of card backs, a name plate, and live call / catch indicators. */
-const Seat = memo(function Seat({ player, index, count, active, thinking, compact, tight, cardW, bubble, onCatch, fanRef }) {
+const Seat = memo(function Seat({ player, index, count, active, thinking, compact, tight, cardW, bubble, onCatch, fanRef, photo }) {
   const shown = Math.min(count, compact ? 5 : 8);
   const step = cardW * (compact ? 0.3 : 0.34);
   const fanW = cardW + Math.max(0, shown - 1) * step;
@@ -698,7 +702,7 @@ const Seat = memo(function Seat({ player, index, count, active, thinking, compac
           boxShadow: active ? undefined : '0 0 0 1px rgba(38,32,24,0.08)',
         }}
       >
-        {!tight && <Avatar index={index} name={player.name} size={compact ? 22 : 28} />}
+        {!tight && <Avatar index={index} name={player.name} size={compact ? 22 : 28} src={photo} />}
         <span className="truncate font-semibold leading-none" style={{ fontSize: compact ? 12 : 14, maxWidth: tight ? 46 : compact ? 58 : 120 }}>{player.name}</span>
         {!compact && player.bot !== false && (player.difficulty === 'strategic'
           ? <Brain size={13} aria-label="Strategic bot" style={{ opacity: 0.6 }} />
@@ -839,6 +843,163 @@ function adaptView(v, receivedAt) {
   };
 }
 
+// ── Profile photos ───────────────────────────────────────────────────────────
+// The photo is kept in PoorDown's profile on this device, so one photo shows in both College Portal games.
+const SHARED_PROFILE_KEY = 'boomtown.online.v1';
+const PHOTO_OUT = 128; // pixels per side of the saved picture
+const PHOTO_MAX_CHARS = 24000; // the server refuses anything bigger
+const isPhoto = (v) => typeof v === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(v) && v.length <= PHOTO_MAX_CHARS;
+function loadSharedProfile() { const p = loadJSON(SHARED_PROFILE_KEY); return { name: typeof p.name === 'string' ? p.name : '', avatar: isPhoto(p.avatar) ? p.avatar : '' }; }
+function saveSharedPhoto(url) { saveJSON(SHARED_PROFILE_KEY, { ...loadJSON(SHARED_PROFILE_KEY), avatar: url }); }
+
+/** Open the file chooser. Must run inside a click or tap. */
+function chooseFile() {
+  return new Promise((resolve) => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(inp);
+    let done = false;
+    const finish = (f) => { if (done) return; done = true; inp.remove(); resolve(f || null); };
+    inp.addEventListener('change', () => finish(inp.files && inp.files[0]));
+    inp.addEventListener('cancel', () => finish(null));
+    inp.click();
+  });
+}
+/** Load a picture and scale big phone photos down before cropping. */
+function loadPicture(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !/^image\//.test(file.type || 'image/')) { reject(new Error('not an image')); return; }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const k = Math.min(1, 1400 / Math.max(w, h));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+      const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('unreadable')); };
+    img.src = url;
+  });
+}
+
+/** Drag, pinch, scroll or use the keys to fit the picture in the circle; "Use photo" returns a small JPEG data URL. */
+function PhotoCropper({ src, onUse, onCancel, onOther }) {
+  const stageRef = useRef(null);
+  const cvRef = useRef(null);
+  const st = useRef({ S: 0, base: 1, z: 1, ox: 0, oy: 0 });
+  const pts = useRef(new Map());
+  const pinch = useRef(null);
+  const [zoom, setZoom] = useState(1);
+  const w = src.width, h = src.height;
+  const scale = () => st.current.base * st.current.z;
+  const clampPos = () => { const s = st.current, sc = scale(); s.ox = Math.min(0, Math.max(s.S - w * sc, s.ox)); s.oy = Math.min(0, Math.max(s.S - h * sc, s.oy)); };
+  const draw = () => {
+    const cv = cvRef.current; if (!cv) return;
+    const s = st.current, dpr = Math.min(3, window.devicePixelRatio || 1);
+    if (cv.width !== Math.round(s.S * dpr)) cv.width = cv.height = Math.round(s.S * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, s.S, s.S); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(src, s.ox, s.oy, w * scale(), h * scale());
+  };
+  const measure = () => {
+    const s = st.current, old = s.S;
+    const cx = old ? (s.S / 2 - s.ox) / scale() : w / 2, cy = old ? (s.S / 2 - s.oy) / scale() : h / 2;
+    s.S = stageRef.current?.clientWidth || 260;
+    s.base = Math.max(s.S / w, s.S / h);
+    s.ox = s.S / 2 - cx * scale(); s.oy = s.S / 2 - cy * scale();
+    clampPos(); draw();
+  };
+  const zoomTo = (nz, px, py) => {
+    const s = st.current;
+    nz = clamp(nz, 1, 4);
+    const ix = (px - s.ox) / scale(), iy = (py - s.oy) / scale();
+    s.z = nz; s.ox = px - ix * scale(); s.oy = py - iy * scale();
+    clampPos(); draw(); setZoom(nz);
+  };
+  const local = (e) => { const r = stageRef.current.getBoundingClientRect(), S = st.current.S; return { x: (e.clientX - r.left) * (S / r.width), y: (e.clientY - r.top) * (S / r.height) }; };
+  const pinchInfo = () => { const [a, b] = [...pts.current.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
+  useEffect(() => {
+    st.current = { S: 0, base: 1, z: 1, ox: 0, oy: 0 }; setZoom(1);
+    const raf = requestAnimationFrame(() => { measure(); stageRef.current?.focus({ preventScroll: true }); });
+    const onResize = () => measure();
+    const stage = stageRef.current;
+    const onWheel = (e) => { e.preventDefault(); const p = local(e); zoomTo(st.current.z * Math.exp(-e.deltaY * 0.0015), p.x, p.y); };
+    window.addEventListener('resize', onResize);
+    stage.addEventListener('wheel', onWheel, { passive: false });
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); stage.removeEventListener('wheel', onWheel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+  function exportPhoto() {
+    const s = st.current, sc = scale(), sx = -s.ox / sc, sy = -s.oy / sc, side = s.S / sc;
+    const mid = document.createElement('canvas'); mid.width = mid.height = PHOTO_OUT * 4;
+    const m = mid.getContext('2d'); m.imageSmoothingQuality = 'high'; m.fillStyle = '#fff'; m.fillRect(0, 0, mid.width, mid.height);
+    m.drawImage(src, sx, sy, side, side, 0, 0, mid.width, mid.height);
+    const out = document.createElement('canvas'); out.width = out.height = PHOTO_OUT;
+    const g = out.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(mid, 0, 0, PHOTO_OUT, PHOTO_OUT);
+    let q = 0.86, url = out.toDataURL('image/jpeg', q);
+    while (url.length > PHOTO_MAX_CHARS && q > 0.35) { q -= 0.12; url = out.toDataURL('image/jpeg', q); }
+    return isPhoto(url) ? url : null;
+  }
+  const onKeyDown = (e) => {
+    const s = st.current, k = e.key, step = 10;
+    if (k === 'ArrowLeft') s.ox += step; else if (k === 'ArrowRight') s.ox -= step;
+    else if (k === 'ArrowUp') s.oy += step; else if (k === 'ArrowDown') s.oy -= step;
+    else if (k === '+' || k === '=') { e.preventDefault(); zoomTo(s.z * 1.1, s.S / 2, s.S / 2); return; }
+    else if (k === '-' || k === '_') { e.preventDefault(); zoomTo(s.z / 1.1, s.S / 2, s.S / 2); return; }
+    else return;
+    e.preventDefault(); clampPos(); draw();
+  };
+  return (
+    <motion.div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6" style={{ background: 'rgba(32,29,24,0.45)' }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
+      <motion.div role="dialog" aria-modal="true" aria-label="Your photo" className="w-full max-w-[380px] rounded-t-3xl p-5 sm:rounded-3xl"
+        style={{ background: CREAM, color: INK, boxShadow: '0 30px 60px -20px rgba(30,25,18,0.5)' }}
+        initial={{ y: 24 }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 560, damping: 42 }}>
+        <div className="text-lg font-black italic tracking-tight">Your photo</div>
+        <div id="uo-photo-hint" className="mb-3 text-xs" style={{ color: 'rgba(38,39,43,0.6)' }}>Drag to move it. Pinch, scroll or use the slider to zoom. Arrow keys and + or − work too.</div>
+        <div ref={stageRef} tabIndex={0} role="application" aria-label="Photo position" aria-describedby="uo-photo-hint" onKeyDown={onKeyDown}
+          className="relative mx-auto aspect-square w-full max-w-[280px] cursor-grab touch-none overflow-hidden rounded-2xl outline-none focus-visible:ring-2"
+          style={{ background: '#1F2023' }}
+          onPointerDown={(e) => { stageRef.current.setPointerCapture(e.pointerId); pts.current.set(e.pointerId, local(e)); if (pts.current.size === 2) pinch.current = { ...pinchInfo(), z: st.current.z }; e.preventDefault(); }}
+          onPointerMove={(e) => {
+            if (!pts.current.has(e.pointerId)) return;
+            const prev = pts.current.get(e.pointerId), now = local(e);
+            pts.current.set(e.pointerId, now);
+            const s = st.current;
+            if (pts.current.size === 1) { s.ox += now.x - prev.x; s.oy += now.y - prev.y; clampPos(); draw(); }
+            else if (pts.current.size === 2 && pinch.current) {
+              const p = pinchInfo();
+              zoomTo(pinch.current.z * (p.d / pinch.current.d), p.x, p.y);
+              s.ox += p.x - pinch.current.x; s.oy += p.y - pinch.current.y; clampPos(); draw();
+              pinch.current.x = p.x; pinch.current.y = p.y;
+            }
+          }}
+          onPointerUp={(e) => { pts.current.delete(e.pointerId); pinch.current = pts.current.size === 2 ? { ...pinchInfo(), z: st.current.z } : null; }}
+          onPointerCancel={(e) => { pts.current.delete(e.pointerId); pinch.current = null; }}>
+          <canvas ref={cvRef} className="block h-full w-full" />
+          <div className="pointer-events-none absolute inset-0 rounded-full" style={{ boxShadow: '0 0 0 999px rgba(20,18,15,0.55), inset 0 0 0 2px rgba(251,247,239,0.9)' }} />
+        </div>
+        <label className="mt-3 flex items-center gap-3 text-sm font-bold">
+          <span aria-hidden="true">−</span>
+          <input type="range" min="1" max="4" step="0.01" value={zoom} aria-label="Zoom" className="flex-1"
+            onChange={(e) => { const S = st.current.S; zoomTo(parseFloat(e.target.value), S / 2, S / 2); }} />
+          <span aria-hidden="true">+</span>
+        </label>
+        <button type="button" onClick={onOther} className="mt-2 min-h-[44px] text-sm font-semibold underline underline-offset-4" style={{ color: 'rgba(38,39,43,0.7)' }}>Choose another picture</button>
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <GhostButton onClick={onCancel}>Cancel</GhostButton>
+          <PrimaryButton onClick={() => { const url = exportPhoto(); if (url) onUse(url); }}>Use photo</PrimaryButton>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /** Seconds left on a clock, shown only once it gets close. Ticks on its own so the table doesn't re-render. */
 function Countdown({ deadline, under = 10, prefix = ' · ', suffix = 's' }) {
   const [, force] = useReducer((x) => x + 1, 0);
@@ -944,7 +1105,7 @@ function RulesPanel({ settings, editable, onChange, seated, scope }) {
 }
 
 /** Waiting room: share the link, fill seats with classmates or bots, set the rules, deal. */
-function Lobby({ room, onSend, onCopy, onLeave, link, wide }) {
+function Lobby({ room, onSend, onCopy, onLeave, link, wide, photo, onPhoto }) {
   const full = room.seats.length >= room.max;
   const playing = room.status === 'playing';
   const me = room.seats.find((x) => x.you);
@@ -989,7 +1150,12 @@ function Lobby({ room, onSend, onCopy, onLeave, link, wide }) {
             {room.seats.map((x, i) => (
               <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2" style={{ background: x.you ? 'rgba(38,39,43,0.08)' : 'rgba(38,39,43,0.04)', opacity: x.online ? 1 : 0.6 }}>
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <Avatar index={i % SEAT_TONES.length} name={x.name} />
+                  {x.you ? (
+                    <button type="button" onClick={onPhoto} aria-label={photo ? 'Change your photo' : 'Add a photo'} className="relative shrink-0 rounded-full">
+                      <Avatar index={i % SEAT_TONES.length} name={x.name} size={32} src={photo} />
+                      <span className="absolute -bottom-1 -right-1 grid h-[18px] w-[18px] place-items-center rounded-full" style={{ background: INK, color: CREAM, boxShadow: `0 0 0 2px ${CREAM}` }}><Camera size={10} /></span>
+                    </button>
+                  ) : <Avatar index={i % SEAT_TONES.length} name={x.name} size={32} src={x.avatar} />}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 text-sm font-semibold">
                       <span className="truncate">{x.name}{x.you ? ' (you)' : ''}</span>
@@ -1064,7 +1230,8 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   const [stats, setStats] = useState(() => ({ ...DEFAULT_STATS, ...loadJSON(STATS_KEY) }));
   const [profile, setProfile] = useState(() => {
     const p = loadJSON(PROFILE_KEY);
-    return { name: typeof p.name === 'string' ? p.name.slice(0, 18) : '', token: /^[a-z0-9]{16,64}$/i.test(p.token || '') ? p.token : newToken() };
+    const name = typeof p.name === 'string' && p.name ? p.name : loadSharedProfile().name; // a PoorDown nickname is a fine start
+    return { name: (name || '').slice(0, 18), token: /^[a-z0-9]{16,64}$/i.test(p.token || '') ? p.token : newToken() };
   });
   const [conn, setConn] = useState('connecting');
   const [room, setRoom] = useState(null);
@@ -1086,11 +1253,15 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   const [sent, setSent] = useState(false); // a move is on its way to the server
   const [openRooms, setOpenRooms] = useState(null);
   const [swapPick, setSwapPick] = useState(null); // { cardId } while choosing who to swap hands with
+  const [photo, setPhoto] = useState(() => loadSharedProfile().avatar);
+  const [crop, setCrop] = useState(null); // a picture being fitted into the circle
 
   const settingsRef = useLatest(settings);
   const reduceRef = useLatest(reduceMotion);
   const pickerRef = useLatest(picker);
   const swapRef = useLatest(swapPick);
+  const photoRef = useLatest(photo);
+  const cropRef = useLatest(crop);
   const profileRef = useLatest(profile);
   const roomRef = useLatest(room);
   const displayRef = useRef(null);
@@ -1195,7 +1366,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         retry = 0;
         setConn('open');
         const p = profileRef.current;
-        ws.send(JSON.stringify({ type: 'hello', token: p.token, name: p.name }));
+        ws.send(JSON.stringify({ type: 'hello', token: p.token, name: p.name, avatar: photoRef.current || '' }));
         if (wantRoomRef.current && p.name) ws.send(JSON.stringify({ type: 'join', room: wantRoomRef.current, name: p.name }));
       };
       ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } api.current.onMessage(m); };
@@ -1256,6 +1427,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         }
         Sound.error();
         if (m.code === 'badcard' && lastTryRef.current) setShake({ id: lastTryRef.current, k: performance.now() });
+        else if (m.code === 'photo') { setHomeErr(m.text); toast(m.text, 'red'); }
         else if (!['turn', 'uno', 'catch'].includes(m.code)) toast(m.text, 'red');
         return;
       case 'rooms': setOpenRooms(m.rooms); return;
@@ -1523,6 +1695,28 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
     if (target > 0) send({ type: 'catch', target: st.toS(target) });
   }
 
+  // ── Profile photo ─────────────────────────────────────────────────────────
+  async function pickPhoto() {
+    Sound.unlock();
+    const file = await chooseFile();
+    if (!file) return;
+    try { setCrop(await loadPicture(file)); } catch { setHomeErr('That file isn’t a picture that can be used. Try a JPEG or PNG.'); toast('That file isn’t a picture that can be used', 'red'); }
+  }
+  function usePhoto(url) {
+    setCrop(null);
+    setPhoto(url);
+    saveSharedPhoto(url);
+    send({ type: 'profile', avatar: url });
+  }
+  function removePhoto() { setPhoto(''); saveSharedPhoto(''); send({ type: 'profile', avatar: '' }); }
+  const seatPhotos = useMemo(() => {
+    const m = {};
+    (room?.seats || []).forEach((x) => { if (x.avatar) m[x.id] = x.avatar; });
+    return m;
+  }, [room]);
+  /** Photo for a player at the table: yours straight from this device, everyone else's from the seat list. */
+  const photoOf = (p, d) => (d === 0 && s && !s.spectator ? photo : seatPhotos[p.id] || '');
+
   // ── Rooms ─────────────────────────────────────────────────────────────────
   const nameOk = () => {
     const nm = profile.name.trim();
@@ -1582,6 +1776,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
   function onKey(e) {
     Sound.unlock();
     const k = e.key.toLowerCase();
+    if (cropRef.current) { if (k === 'escape') setCrop(null); return; }
     if (pickerRef.current) {
       const map = { r: 'red', y: 'yellow', g: 'green', b: 'blue', 1: 'red', 2: 'yellow', 3: 'green', 4: 'blue' };
       if (map[k]) { e.preventDefault(); chooseColor(map[k]); } else if (k === 'escape') { setPicker(null); setSelected(null); }
@@ -1688,7 +1883,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
       <Seat key={d} player={p} index={p.seat % SEAT_TONES.length} count={Math.max(0, p.count - (incoming[d] || 0))}
         active={s.current === d && ['TURN', 'TRANSITION'].includes(s.phase)}
         thinking={s.current === d && s.phase === 'TURN' && flights.length === 0}
-        compact={!sizes.wide} tight={!sizes.wide && s.players.length > 5} cardW={sizes.opp} bubble={bubbles[d]} onCatch={() => humanCatch(d)} fanRef={seatRef(d)} />
+        compact={!sizes.wide} tight={!sizes.wide && s.players.length > 5} photo={photoOf(p, d)} cardW={sizes.opp} bubble={bubbles[d]} onCatch={() => humanCatch(d)} fanRef={seatRef(d)} />
     );
   };
 
@@ -1799,6 +1994,19 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         </div>
       </div>
       <Panel className="max-w-[460px]">
+        <div className="mb-4 flex items-center gap-3">
+          <button type="button" onClick={pickPhoto} aria-label={photo ? 'Change your photo' : 'Add a photo'} className="relative shrink-0 rounded-full">
+            <Avatar index={0} name={profile.name.trim() || '?'} size={56} src={photo} />
+            <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full" style={{ background: INK, color: CREAM, boxShadow: `0 0 0 2px ${CREAM}` }}><Camera size={13} /></span>
+          </button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <GhostButton onClick={pickPhoto}>{photo ? 'Change photo' : 'Add a photo'}</GhostButton>
+              {photo && <GhostButton onClick={removePhoto}>Remove</GhostButton>}
+            </div>
+            <div className="mt-1.5 text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>Only people in your room see it. It’s kept on this device and used in PoorDown too.</div>
+          </div>
+        </div>
         <label htmlFor="uo-nick" className="text-sm font-bold">Your nickname</label>
         <div className="mt-2"><TextInput id="uo-nick" label="Your nickname" value={profile.name} placeholder="e.g. Sam"
           onChange={(v) => { setProfile((p) => ({ ...p, name: v.slice(0, 18) })); setHomeErr(''); }} /></div>
@@ -1864,6 +2072,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
 
   return (
     <div className="relative w-full select-none overflow-hidden" onPointerDown={() => Sound.unlock()}
+      data-uo-state={/* for automated checks: is the page animating, waiting on the server, connected */ `anim:${animating ? 1 : 0} sent:${sent ? 1 : 0} q:${queueRef.current.length} fl:${flights.length} conn:${conn}`}
       style={{ height: '100dvh', background: TABLE, color: INK, fontFamily: FONT, touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}>
       <style>{CSS}</style>
 
@@ -1898,7 +2107,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         {screen === 'home' && <div className="min-h-0 flex-1 overflow-y-auto">{home}</div>}
         {screen === 'lobby' && room && (
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <Lobby room={room} onSend={send} onCopy={copyLink} onLeave={leaveRoom} link={roomLink} wide={sizes.wide} />
+            <Lobby room={room} onSend={send} onCopy={copyLink} onLeave={leaveRoom} link={roomLink} wide={sizes.wide} photo={photo} onPhoto={pickPhoto} />
           </div>
         )}
 
@@ -2038,6 +2247,25 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
         )}
       </AnimatePresence>
 
+      {/* Profile photo cropper */}
+      <AnimatePresence>
+        {crop && <PhotoCropper key="crop" src={crop} onUse={usePhoto} onCancel={() => setCrop(null)} onOther={async () => { const f = await chooseFile(); if (f) { try { setCrop(await loadPicture(f)); } catch { toast('That file isn’t a picture that can be used', 'red'); } } }} />}
+      </AnimatePresence>
+
+      {/* Toasts away from the table */}
+      {screen !== 'table' && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[55] flex flex-col items-center gap-1.5">
+          <AnimatePresence initial={false}>
+            {toasts.map((t) => (
+              <motion.div key={t.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.16 }}
+                className="rounded-full px-3.5 py-1.5 text-sm font-bold" style={{ background: t.tone === 'red' ? PALETTE.red.base : INK, color: CREAM, boxShadow: SHADOW_SMALL }}>
+                {t.text}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Sevens & zeros: who to swap hands with */}
       <AnimatePresence>
         {swapPick && s && (
@@ -2053,7 +2281,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
                 {s.players.slice(1).map((p, i) => (
                   <motion.button key={p.seat} type="button" whileTap={{ scale: 0.98 }} onClick={() => chooseSwap(i + 1)}
                     className="flex min-h-[48px] items-center justify-between rounded-2xl px-3 text-left" style={{ background: 'rgba(38,39,43,0.06)' }}>
-                    <span className="flex items-center gap-2.5"><Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} /><span className="text-sm font-semibold">{p.name}</span></span>
+                    <span className="flex items-center gap-2.5"><Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} src={photoOf(p, i + 1)} /><span className="text-sm font-semibold">{p.name}</span></span>
                     <span className="flex items-center gap-2 text-sm tabular-nums"><b>{p.count}</b> card{p.count === 1 ? '' : 's'}{sizes.wide && <kbd className="rounded-md px-1.5 text-[11px]" style={{ background: 'rgba(38,39,43,0.08)' }}>{i + 1}</kbd>}</span>
                   </motion.button>
                 ))}
@@ -2081,7 +2309,7 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
               {s.players.map((p, i) => (
                 <div key={i} className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: i === s.winner ? 'rgba(27,130,87,0.1)' : 'rgba(38,39,43,0.04)' }}>
                   <div className="flex items-center gap-2.5">
-                    <Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} />
+                    <Avatar index={p.seat % SEAT_TONES.length} name={p.name} size={26} src={photoOf(p, i)} />
                     <span className="text-sm font-semibold">{p.name}</span>
                     {p.bot && <span className="text-xs" style={{ color: 'rgba(38,39,43,0.5)' }}>bot</span>}
                     {i === s.winner && <Trophy size={14} style={{ color: PALETTE.green.base }} />}
@@ -2131,6 +2359,19 @@ export default function UnOfficial({ homeHref = null, homeLabel = 'Back' } = {})
           {room ? (
             <RulesPanel scope="modal" settings={room.settings} editable={room.host} seated={room.seats.length} onChange={(patch) => send({ type: 'setting', settings: patch })} />
           ) : <SetupPanel scope="modal" settings={settings} onChange={setSettings} />}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Avatar index={0} name={profile.name.trim() || '?'} size={40} src={photo} />
+              <div>
+                <div className="text-sm font-bold">Your photo</div>
+                <div className="text-xs" style={{ color: 'rgba(38,39,43,0.55)' }}>Shown on your seat to people in your room</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <GhostButton onClick={pickPhoto}>{photo ? 'Change' : 'Add a photo'}</GhostButton>
+              {photo && <GhostButton onClick={removePhoto}>Remove</GhostButton>}
+            </div>
+          </div>
           {room && (
             <div className="flex items-center justify-between gap-3">
               <div>
