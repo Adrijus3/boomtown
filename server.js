@@ -237,6 +237,7 @@ function finishRestore(id) {
       const g = new Game(s.state);
       room.game = g;
       g.on((ev) => room.events.push(ev));
+      evenStartCash(g);
       room.pidClient = room.seats.map((x) => (x.bot ? null : x.clientId));
       room.seats.forEach((x, i) => { if (!x.bot) room.awaySince[i] = now; });
       room.busyUntil = now + 400;
@@ -568,6 +569,24 @@ function extendOnLateBid(room) {
   if (!A) return;
   const now = Date.now();
   if (A.deadline - now < LATE_BID_MS) A.deadline = now + LATE_BID_MS;
+}
+// Games started while later seats got £40 extra each are evened out once: everyone is topped up to the
+// most anyone started with. Those games are recognised by their opening log line.
+function evenStartCash(g) {
+  const s = g.s;
+  if (s.evened) return;
+  const marked = (s.log || []).some((e) => (e.parts || []).some((x) => typeof x === 'string' && x.includes('£40 more than the one before')));
+  if (!marked) return;
+  s.evened = true;
+  const n = s.players.length, parts = ['Starting cash evened out (everyone now started with the same): '];
+  s.players.forEach((p, i) => {
+    const add = 40 * (n - 1 - i);
+    if (add <= 0 || p.bankrupt) return;
+    p.money += add;
+    if (parts.length > 1) parts.push(', ');
+    parts.push({ p: p.id }, ' +', { m: add });
+  });
+  if (parts.length > 1) { parts.push('.'); g.log(parts); }
 }
 function startAuction(room) {
   if (room.auction) return;
