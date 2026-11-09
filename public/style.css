@@ -3525,3 +3525,17 @@ svg.ic { vertical-align: -0.18em; }
 .cash-in:focus-within { border-color: var(--brass) !important; box-shadow: 0 0 0 3px rgba(var(--brass-rgb), .25) !important; }
 .cash-in input::-webkit-outer-spin-button, .cash-in input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .cash-in input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.raise-box { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; margin: 4px 0 8px; }
+.raise-box .btn { min-width: 60%; }
+.raise-box .raise-plan { max-width: 92%; text-align: center; }
+@container board (max-width: 600px) {
+  .center-inner:has(.debt-amt) .dice { display: none !important; }
+  .center-inner:has(.debt-amt) .hint { font-size: 11.5px !important; margin: 2px 0 !important; }
+  .center-inner:has(.debt-amt) .debt-amt { font-size: 18px !important; }
+  .raise-box { margin: 2px 0 4px; } .raise-box .btn { min-width: 0; width: 92%; }
+}
+@container board (max-width: 600px) {
+  .center-inner:has(.raise-box) .hint:not(.raise-plan) { display: none !important; }
+  .center-inner:has(.debt-amt) .cmeta { display: none !important; }
+  .center-inner:has(.debt-amt) .row .btn { min-height: 30px !important; padding: .35em .7em !important; font-size: 12px !important; }
+}

@@ -2006,6 +2006,23 @@
       requestAnimationFrame(step);
     }
   }
+  // The one-tap "raise the money" button on the debt screen, with a preview of exactly what it will do
+  // (worked out on a copy of the game, so nothing changes until it's pressed).
+  function raiseBtnHTML(p, d) {
+    let r, covered = false;
+    try {
+      const copy = new Game(JSON.parse(JSON.stringify(game.s)));
+      r = copy.smartRaise(p.id, d.amount);
+      covered = copy.player(p.id).money >= d.amount;
+    } catch (e) { return ''; }
+    if (!r.mortgaged.length && !r.houses && !r.sold.length) return '';
+    const what = [];
+    if (r.mortgaged.length) what.push(`mortgage ${r.mortgaged.map((i) => BOARD[i].name).join(', ')}`);
+    if (r.houses) what.push(`sell ${r.houses} building${r.houses > 1 ? 's' : ''}`);
+    if (r.sold.length) what.push(`sell ${r.sold.map((i) => BOARD[i].name).join(', ')}`);
+    return `<button class="btn primary lg" data-a="raise" title="${esc(`Will ${what.join(', then ')}.`)}">${covered ? `Raise it and pay ${fmt(d.amount)}` : 'Raise what I can'}</button>
+      <div class="hint raise-plan">${esc(`This will ${what.join(', then ')}${covered ? ', then pay.' : '. It still won\u2019t be enough.'}`)}</div>`;
+  }
   function renderCenter() {
     const s = game.s, st = game.st, p = game.cur, t = s.turn;
     const dots = s.players.filter((x) => !x.bankrupt).map((x) => {
@@ -2073,8 +2090,9 @@
         const short = d.amount - p.money;
         return `<div class="debt-amt">You owe ${fmt(d.amount)}</div>
           <div class="hint">to ${esc(to)}. You have ${fmt(p.money)}. ${short > 0 ? `Sell buildings, mortgage or trade to raise ${fmt(short)}.` : 'You can pay now.'}</div>
+          ${short > 0 ? `<div class="raise-box">${raiseBtnHTML(p, d)}</div>` : ''}
           <div class="row">
-            <button class="btn primary lg" data-a="pay" ${dis || (short > 0 ? 'disabled' : '')}>Pay ${fmt(d.amount)}</button>
+            <button class="btn ${short > 0 ? '' : 'primary lg'}" data-a="pay" ${dis || (short > 0 ? 'disabled' : '')}>Pay ${fmt(d.amount)}</button>
             <button class="btn" data-a="newtrade">Trade</button>
             <button class="btn danger" data-a="bankrupt" ${dis}>${icon('flag')} Declare bankruptcy</button>
           </div>`;
@@ -2652,7 +2670,7 @@
         render();
         if (ui.autoRoll) syncAutoRoll();
         return;
-      case 'bail': case 'pardon': case 'pay': act(a); return;
+      case 'bail': case 'pardon': case 'pay': case 'raise': act(a); return;
       case 'details': openModal('tile', { i: +el.dataset.i }); return;
       case 'results': openModal('over'); return;
       case 'newtrade': openDeal(); return;

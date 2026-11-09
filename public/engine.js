@@ -652,6 +652,32 @@
     }
 
     // ---- building, selling, mortgages
+    // Raises cash to cover a debt doing as little damage as possible: mortgage first (cheapest-to-lose
+    // properties first, and nothing in a built-up set), sell houses only when there's nothing left to
+    // mortgage, and sell property to the bank only if mortgages are switched off. Stops the moment
+    // there's enough. Returns what it did.
+    smartRaise(pid, amount) {
+      const p = this.player(pid), props = this.s.props;
+      if (!p || p.bankrupt) return { mortgaged: [], houses: 0, sold: [] };
+      const d = this.s.debt, force = !!(d && d.pid === pid);
+      const keep = (i) => Bot.keepValue(this, pid, i);
+      const done = { mortgaged: [], houses: 0, sold: [], start: p.money };
+      let guard = 120;
+      while (p.money < amount && guard--) {
+        const owned = this.ownedBy(pid);
+        const mort = owned.filter((i) => !props[i].mortgaged && !this.canMortgage(pid, i, force)).sort((a, b) => keep(a) - keep(b));
+        if (this.st.mortgages && mort.length) { this.mortgage(pid, mort[0], force); done.mortgaged.push(mort[0]); continue; }
+        const sellH = owned.filter((i) => !this.canSell(pid, i, force))
+          .sort((a, b) => props[b].houses - props[a].houses || this.houseCost(a) - this.houseCost(b));
+        if (sellH.length) { this.sellHouse(pid, sellH[0], force); done.houses++; continue; }
+        if (!this.st.mortgages) {
+          const sell = owned.filter((i) => !this.canSellProperty(pid, i, force)).sort((a, b) => keep(a) - keep(b));
+          if (sell.length) { this.sellProperty(pid, sell[0], force); done.sold.push(sell[0]); continue; }
+        }
+        break;
+      }
+      return done;
+    }
     canManage(pid) {
       const s = this.s;
       if (s.over) return false;

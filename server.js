@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
-const { Game, Bot, DEFAULT_SETTINGS } = require('./public/engine.js');
+const { Game, Bot, DEFAULT_SETTINGS, BOARD } = require('./public/engine.js');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -747,6 +747,21 @@ function handleAction(room, c, msg) {
     case 'bail': ok = isCur && g.payBail(); break;
     case 'pardon': ok = isCur && g.usePardon(); break;
     case 'pay': ok = isCur && g.payDebt(); break;
+    case 'raise': {
+      // one tap on the debt screen: mortgage/sell what's needed, then pay if that covers it
+      const d = g.s.debt;
+      if (!d || d.pid !== pid) return 'You don\'t owe anything right now.';
+      const r = g.smartRaise(pid, d.amount);
+      const parts = [{ p: pid }, ' raised ', { m: me.money - r.start }];
+      const bits = [];
+      if (r.mortgaged.length) bits.push(`mortgaged ${r.mortgaged.map((i) => BOARD[i].name).join(', ')}`);
+      if (r.houses) bits.push(`sold ${r.houses} building${r.houses > 1 ? 's' : ''}`);
+      if (r.sold.length) bits.push(`sold ${r.sold.map((i) => BOARD[i].name).join(', ')}`);
+      if (bits.length) { parts.push(` (${bits.join('; ')}).`); g.log(parts); }
+      if (me.money >= d.amount) g.payDebt();
+      else if (!bits.length) return 'There is nothing left to mortgage or sell.';
+      ok = true; break;
+    }
     case 'bankrupt': ok = g.declareBankruptcy(pid); break;
     case 'build': ok = g.build(pid, i); break;
     case 'sell': ok = g.sellHouse(pid, i); break;
