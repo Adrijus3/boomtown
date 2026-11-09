@@ -585,7 +585,12 @@
     // Prison has its own spots, set in positionTokens.
     const t = ui.tileEls[i], L = t.offsetLeft, T = t.offsetTop, w = t.offsetWidth, h = t.offsetHeight;
     if (i % 10 === 0 && i !== 10) return { x: L + w / 2, y: T + h / 2, axis: 'grid' };
-    return { x: L + w / 2, y: T + h / 2, axis: i < 10 || (i > 20 && i < 30) ? 'x' : 'y' };
+    // the middle of the square's content (the part beside the colour strip), not of the whole square
+    const body = t.querySelector('.body');
+    const bx = body && body.offsetParent === t ? L + body.offsetLeft + body.offsetWidth / 2 : L + w / 2;
+    const by = body && body.offsetParent === t ? T + body.offsetTop + body.offsetHeight / 2 : T + h / 2;
+    const ok = body && body.offsetParent === t;
+    return { x: bx, y: by, bw: ok ? body.offsetWidth : w, bh: ok ? body.offsetHeight : h, axis: i < 10 || (i > 20 && i < 30) ? 'x' : 'y' };
   }
   // Points a moving token passes through. Corners are crossed where the two strips meet (the inner corner),
   // so a walk round a corner stays on the track instead of cutting across the corner square.
@@ -1224,8 +1229,8 @@
         // Players sharing a square sit in a tidy grid (e.g. 3 + 2 for five), centred in the square, and
         // shrink a little when the square is too small for them all, so nobody covers anybody else.
         const tk = el.offsetWidth || Math.min(w, h) * 0.4;
-        const areaW = pos === 10 ? w * (inCell(p) ? 0.56 : 0.3) : w - 6;
-        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : h - 6;
+        const areaW = pos === 10 ? w * (inCell(p) ? 0.56 : 0.3) : (spot.bw || w) - 4;
+        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : (spot.bh || h) - 4;
         let best = null;
         for (let cols = 1; cols <= n; cols++) {
           const rows = Math.ceil(n / cols), cell = Math.min(areaW / cols, areaH / rows);
