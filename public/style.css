@@ -3544,3 +3544,11 @@ svg.ic { vertical-align: -0.18em; }
   opacity: .42 !important; filter: grayscale(1) !important; cursor: not-allowed !important; box-shadow: none !important;
 }
 .btn.primary:disabled { background: var(--tile-3) !important; border-color: var(--line) !important; color: var(--muted) !important; }
+/* podium: even spacing — ring around the photo, then name, then worth, then the step */
+.podium { padding-top: 14px; }
+.pod { gap: 0 !important; }
+.pod .pod-dot { margin-bottom: 14px; }
+.pod .pod-name { margin-bottom: 4px; }
+.pod .pod-worth { margin-bottom: 10px; }
+.pod .pod-step { margin-top: 0 !important; }
+.pod-crown { margin-bottom: 6px !important; }

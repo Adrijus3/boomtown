@@ -2582,7 +2582,7 @@
   function renderOverModal() {
     if (!game || !game.s.over) return;
     const s = game.s, st = game.standings(), w = game.player(s.winner);
-    const reason = s.endReason === 'rounds' ? `Highest net worth after ${s.round} rounds.` : `Last player standing after ${s.round} rounds.`;
+    const reason = s.endReason === 'rounds' ? `Highest net worth after ${s.round} round${s.round === 1 ? "" : "s"}.` : `Last player standing after ${s.round} round${s.round === 1 ? "" : "s"}.`;
     const rows = st.map((p, k) => `<tr><td>${k + 1}</td><td><span class="mini-dot" style="--pc:${p.color}"></span> ${esc(p.name)}${p.id === myPid() ? ' (you)' : ''}</td><td class="r">${p.bankrupt ? `Out in round ${p.outRound}` : fmt(p.money)}</td><td class="r"><b>${p.bankrupt ? '—' : fmt(game.netWorth(p.id))}</b></td></tr>`).join('');
     setModal(`<div class="sheet wide" role="dialog" aria-modal="true" aria-label="Game over">
       <div class="sheet-h"><div class="winner">${dotHTML(w)}<div><div class="eyebrow">Game over</div><h2>${esc(w.id === myPid() ? 'You win!' : `${w.name} wins`)}</h2></div></div><button class="icon-btn" data-close aria-label="Close">${icon('x')}</button></div>
