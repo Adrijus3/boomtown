@@ -60,7 +60,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - When the game ends, a podium shows the top three, with confetti for the winner, before the net-worth chart.
 - **Starting cities** (house rule): in big games each player is dealt cities at the start so there are enough to go round. Automatic gives none for up to 4 players, 1 each for 5, and 2 each for 6 or more; nobody is dealt a full set.
 - If you owe more than you have, **Raise it and pay** does the selling for you in one tap: it mortgages first (the properties you'd miss least, never part of a built-up set), sells houses only if mortgaging isn't enough, and pays as soon as there's enough. The button says exactly what it will do before you press it.
-- Games last **25 rounds**, about the length of a lesson. After the last round the richest player (by net worth) wins, unless everyone else has already gone bankrupt.
+- There's no round limit: the game goes on until only one player is left. Everyone else has to go bankrupt or resign.
 - **Auctions** run on one 10-second clock (7 on fast games, 12 on relaxed). Bid with **+£10**, **+£50** or **+£100**; each button shows the price you would bid. The highest bid when the clock runs out wins. **Pass** takes you out of that auction, and the auction ends early once everyone except the leader is out.
 - When a player goes bankrupt, their properties are auctioned **one region at a time**, and the highest bidder takes the whole region.
 - Half of every tax, fine and bail goes into a **Free Parking** jackpot, up to £200, and whoever lands there collects it. The host can switch this off in the house rules.

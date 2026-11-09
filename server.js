@@ -29,15 +29,14 @@ const SETTING_RULES = {
   startDeal: [-1, 0, 1, 2, 3],
   salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
-  roundLimit: [25], // fixed: the game-length option was removed
+  roundLimit: [0], // no round limit: play until one player is left
   rollTimer: [0, 30, 60, 90, 120],
   turnTimer: [0, 60, 120, 180, 300],
   botSpeed: ['relaxed', 'normal', 'fast'],
 };
 const BOOL_SETTINGS = ['private', 'doubleOnStart', 'vacationCash', 'auctions', 'doubleRentSet', 'mortgages', 'evenBuild', 'limitedBuildings', 'noRentInPrison', 'randomOrder'];
-// Rooms default to 25 rounds, richest player wins: about the length of a lesson, and in testing the
-// leader after 25 rounds was the full-game winner 77% of the time. It's fixed, not a host option.
-const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120, roundLimit: 25 });
+// No round limit: the game runs until only one player is left standing (or everyone else resigns).
+const ROOM_DEFAULTS = Object.assign({}, DEFAULT_SETTINGS, { maxPlayers: 6, private: false, rollTimer: 60, turnTimer: 120, roundLimit: 0 });
 const ENGINE_KEYS = Object.keys(DEFAULT_SETTINGS);
 
 // ------------------------------------------------------------ static files
@@ -226,7 +225,7 @@ function finishRestore(id) {
     const s = r.snap, now = Date.now();
     room = {
       id, hostId: null, hostKey: s.host, status: s.status === 'playing' && s.state ? 'playing' : 'waiting', createdAt: now, emptySince: null,
-      settings: Object.assign({}, ROOM_DEFAULTS, s.settings),
+      settings: Object.assign({}, ROOM_DEFAULTS, s.settings, { roundLimit: 0 }),
       // Seats whose players haven't come back yet hold a placeholder that always counts as offline.
       seats: s.seats.map((x, i) => (x.bot ? { clientId: null, bot: true, name: x.name, color: x.color } : { clientId: `gone:${i}`, bot: false, name: x.name, color: x.color, key: x.key })),
       members: new Set(), chat: Array.isArray(s.chat) ? s.chat : [],
@@ -239,6 +238,7 @@ function finishRestore(id) {
       room.game = g;
       g.on((ev) => room.events.push(ev));
       evenStartCash(g);
+      g.s.settings.roundLimit = 0; // games already running lose the old 25-round finish too
       room.pidClient = room.seats.map((x) => (x.bot ? null : x.clientId));
       room.seats.forEach((x, i) => { if (!x.bot) room.awaySince[i] = now; });
       room.busyUntil = now + 400;
