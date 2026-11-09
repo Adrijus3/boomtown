@@ -3552,3 +3552,19 @@ svg.ic { vertical-align: -0.18em; }
 .pod .pod-worth { margin-bottom: 10px; }
 .pod .pod-step { margin-top: 0 !important; }
 .pod-crown { margin-bottom: 6px !important; }
+/* even spacing everywhere: one 4 / 8 / 12px scale — label→detail 4px, item→item 8px, block→block 12px */
+.rule .rl + .rd, .rule .rl ~ .rd { margin-top: 4px !important; }
+.rules-form .rgroup { margin-bottom: 8px !important; }
+.rules-form .rule + .rgroup { margin-top: 12px !important; }
+dl dt + dd, .deed dt + dd { margin-top: 4px !important; }
+.th-txt { gap: 4px !important; }
+.th-group > .th-gh { margin-bottom: 8px !important; }
+.th-sheet > .th-h { margin-bottom: 12px !important; }
+.pc-text > .pc-country + .pc-city { margin-top: 4px !important; }
+.actions > .postcard + .row, .actions > .postcard ~ .row { margin-top: 12px !important; }
+.grp > .prow + .prow { margin-top: 4px; }
+.log-e + .log-e { margin-top: 4px; }
+@container board (max-width: 600px) {
+  .actions > .postcard + .row, .actions > .postcard ~ .row { margin-top: 8px !important; }
+  .pc-text > .pc-country + .pc-city { margin-top: 2px !important; }
+}
