@@ -3491,3 +3491,18 @@ svg.ic { vertical-align: -0.18em; }
   background: rgba(var(--brass-rgb), .12); border: 1px solid rgba(var(--brass-rgb), .35); font-size: 13.5px; }
 /* zoomed in: tokens keep roughly their normal on-screen size instead of growing over the names */
 .board.zoomed .token .tk { transform: scale(var(--tkz, 1)); transition: transform .2s; }
+
+/* ================================================================ v33: big emblems on the buy card and property cards */
+.postcard .flag.big, .postcard > .flag.big { width: clamp(48px, 9cqi, 72px) !important; height: auto !important; aspect-ratio: 3 / 2 !important; border-radius: 4px !important; }
+.deed-head .flag.big { width: 64px !important; height: auto !important; aspect-ratio: 3 / 2 !important; border-radius: 4px !important; }
+.postcard .emblem.big, .postcard > .emblem.big { width: clamp(44px, 8cqi, 60px) !important; height: clamp(44px, 8cqi, 60px) !important; }
+.deed-head .emblem.big { width: 56px !important; height: 56px !important; }
+.emblem.big { box-sizing: border-box; display: grid !important; place-items: center; padding: 12px !important; border-radius: 12px;
+  background: var(--eb2, rgba(15,23,42,.55)); border: 1px solid var(--ebd2, rgba(148,163,184,.35)); color: var(--ec2, #E2E8F0) !important; }
+.emblem.big svg { width: 100% !important; height: 100% !important; filter: drop-shadow(0 0 4px var(--eg2, transparent)); }
+.emblem.e-airport { --eb2: rgba(8,47,73,.85); --ebd2: rgba(14,165,233,.45); --ec2: #7DD3FC; --eg2: rgba(125,211,252,.35); }
+.emblem.e-power   { --eb2: rgba(66,32,6,.85);  --ebd2: rgba(234,179,8,.45);  --ec2: #FDE047; --eg2: rgba(253,224,71,.35); }
+.emblem.e-water   { --eb2: rgba(8,47,73,.85);  --ebd2: rgba(56,189,248,.45); --ec2: #7DD3FC; --eg2: rgba(125,211,252,.35); }
+.postcard .emblem.big, .postcard > .emblem.big { padding: clamp(7px, 1.3cqi, 11px) !important; }
+.board.zoomed { cursor: grab; } body.meter-dragging .board.zoomed, .board.zoomed:active { cursor: grabbing; }
+.pcard .pmeta .pnw.hide { display: none; } .pcard .pmeta { flex-wrap: nowrap; }

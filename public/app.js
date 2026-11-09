@@ -833,7 +833,15 @@
     const origin = () => { const r = b.parentElement.getBoundingClientRect(); return { x: r.left + b.offsetLeft, y: r.top + b.offsetTop }; };
     const mid = () => { const a = [...zoom.pts.values()]; return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1 }; };
     b.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' || !zoomable()) return;
+      if (!zoomable()) return;
+      if (e.pointerType !== 'touch') {
+        // mouse or trackpad: drag to move around while zoomed in
+        if (zoom.s <= 1 || e.button !== 0) return;
+        zoom.pts.clear(); zoom.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        zoom.g = { kind: 'pan', sx: e.clientX, sy: e.clientY, x: zoom.x, y: zoom.y, live: false }; zoom.moved = false;
+        try { b.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+        return;
+      }
       zoom.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (zoom.pts.size === 2) { const m = mid(); zoom.g = { kind: 'pinch', m, s: zoom.s, x: zoom.x, y: zoom.y }; }
       else if (zoom.pts.size === 1) { zoom.g = { kind: 'pan', sx: e.clientX, sy: e.clientY, x: zoom.x, y: zoom.y, live: false }; zoom.moved = false; }
@@ -1431,7 +1439,7 @@
     const t = BOARD[i], A = window.BoomArt;
     if (t.group) return `<span class="flag ${cls || ''}">${A.flags[t.group]}</span>`;
     const k = t.type === 'airport' ? 'airport' : i === 12 ? 'power' : 'water';
-    return `<span class="emblem ${cls || ''}">${A[k]}</span>`;
+    return `<span class="emblem e-${k} ${cls || ''}">${A[k]}</span>`;
   }
   function setNote(i, who) {
     const t = BOARD[i];
@@ -1897,12 +1905,12 @@
       if (s.over && s.winner === p.id) chips.push('<span class="tag warn">Winner</span>');
       if (p.id === mine) chips.push('<span class="tag you">You</span>');
       if (!p.bot && !p.bankrupt && isAway(p.id)) chips.push('<span class="tag away">Away, a bot is playing</span>');
-      if (p.jail) chips.push(`<span class="tag bad">In Prison, try ${Math.min(3, p.jailTurns + 1)} of 3</span>`);
+      if (p.jail) chips.push(`<span class="tag bad" title="Try ${Math.min(3, p.jailTurns + 1)} of 3 to roll out">In Prison</span>`);
       if (p.pardons.length) chips.push(`<span class="tag good">${p.pardons.length > 1 ? `${p.pardons.length} pardons` : 'Pardon'}</span>`);
       return `<button title="Point at a player to light up their properties" class="pcard ${isTurn ? 'turn' : ''} ${p.bankrupt ? 'out' : ''} ${ui.view === p.id ? 'viewing' : ''}" data-pid="${p.id}" style="--pc:${p.color}" aria-label="Show ${esc(p.name)}'s portfolio">
         ${dotHTML(p)}
         <span class="pmain"><span class="pname"><span class="nm">${esc(p.name)}</span></span>
-        <span class="pmeta">${p.bot ? '<span class="tag">Bot</span>' : ''}${chips.join('')}<span class="pnw">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Worth ${fmt(game.netWorth(p.id))}`}</span></span></span>
+        <span class="pmeta">${p.bot ? '<span class="tag">Bot</span>' : ''}${chips.join('')}<span class="pnw ${chips.length + (p.bot ? 1 : 0) > 2 ? 'hide' : ''}">${p.bankrupt ? `Bankrupt in round ${p.outRound}` : `Worth ${fmt(game.netWorth(p.id))}`}</span></span></span>
         <span class="pright"><span class="pstatus">${isTurn ? `<span class="now" id="nowBadge">${clockLabel()}</span>` : ''}</span><span class="pmoney" data-money="${p.id}">${p.bankrupt ? '—' : fmt(p.money)}</span></span>
       </button>`;
     }).join('');
