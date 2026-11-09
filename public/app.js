@@ -2236,8 +2236,10 @@
       h += `<div class="grp"><div class="grp-h" style="--g:${sec.color}"><i></i>${flag}<span>${sec.name}</span><span class="muted">${have.length} of ${sec.tiles.length}</span>${have.length === sec.tiles.length && GROUPS[sec.key] ? '<span class="tag good">Full set</span>' : ''}</div>`;
       // A full region gets one button that puts a house on every city in it (evenly), in a single tap.
       if (manage && GROUPS[sec.key] && have.length === sec.tiles.length) {
-        const plan = buildPlan(p.id, sec.key);
-        if (plan.length) h += `<button type="button" class="btn primary sm build-set" data-buildset="${sec.key}">Build ${plan.length === 1 ? 'a house' : `${plan.length} houses`}, ${fmt(plan.length * GROUPS[sec.key].house)}</button>`;
+        const plan = buildPlan(p.id, sec.key), cost = GROUPS[sec.key].house;
+        const lowest = Math.min(...sec.tiles.map((k) => s.props[k].houses));
+        if (plan.length) h += `<button type="button" class="btn primary sm build-set" data-buildset="${sec.key}">Build ${plan.length === 1 ? 'a house' : `${plan.length} houses`}, ${fmt(plan.length * cost)}</button>`;
+        else if (lowest < 5 && p.money < cost && !sec.tiles.some((k) => s.props[k].mortgaged)) h += `<button type="button" class="btn sm build-set" disabled title="Each house costs ${fmt(cost)}">Build a house, ${fmt(cost)} (you need ${fmt(cost - p.money)} more)</button>`;
       }
       for (const i of have) {
         const pr = s.props[i], t = BOARD[i];

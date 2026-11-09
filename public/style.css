@@ -3539,3 +3539,8 @@ svg.ic { vertical-align: -0.18em; }
   .center-inner:has(.debt-amt) .cmeta { display: none !important; }
   .center-inner:has(.debt-amt) .row .btn { min-height: 30px !important; padding: .35em .7em !important; font-size: 12px !important; }
 }
+/* anything you can't afford or can't do right now is clearly greyed out, in every theme */
+.btn:disabled, .btn[disabled], .icon-btn:disabled, .chipbtn:disabled {
+  opacity: .42 !important; filter: grayscale(1) !important; cursor: not-allowed !important; box-shadow: none !important;
+}
+.btn.primary:disabled { background: var(--tile-3) !important; border-color: var(--line) !important; color: var(--muted) !important; }
