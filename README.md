@@ -58,6 +58,7 @@ Games survive restarts and redeploys. Rooms live in the server's memory, so the 
 - On phones, pinch the board to zoom in (up to 3×) and drag to look around, or tap the magnifier in the board's corner to zoom in on your token and back out. The board itself never moves on its own.
 - In your properties list, a full region has one **Build N houses** button that puts a house on every city in it in a single tap. Tap any property to open its options in place: **Sell** (70% of the price, the main choice), **Mortgage** (50%, and you keep it), building and selling houses, and Details.
 - When the game ends, a podium shows the top three, with confetti for the winner, before the net-worth chart.
+- **Starting cities** (house rule): in big games each player is dealt cities at the start so there are enough to go round. Automatic gives none for up to 4 players, 1 each for 5, and 2 each for 6 or more; nobody is dealt a full set.
 - Games last **25 rounds**, about the length of a lesson. After the last round the richest player (by net worth) wins, unless everyone else has already gone bankrupt.
 - **Auctions** run on one 10-second clock (7 on fast games, 12 on relaxed). Bid with **+£10**, **+£50** or **+£100**; each button shows the price you would bid. The highest bid when the clock runs out wins. **Pass** takes you out of that auction, and the auction ends early once everyone except the leader is out.
 - When a player goes bankrupt, their properties are auctioned **one region at a time**, and the highest bidder takes the whole region.

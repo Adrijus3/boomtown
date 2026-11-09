@@ -135,6 +135,7 @@
     { key: 'private', type: 'toggle', label: 'Private room', desc: 'Hidden from the open rooms list. Only people with the link can join.' },
     { group: 'Money' },
     { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
+    { key: 'startDeal', type: 'select', label: 'Starting cities', desc: 'Cities dealt to each player at the start, so big games have enough to go round. Nobody is dealt a full set.', options: [[-1, 'Automatic (2 each with 6+ players)'], [0, 'None'], [1, '1 each'], [2, '2 each'], [3, '3 each']] },
     { key: 'salary', type: 'select', label: 'Salary at Start', desc: 'Paid each time you pass Start.', options: [[100, '£100'], [150, '£150'], [200, '£200'], [300, '£300'], [400, '£400']] },
     { key: 'doubleOnStart', type: 'toggle', label: 'Double salary on Start', desc: 'Land exactly on Start to collect twice the salary.' },
     { key: 'vacationCash', type: 'toggle', label: 'Free Parking jackpot', desc: 'Half of every tax, fine and bail goes into a jackpot on Free Parking, up to £200. Whoever lands there collects it.' },

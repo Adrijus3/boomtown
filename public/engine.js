@@ -126,6 +126,7 @@
 
   const DEFAULT_SETTINGS = {
     startingCash: 1500,
+    startDeal: -1, // properties dealt to each player at the start; -1 = automatic (more in big games)
     salary: 150,
     doubleOnStart: false,
     doubleRentSet: true,
@@ -186,12 +187,33 @@
       const g = new Game(s, rng);
       s.history.push(g.snapshotWorth());
       g.log(['Game started. ', { p: players[0].id }, ' goes first.']);
+      g.dealStart();
       return g;
     }
 
     // ---- plumbing
     on(fn) { this.fns.push(fn); return () => { this.fns = this.fns.filter((f) => f !== fn); }; }
     emit(ev) { for (const f of this.fns) f(ev); }
+    // In big games there aren't enough cities to go round, so each player can be dealt a few at the start.
+    // Automatic: none for up to 4 players, 1 each for 5, 2 each for 6 or more. Nobody is dealt a full set.
+    dealStart() {
+      const s = this.s, ps = s.players, n = ps.length;
+      const want = this.st.startDeal == null || this.st.startDeal < 0 ? (n >= 6 ? 2 : n === 5 ? 1 : 0) : this.st.startDeal;
+      if (!want) return;
+      const pool = shuffle(Object.keys(s.props).map(Number).filter((i) => BOARD[i].type === 'prop'), this.rng);
+      for (let r = 0; r < want; r++) {
+        for (const p of ps) {
+          const k = pool.findIndex((i) => {
+            const g = BOARD[i].group;
+            return GROUP_TILES[g].some((x) => x !== i && s.props[x].owner !== p.id);
+          });
+          if (k < 0) continue;
+          const i = pool.splice(k, 1)[0];
+          s.props[i].owner = p.id;
+        }
+      }
+      this.log([`Everyone was dealt ${want === 1 ? 'a city' : `${want} cities`} to start, so there's enough to go round.`]);
+    }
     log(parts) {
       this.s.log.push({ r: this.s.round, parts });
       if (this.s.log.length > 500) this.s.log.splice(0, this.s.log.length - 500);
