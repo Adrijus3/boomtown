@@ -141,12 +141,13 @@
     for (const g of Object.keys(GROUP_TILES)) HOUSE[g] = (houseOverride && houseOverride[g]) || GROUPS[g].house;
     return { BOARD, GROUP_TILES, AIRPORTS, UTILITIES, SIZE, SIDE, JAIL: SIDE, bank, HOUSE };
   }
-  // With 9-14 players each region is harder to complete and the cheap ones fell behind (completing Wales won
-  // 20% of simulated big games, London 45%). These rent multipliers even that out: every region now wins
-  // 33-43% of the games where it is completed first (fair share at 9-14 players is 7-11%).
-  const BIG_RENT = { wa: 1.6, co: 1.6, dv: 1.5, lc: 1.2, md: 0.92, yk: 0.97, ne: 0.97, sc: 0.95, li: 0.88, ln: 0.92 };
-  const bigBoard = prep(bigTiles(), { houses: 40, hotels: 15 });
-  for (const t of bigBoard.BOARD) if (t.type === 'prop') t.rent = t.rent.map((v, k) => (k ? Math.round((v * BIG_RENT[t.group]) / 5) * 5 : Math.max(1, Math.round(v * BIG_RENT[t.group]))));
+  // Big board: balanced the same way as the classic one, through house prices (BIG_HOUSE), plus a small
+  // rent lift for the cheapest regions (BIG_RENT). Tuned in simulated 9-14 player games.
+  // Result: completing any region first wins 33-42% of big games (it was 20% for Wales up to 44% for London).
+  const BIG_HOUSE = { co: 45, dv: 65, md: 115, yk: 115, ne: 125, sc: 135, li: 155, ln: 155 };
+  const BIG_RENT = { wa: 1.6, co: 1.55, dv: 1.45, lc: 1.2 };
+  const bigBoard = prep(bigTiles(), { houses: 40, hotels: 15 }, BIG_HOUSE);
+  for (const t of bigBoard.BOARD) if (t.type === 'prop' && BIG_RENT[t.group]) t.rent = t.rent.map((v, k) => (k ? Math.round((v * BIG_RENT[t.group]) / 5) * 5 : Math.max(1, Math.round(v * BIG_RENT[t.group]))));
   const BOARDS = { classic: prep(classicTiles(), { houses: 32, hotels: 12 }), big: bigBoard };
   // Up to 8 players use the classic 40-square board; 9 or more get the big one.
   const boardFor = (n) => (n > 8 ? 'big' : 'classic');
