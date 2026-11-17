@@ -5,10 +5,12 @@
   // ---------------------------------------------------------------- board data
   const GROUPS = {
     wa: { name: 'Wales', color: '#B8754F', house: 25 },
+    co: { name: 'Cornwall', color: '#14A39A', house: 50 }, // big board only
     dv: { name: 'Devon', color: '#5EC2E6', house: 70 },
     lc: { name: 'Lancashire', color: '#E35DA6', house: 90 },
     md: { name: 'The Midlands', color: '#F28B3A', house: 100 },
     yk: { name: 'Yorkshire', color: '#E5484D', house: 100 },
+    ne: { name: 'The North East', color: '#8E3B5A', house: 110 }, // big board only
     sc: { name: 'Scotland', color: '#E9C246', house: 115 },
     li: { name: 'Lincolnshire', color: '#2EB673', house: 125 },
     ln: { name: 'London', color: '#4C6FFF', house: 140 },
@@ -17,11 +19,11 @@
   // Rents climb in board order. Regions are balanced through house prices instead (set above, from
   // simulated games): completing any region now gives a 39-47% chance of winning a 4-player game.
   // Wales, the cheapest, gets a small rent lift on top.
-  const RENT_NUDGE = { wa: 1.5, dv: 1, lc: 1, md: 1, yk: 1, sc: 1, li: 1, ln: 1 };
+  const RENT_NUDGE = { wa: 1.5, co: 1, dv: 1, lc: 1, md: 1, yk: 1, ne: 1, sc: 1, li: 1, ln: 1 };
   // Each upgrade always charges more than the one before (a hotel never matches four houses).
   const climb = (rents) => rents.map((v, k, a) => (k > 1 ? (a[k] = Math.max(v, a[k - 1] + 5 * Math.ceil(a[k - 1] / 100))) : v));
   const P = (name, group, price, rent) => ({ type: 'prop', name, group, price, rent: climb(rent.map((value, level) => (level ? Math.max(5, Math.round(value * [1, 1, 0.9, 0.85, 0.75, 0.65][level] * RENT_NUDGE[group] / 5) * 5) : value))) });
-  const BOARD = [
+  const classicTiles = () => [
     { type: 'start', name: 'Start' },
     P('Swansea', 'wa', 60, [2, 10, 30, 90, 160, 250]),
     { type: 'chest', name: 'Treasure' },
@@ -64,11 +66,64 @@
     P('City of London', 'ln', 400, [50, 200, 600, 1400, 1700, 2000]),
   ];
 
+  // The big board, for 9 to 14 players: 48 squares (12 a side) with two extra regions, Cornwall and
+  // the North East, plus one more Treasure and one more Surprise. Everything else is the classic board.
+  const bigTiles = () => [
+    { type: 'start', name: 'Start' },
+    P('Swansea', 'wa', 60, [2, 10, 30, 90, 160, 250]),
+    { type: 'chest', name: 'Treasure' },
+    P('Cardiff', 'wa', 60, [4, 20, 60, 180, 320, 450]),
+    { type: 'tax', name: 'Income Tax', amount: 200 },
+    P('Penzance', 'co', 80, [4, 20, 60, 180, 320, 450]),
+    { type: 'airport', name: 'Heathrow Airport', price: 200 },
+    P('St Ives', 'co', 80, [4, 20, 60, 180, 320, 450]),
+    P('Truro', 'co', 90, [5, 25, 75, 225, 360, 500]),
+    P('Torquay', 'dv', 100, [6, 30, 90, 270, 400, 550]),
+    P('Plymouth', 'dv', 100, [6, 30, 90, 270, 400, 550]),
+    P('Exeter', 'dv', 120, [8, 40, 100, 300, 450, 600]),
+    { type: 'jail', name: 'Prison' },
+    P('Preston', 'lc', 140, [10, 50, 150, 450, 625, 750]),
+    { type: 'utility', name: 'Power Grid', price: 150 },
+    P('Liverpool', 'lc', 140, [10, 50, 150, 450, 625, 750]),
+    P('Manchester', 'lc', 160, [12, 60, 180, 500, 700, 900]),
+    { type: 'chance', name: 'Surprise' },
+    { type: 'airport', name: 'Gatwick Airport', price: 200 },
+    P('Coventry', 'md', 180, [14, 70, 200, 550, 750, 950]),
+    { type: 'chest', name: 'Treasure' },
+    P('Nottingham', 'md', 180, [14, 70, 200, 550, 750, 950]),
+    P('Birmingham', 'md', 200, [16, 80, 220, 600, 800, 1000]),
+    { type: 'chance', name: 'Surprise' },
+    { type: 'vacation', name: 'Free Parking' },
+    P('Bradford', 'yk', 220, [18, 90, 250, 700, 875, 1050]),
+    { type: 'chance', name: 'Surprise' },
+    P('Doncaster', 'yk', 220, [18, 90, 250, 700, 875, 1050]),
+    P('York', 'yk', 240, [20, 100, 300, 750, 925, 1100]),
+    P('Durham', 'ne', 240, [20, 100, 300, 750, 925, 1100]),
+    { type: 'airport', name: 'Stansted Airport', price: 200 },
+    P('Sunderland', 'ne', 240, [20, 100, 300, 750, 925, 1100]),
+    P('Newcastle', 'ne', 260, [22, 110, 330, 800, 975, 1150]),
+    P('Dundee', 'sc', 260, [22, 110, 330, 800, 975, 1150]),
+    P('Glasgow', 'sc', 260, [22, 110, 330, 800, 975, 1150]),
+    P('Edinburgh', 'sc', 280, [24, 120, 360, 850, 1025, 1200]),
+    { type: 'gotojail', name: 'Go to Prison' },
+    P('Hibaldstow', 'li', 300, [26, 130, 390, 900, 1100, 1275]),
+    P('Brigg', 'li', 300, [26, 130, 390, 900, 1100, 1275]),
+    { type: 'chest', name: 'Treasure' },
+    P('Scunthorpe', 'li', 320, [28, 150, 450, 1000, 1200, 1400]),
+    { type: 'utility', name: 'Water Works', price: 150 },
+    { type: 'airport', name: 'Humberside Airport', price: 200 },
+    { type: 'chance', name: 'Surprise' },
+    P('Westminster', 'ln', 350, [35, 175, 500, 1100, 1300, 1500]),
+    { type: 'chest', name: 'Treasure' },
+    { type: 'tax', name: 'Luxury Tax', amount: 100 },
+    P('City of London', 'ln', 400, [50, 200, 600, 1400, 1700, 2000]),
+  ];
+
   const BUYABLE = (t) => t.type === 'prop' || t.type === 'airport' || t.type === 'utility';
-  const GROUP_TILES = {};
-  // Places in the same region with the same price charge the same rent (the average of their rents), so
-  // two £60 Welsh cities never differ by hundreds once built up.
-  (() => {
+  // Everything the rules need to know about one board layout.
+  function prep(BOARD, bank, houseOverride) {
+    // Places in the same region with the same price charge the same rent (the average of their rents), so
+    // two £60 Welsh cities never differ by hundreds once built up.
     const same = {};
     for (const t of BOARD) if (t.type === 'prop') (same[t.group + ':' + t.price] = same[t.group + ':' + t.price] || []).push(t);
     for (const list of Object.values(same)) {
@@ -77,10 +132,25 @@
       const rent = avg.map((v, k) => (k ? Math.round(v / 5) * 5 : Math.round(v)));
       for (const t of list) t.rent = rent.slice();
     }
-  })();
-  BOARD.forEach((t, i) => { if (t.group) (GROUP_TILES[t.group] = GROUP_TILES[t.group] || []).push(i); });
-  const AIRPORTS = BOARD.map((t, i) => (t.type === 'airport' ? i : -1)).filter((i) => i >= 0);
-  const UTILITIES = BOARD.map((t, i) => (t.type === 'utility' ? i : -1)).filter((i) => i >= 0);
+    const GROUP_TILES = {};
+    BOARD.forEach((t, i) => { if (t.group) (GROUP_TILES[t.group] = GROUP_TILES[t.group] || []).push(i); });
+    const AIRPORTS = BOARD.map((t, i) => (t.type === 'airport' ? i : -1)).filter((i) => i >= 0);
+    const UTILITIES = BOARD.map((t, i) => (t.type === 'utility' ? i : -1)).filter((i) => i >= 0);
+    const SIZE = BOARD.length, SIDE = SIZE / 4;
+    const HOUSE = {};
+    for (const g of Object.keys(GROUP_TILES)) HOUSE[g] = (houseOverride && houseOverride[g]) || GROUPS[g].house;
+    return { BOARD, GROUP_TILES, AIRPORTS, UTILITIES, SIZE, SIDE, JAIL: SIDE, bank, HOUSE };
+  }
+  // With 9-14 players each region is harder to complete and the cheap ones fell behind (completing Wales won
+  // 20% of simulated big games, London 45%). These rent multipliers even that out: every region now wins
+  // 33-43% of the games where it is completed first (fair share at 9-14 players is 7-11%).
+  const BIG_RENT = { wa: 1.6, co: 1.6, dv: 1.5, lc: 1.2, md: 0.92, yk: 0.97, ne: 0.97, sc: 0.95, li: 0.88, ln: 0.92 };
+  const bigBoard = prep(bigTiles(), { houses: 40, hotels: 15 });
+  for (const t of bigBoard.BOARD) if (t.type === 'prop') t.rent = t.rent.map((v, k) => (k ? Math.round((v * BIG_RENT[t.group]) / 5) * 5 : Math.max(1, Math.round(v * BIG_RENT[t.group]))));
+  const BOARDS = { classic: prep(classicTiles(), { houses: 32, hotels: 12 }), big: bigBoard };
+  // Up to 8 players use the classic 40-square board; 9 or more get the big one.
+  const boardFor = (n) => (n > 8 ? 'big' : 'classic');
+  const { BOARD, GROUP_TILES, AIRPORTS, UTILITIES } = BOARDS.classic;
 
   const CHANCE = [
     { text: 'Advance to Start and collect your salary.', a: 'moveTo', to: 0 },
@@ -160,6 +230,7 @@
       this.s = state;
       this.rng = rng || Math.random;
       this.fns = [];
+      this.B = BOARDS[state.board] || BOARDS.classic;
     }
 
     static create(seats, settings, rng) {
@@ -171,11 +242,12 @@
         pardons: [], bankrupt: false, outSeq: 0, outRound: null,
       }));
       if (settings.randomOrder) players = shuffle(players, rng);
+      const board = boardFor(seats.length), B = BOARDS[board];
       const props = {};
-      BOARD.forEach((t, i) => { if (BUYABLE(t)) props[i] = { owner: null, houses: 0, mortgaged: false }; });
+      B.BOARD.forEach((t, i) => { if (BUYABLE(t)) props[i] = { owner: null, houses: 0, mortgaged: false }; });
       const s = {
-        v: 1, settings, players, props,
-        bank: { houses: 32, hotels: 12 },
+        v: 1, board, settings, players, props,
+        bank: Object.assign({}, B.bank),
         decks: { chance: shuffle(range(CHANCE.length), rng), chest: shuffle(range(CHEST.length), rng) },
         turn: { idx: 0, phase: 'roll', dice: null, doubles: 0, again: false, n: 1 },
         pending: null, debt: null, auction: null, bankruptcyAuctionQueue: [],
@@ -206,13 +278,13 @@
 
     // ---- queries
     ownedBy(pid) { return Object.keys(this.s.props).map(Number).filter((i) => this.s.props[i].owner === pid); }
-    ownsSet(pid, group) { return pid != null && GROUP_TILES[group].every((i) => this.s.props[i].owner === pid); }
-    groupHasBuildings(group) { return GROUP_TILES[group].some((i) => this.s.props[i].houses > 0); }
-    houseCost(idx) { const t = BOARD[idx]; return t.group ? GROUPS[t.group].house : 0; }
-    mortgageValue(idx) { return Math.floor(BOARD[idx].price / 2); }
-    unmortgageCost(idx) { return Math.ceil((BOARD[idx].price / 2) * 1.1); }
+    ownsSet(pid, group) { return pid != null && this.B.GROUP_TILES[group].every((i) => this.s.props[i].owner === pid); }
+    groupHasBuildings(group) { return this.B.GROUP_TILES[group].some((i) => this.s.props[i].houses > 0); }
+    houseCost(idx) { const t = this.B.BOARD[idx]; return t.group ? this.B.HOUSE[t.group] : 0; }
+    mortgageValue(idx) { return Math.floor(this.B.BOARD[idx].price / 2); }
+    unmortgageCost(idx) { return Math.ceil((this.B.BOARD[idx].price / 2) * 1.1); }
     // Selling to the bank pays more than a mortgage (70% of the price against 50%), but the city is gone.
-    sellValue(idx) { return Math.floor(BOARD[idx].price * 0.7); }
+    sellValue(idx) { return Math.floor(this.B.BOARD[idx].price * 0.7); }
 
     netWorth(pid) {
       const p = this.player(pid);
@@ -220,7 +292,7 @@
       let w = p.money;
       for (const i of this.ownedBy(pid)) {
         const pr = this.s.props[i];
-        w += pr.mortgaged ? BOARD[i].price / 2 : BOARD[i].price;
+        w += pr.mortgaged ? this.B.BOARD[i].price / 2 : this.B.BOARD[i].price;
         w += pr.houses * this.houseCost(i);
       }
       return Math.round(w);
@@ -237,7 +309,7 @@
     }
 
     rentFor(idx, special, diceTotal) {
-      const t = BOARD[idx], pr = this.s.props[idx];
+      const t = this.B.BOARD[idx], pr = this.s.props[idx];
       if (!pr || pr.owner == null) return 0;
       const owner = pr.owner;
       if (t.type === 'prop') {
@@ -247,13 +319,13 @@
         return r;
       }
       if (t.type === 'airport') {
-        const n = AIRPORTS.filter((i) => this.s.props[i].owner === owner).length;
+        const n = this.B.AIRPORTS.filter((i) => this.s.props[i].owner === owner).length;
         let r = 25 * Math.pow(2, n - 1);
         if (special && special.mul) r *= special.mul;
         return r;
       }
       if (t.type === 'utility') {
-        const n = UTILITIES.filter((i) => this.s.props[i].owner === owner).length;
+        const n = this.B.UTILITIES.filter((i) => this.s.props[i].owner === owner).length;
         const d = diceTotal || (this.s.turn.dice ? this.s.turn.dice[0] + this.s.turn.dice[1] : 7);
         const mult = special && special.util ? 10 : n >= 2 ? 10 : 4;
         return d * mult;
@@ -360,11 +432,11 @@
     // jump: card moves go straight to the destination instead of walking tile by tile.
     startMove(p, steps, special, jump) {
       const from = p.pos;
-      const to = (((from + steps) % 40) + 40) % 40;
+      const N = this.B.SIZE, to = (((from + steps) % N) + N) % N;
       this.s.pending = {
         pid: p.id, from, to, steps,
         mode: steps < 0 ? 'back' : 'walk',
-        passStart: steps > 0 && from + steps >= 40,
+        passStart: steps > 0 && from + steps >= N,
         special: special || null,
         jump: !!jump,
       };
@@ -390,7 +462,7 @@
     }
 
     resolveTile(p, special) {
-      const s = this.s, tile = BOARD[p.pos];
+      const s = this.s, tile = this.B.BOARD[p.pos];
       switch (tile.type) {
         case 'prop': case 'airport': case 'utility': {
           const pr = s.props[p.pos];
@@ -443,14 +515,14 @@
       switch (card.a) {
         case 'moveTo': return this.moveTo(p, card.to);
         case 'nearest': {
-          const list = card.kind === 'airport' ? AIRPORTS : UTILITIES;
+          const list = card.kind === 'airport' ? this.B.AIRPORTS : this.B.UTILITIES;
           let dest = list.find((i) => i > p.pos);
           if (dest == null) dest = list[0];
           return this.moveTo(p, dest); // normal rent: the card no longer doubles it
         }
         // Any city, each equally likely, so no property gets extra visitors from the cards.
         case 'randomCity': {
-          const cities = BOARD.map((t, i) => (t.type === 'prop' && i !== p.pos ? i : -1)).filter((i) => i >= 0);
+          const cities = this.B.BOARD.map((t, i) => (t.type === 'prop' && i !== p.pos ? i : -1)).filter((i) => i >= 0);
           return this.moveTo(p, cities[Math.floor(this.rng() * cities.length)]);
         }
         case 'back': return this.startMove(p, -card.n, null, true);
@@ -483,15 +555,16 @@
     }
 
     moveTo(p, dest, special) {
-      let steps = (dest - p.pos + 40) % 40;
-      if (steps === 0) steps = 40;
+      const N = this.B.SIZE;
+      let steps = (dest - p.pos + N) % N;
+      if (steps === 0) steps = N;
       this.startMove(p, steps, special, true);
     }
 
     sendToJail(p) {
-      p.pos = 10; p.jail = true; p.jailTurns = 0;
+      p.pos = this.B.JAIL; p.jail = true; p.jailTurns = 0;
       if (this.cur.id === p.id) { this.s.turn.again = false; this.s.turn.doubles = 0; }
-      this.emit({ type: 'teleport', pid: p.id, to: 10 });
+      this.emit({ type: 'teleport', pid: p.id, to: this.B.JAIL });
       this.log([{ p: p.id }, ' was sent to Prison.']);
     }
 
@@ -571,7 +644,7 @@
     buy() {
       const t = this.s.turn;
       if (this.s.over || t.phase !== 'buy') return false;
-      const p = this.cur, idx = p.pos, tile = BOARD[idx], pr = this.s.props[idx];
+      const p = this.cur, idx = p.pos, tile = this.B.BOARD[idx], pr = this.s.props[idx];
       if (!pr || pr.owner != null || p.money < tile.price) return false;
       this.transfer(p, tile.price, null, false);
       pr.owner = p.id;
@@ -664,16 +737,16 @@
       return this.cur.id === pid && ['roll', 'end', 'buy', 'debt'].includes(s.turn.phase);
     }
     canBuild(pid, idx, force) {
-      const t = BOARD[idx], pr = this.s.props[idx], st = this.st;
+      const t = this.B.BOARD[idx], pr = this.s.props[idx], st = this.st;
       if (!t || t.type !== 'prop') return 'Only cities can have houses.';
       if (pr.owner !== pid) return "You don't own this.";
       if (!force && !this.canManage(pid)) return 'You can build on your own turn.';
       if (!this.ownsSet(pid, t.group)) return `Own all of ${GROUPS[t.group].name} first.`;
-      const tiles = GROUP_TILES[t.group];
+      const tiles = this.B.GROUP_TILES[t.group];
       if (tiles.some((i) => this.s.props[i].mortgaged)) return 'Pay off the mortgages in this set first.';
       if (pr.houses >= 5) return 'Already has a hotel.';
       if (st.evenBuild && pr.houses > Math.min(...tiles.map((i) => this.s.props[i].houses))) return 'Build evenly: add houses to the rest of the set first.';
-      const cost = GROUPS[t.group].house;
+      const cost = this.B.HOUSE[t.group];
       if (this.player(pid).money < cost) return `You need ${fmt(cost)}.`;
       if (st.limitedBuildings) {
         if (pr.houses === 4 && this.s.bank.hotels < 1) return 'The bank has no hotels left.';
@@ -694,12 +767,12 @@
       return true;
     }
     canSell(pid, idx, force) {
-      const t = BOARD[idx], pr = this.s.props[idx];
+      const t = this.B.BOARD[idx], pr = this.s.props[idx];
       if (!t || t.type !== 'prop' || !pr) return 'Nothing to sell.';
       if (pr.owner !== pid) return "You don't own this.";
       if (!force && !this.canManage(pid)) return 'You can sell on your own turn.';
       if (pr.houses === 0) return 'No buildings to sell.';
-      if (this.st.evenBuild && pr.houses < Math.max(...GROUP_TILES[t.group].map((i) => this.s.props[i].houses))) return 'Sell evenly: remove buildings from the rest of the set first.';
+      if (this.st.evenBuild && pr.houses < Math.max(...this.B.GROUP_TILES[t.group].map((i) => this.s.props[i].houses))) return 'Sell evenly: remove buildings from the rest of the set first.';
       return '';
     }
     sellHouse(pid, idx, force) {
@@ -712,7 +785,7 @@
         else if (this.st.evenBuild) {
           // The bank can't swap the hotel for 4 houses, so the whole set comes down evenly to the highest
           // level the bank's houses allow (the rest of the set has 4 houses or hotels while one has a hotel).
-          const tiles = GROUP_TILES[BOARD[idx].group], P = this.s.props;
+          const tiles = this.B.GROUP_TILES[this.B.BOARD[idx].group], P = this.s.props;
           const hotels = tiles.filter((i) => P[i].houses === 5).length;
           const held = tiles.reduce((a, i) => a + (P[i].houses === 5 ? 0 : P[i].houses), 0);
           const units = tiles.reduce((a, i) => a + P[i].houses, 0);
@@ -729,7 +802,7 @@
       return true;
     }
     canMortgage(pid, idx, force) {
-      const t = BOARD[idx], pr = this.s.props[idx];
+      const t = this.B.BOARD[idx], pr = this.s.props[idx];
       if (!this.st.mortgages) return 'Mortgages are switched off in this game.';
       if (!pr || pr.owner !== pid) return "You don't own this.";
       if (!force && !this.canManage(pid)) return 'You can mortgage on your own turn.';
@@ -764,7 +837,7 @@
       return true;
     }
     canSellProperty(pid, idx, force) {
-      const t = BOARD[idx], pr = this.s.props[idx];
+      const t = this.B.BOARD[idx], pr = this.s.props[idx];
       if (!pr || pr.owner !== pid) return "You don't own this.";
       if (!force && !this.canManage(pid)) return 'You can sell on your own turn.';
       if (pr.mortgaged) return 'Pay off the mortgage before selling.';
@@ -803,7 +876,7 @@
         pr.owner = null;
         pr.mortgaged = false;
         pr.houses = 0;
-        const key = BOARD[i].group || BOARD[i].type;
+        const key = this.B.BOARD[i].group || this.B.BOARD[i].type;
         (lots[key] = lots[key] || []).push(i);
         this.emit({ type: 'own', idx: i, pid: null });
       }
@@ -844,7 +917,7 @@
 
     // ---- trades
     tradable(pid, idx) {
-      const pr = this.s.props[idx], t = BOARD[idx];
+      const pr = this.s.props[idx], t = this.B.BOARD[idx];
       if (!pr || pr.owner !== pid) return false;
       return !(t.group && this.groupHasBuildings(t.group));
     }
@@ -854,7 +927,7 @@
       const chk = (p, side) => {
         if (side.money < 0) return 'Money must be zero or more.';
         if (side.money > p.money) return `${p.name} only has ${fmt(p.money)}.`;
-        for (const i of side.props) if (!this.tradable(p.id, i)) return `${BOARD[i].name} can't be traded right now.`;
+        for (const i of side.props) if (!this.tradable(p.id, i)) return `${this.B.BOARD[i].name} can't be traded right now.`;
         if (side.pardons > p.pardons.length) return `${p.name} doesn't have that many Pardon cards.`;
         return '';
       };
@@ -938,14 +1011,14 @@
       }
       const r = Math.round(Math.min(650, Math.max(100, maxRent * 0.55)));
       // with a full set to build on, keep less cash idle: houses earn more than a cushion
-      return Object.keys(GROUP_TILES).some((grp) => g.ownsSet(p.id, grp)) ? Math.round(r * 0.7) : r;
+      return Object.keys(g.B.GROUP_TILES).some((grp) => g.ownsSet(p.id, grp)) ? Math.round(r * 0.7) : r;
     },
     unownedCount(g) { return Object.values(g.s.props).filter((pr) => pr.owner == null).length; },
     // How much owning idx (not yet theirs) is worth to pid.
     propValue(g, pid, idx) {
-      const t = BOARD[idx], props = g.s.props;
+      const t = g.B.BOARD[idx], props = g.s.props;
       if (t.type === 'prop') {
-        const others = GROUP_TILES[t.group].filter((i) => i !== idx);
+        const others = g.B.GROUP_TILES[t.group].filter((i) => i !== idx);
         const owners = others.map((i) => props[i].owner);
         const mine = owners.filter((o) => o === pid).length;
         if (mine === others.length) return t.price * 2.3;
@@ -955,24 +1028,24 @@
         if (foreign.length === 0) return t.price * 1.05;
         return t.price * 0.85;
       }
-      const list = t.type === 'airport' ? AIRPORTS : UTILITIES;
+      const list = t.type === 'airport' ? g.B.AIRPORTS : g.B.UTILITIES;
       const mine = list.filter((i) => props[i].owner === pid).length;
       return t.price * (t.type === 'airport' ? 1 + 0.25 * mine : mine ? 1.3 : 0.85);
     },
     // How much pid values keeping idx.
     keepValue(g, pid, idx) {
-      const t = BOARD[idx], pr = g.s.props[idx];
+      const t = g.B.BOARD[idx], pr = g.s.props[idx];
       let v = pr.mortgaged ? t.price * 0.5 : t.price;
       if (t.type === 'prop') {
         if (g.ownsSet(pid, t.group)) v = t.price * 2.6;
-        else if (GROUP_TILES[t.group].some((i) => i !== idx && g.s.props[i].owner === pid)) v *= 1.35;
+        else if (g.B.GROUP_TILES[t.group].some((i) => i !== idx && g.s.props[i].owner === pid)) v *= 1.35;
       } else if (t.type === 'airport') {
-        v *= 1 + 0.2 * (AIRPORTS.filter((i) => g.s.props[i].owner === pid).length - 1);
+        v *= 1 + 0.2 * (g.B.AIRPORTS.filter((i) => g.s.props[i].owner === pid).length - 1);
       }
       return v;
     },
     wantsBuy(g, p, idx) {
-      const price = BOARD[idx].price;
+      const price = g.B.BOARD[idx].price;
       if (p.money < price) return false;
       const v = this.propValue(g, p.id, idx);
       if (v >= price * 1.6) return true;
@@ -1038,12 +1111,12 @@
       while (guard--) {
         const opts = buildable();
         if (!opts.length) break;
-        opts.sort((a, b) => props[a].houses - props[b].houses || BOARD[b].price - BOARD[a].price);
+        opts.sort((a, b) => props[a].houses - props[b].houses || g.B.BOARD[b].price - g.B.BOARD[a].price);
         const i = opts[0];
         if (p.money - g.houseCost(i) >= res) { g.build(p.id, i); continue; }
         if (props[i].houses >= CAP) break;
         const spare = g.ownedBy(p.id)
-          .filter((k) => !props[k].mortgaged && !g.canMortgage(p.id, k) && !(BOARD[k].group && g.ownsSet(p.id, BOARD[k].group)))
+          .filter((k) => !props[k].mortgaged && !g.canMortgage(p.id, k) && !(g.B.BOARD[k].group && g.ownsSet(p.id, g.B.BOARD[k].group)))
           .sort((a, b) => this.keepValue(g, p.id, a) - this.keepValue(g, p.id, b));
         if (!spare.length) break;
         g.mortgage(p.id, spare[0]);
@@ -1064,19 +1137,19 @@
     portfolio(g, pid, ownerOf) {
       let v = 0;
       const props = g.s.props;
-      const mortgageCut = (i) => (props[i].mortgaged ? BOARD[i].price * 0.5 : 0);
-      for (const grp of Object.keys(GROUP_TILES)) {
-        const tiles = GROUP_TILES[grp];
+      const mortgageCut = (i) => (props[i].mortgaged ? g.B.BOARD[i].price * 0.5 : 0);
+      for (const grp of Object.keys(g.B.GROUP_TILES)) {
+        const tiles = g.B.GROUP_TILES[grp];
         const mine = tiles.filter((i) => ownerOf(i) === pid);
         if (!mine.length) continue;
-        const sum = mine.reduce((a, i) => a + BOARD[i].price, 0);
-        if (mine.length === tiles.length) v += sum * 1.6 + GROUPS[grp].house * tiles.length * 2;
+        const sum = mine.reduce((a, i) => a + g.B.BOARD[i].price, 0);
+        if (mine.length === tiles.length) v += sum * 1.6 + g.B.HOUSE[grp] * tiles.length * 2;
         else v += sum * (1 + 0.15 * mine.length);
         for (const i of mine) v -= mortgageCut(i);
       }
-      const ap = AIRPORTS.filter((i) => ownerOf(i) === pid);
+      const ap = g.B.AIRPORTS.filter((i) => ownerOf(i) === pid);
       v += ap.length * 200 * (1 + 0.25 * (ap.length - 1));
-      const ut = UTILITIES.filter((i) => ownerOf(i) === pid);
+      const ut = g.B.UTILITIES.filter((i) => ownerOf(i) === pid);
       v += ut.length * 150 * (ut.length === 2 ? 1.3 : 1);
       for (const i of ap.concat(ut)) v -= mortgageCut(i);
       return v;
@@ -1107,8 +1180,8 @@
       const s = g.s, props = s.props;
       if (s.trades.some((t) => t.status === 'pending' && t.from === p.id)) return null;
       s.memo = s.memo || {};
-      for (const grp of Object.keys(GROUP_TILES)) {
-        const tiles = GROUP_TILES[grp];
+      for (const grp of Object.keys(g.B.GROUP_TILES)) {
+        const tiles = g.B.GROUP_TILES[grp];
         const mine = tiles.filter((i) => props[i].owner === p.id);
         if (mine.length !== tiles.length - 1) continue;
         const missing = tiles.find((i) => props[i].owner !== p.id);
@@ -1120,7 +1193,7 @@
         if (s.memo[key] != null && s.round - s.memo[key] < 3) continue;
         s.memo[key] = s.round;
         // Try a cash offer, and swaps of each spare property, priced so the other side comes out ahead.
-        const spare = g.ownedBy(p.id).filter((i) => g.tradable(p.id, i) && BOARD[i].group !== grp && !(BOARD[i].group && g.ownsSet(p.id, BOARD[i].group)));
+        const spare = g.ownedBy(p.id).filter((i) => g.tradable(p.id, i) && g.B.BOARD[i].group !== grp && !(g.B.BOARD[i].group && g.ownsSet(p.id, g.B.BOARD[i].group)));
         const candidates = [[]].concat(spare.map((i) => [i]));
         const budget = p.money - this.reserve(g, p) * 0.4;
         let best = null;
@@ -1165,7 +1238,7 @@
     },
   };
 
-  const api = { Game, Bot, BOARD, GROUPS, GROUP_TILES, AIRPORTS, UTILITIES, CHANCE, CHEST, DEFAULT_SETTINGS, BUYABLE, fmt, shuffle };
+  const api = { Game, Bot, BOARD, BOARDS, boardFor, GROUPS, GROUP_TILES, AIRPORTS, UTILITIES, CHANCE, CHEST, DEFAULT_SETTINGS, BUYABLE, fmt, shuffle };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Boomtown = api;
 })(typeof window !== 'undefined' ? window : globalThis);

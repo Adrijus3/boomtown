@@ -66,6 +66,10 @@
   ART.flags = {
     // Wales: the red dragon on white over green.
     wa: flag('<rect width="30" height="10" fill="#fff"/><rect y="10" width="30" height="10" fill="#00B140"/>' + dragon, 'Wales'),
+    // Cornwall: St Piran's flag, a white cross on black.
+    co: flag('<rect width="30" height="20" fill="#111"/><rect x="12.5" width="5" height="20" fill="#fff"/><rect y="7.5" width="30" height="5" fill="#fff"/>', 'Cornwall'),
+    // The North East: the Northumberland flag, red and gold bars, counterchanged top and bottom.
+    ne: flag([0, 1, 2, 3, 4, 5, 6, 7].map((k) => `<rect x="${k * 3.75}" width="3.76" height="10" fill="${k % 2 ? '#FFD100' : '#C8102E'}"/><rect x="${k * 3.75}" y="10" width="3.76" height="10" fill="${k % 2 ? '#C8102E' : '#FFD100'}"/>`).join(''), 'Northumberland'),
     // Devon: a centred white cross edged in black, on green.
     dv: flag('<rect width="30" height="20" fill="#00843D"/><rect x="12.4" width="5.2" height="20" fill="#000"/><rect y="7.4" width="30" height="5.2" fill="#000"/><rect x="13.4" width="3.2" height="20" fill="#fff"/><rect y="8.4" width="30" height="3.2" fill="#fff"/>', 'Devon'),
     // Lancashire: the red rose on gold.

@@ -1,6 +1,8 @@
 (function () {
   'use strict';
-  const { Game, BOARD, GROUPS, GROUP_TILES, fmt } = window.Boomtown;
+  const { Game, GROUPS, fmt } = window.Boomtown;
+  // The board in play: the classic 40 squares, or the big 48 for 9+ players. Set from each game.
+  let { BOARD, GROUP_TILES } = window.Boomtown, NB = 40, SD = 10, JAIL = 10;
 
   // ------------------------------------------------------------ helpers
   const $ = (s, el = document) => el.querySelector(s);
@@ -22,7 +24,7 @@
   };
   // The latest signed copy of the room this player is seated in, so the game can come back after a server update.
   const SNAP_KEY = 'boomtown.snap.v1';
-  const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4'];
+  const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4', '#E5484D', '#2563EB', '#16A34A', '#A16207', '#64748B', '#FDE047'];
   const SPEED = {
     relaxed: { step: 150, dice: 1300, card: 500, jump: 560 },
     normal: { step: 110, dice: 1050, card: 350, jump: 480 },
@@ -131,7 +133,7 @@
   // ------------------------------------------------------------ rules form definition
   const RULES = [
     { group: 'Room' },
-    { key: 'maxPlayers', type: 'select', label: 'Maximum players', desc: 'How many seats this room has.', options: [2, 3, 4, 5, 6, 7, 8].map((n) => [n, `${n} players`]) },
+    { key: 'maxPlayers', type: 'select', label: 'Maximum players', desc: 'How many seats this room has. With 9 or more players the game uses a bigger board with two extra regions.', options: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => [n, n > 8 ? `${n} players (big board)` : `${n} players`]) },
     { key: 'private', type: 'toggle', label: 'Private room', desc: 'Hidden from the open rooms list. Only people with the link can join.' },
     { group: 'Money' },
     { key: 'startingCash', type: 'select', label: 'Starting cash', desc: 'What every player begins with.', options: [[1000, '£1,000'], [1500, '£1,500'], [2000, '£2,000'], [2500, '£2,500'], [3000, '£3,000']] },
@@ -524,6 +526,7 @@
   function applyGame(m) {
     game = new Game(m.state);
     meta = m.meta;
+    ({ BOARD, GROUP_TILES } = game.B); NB = game.B.SIZE; SD = game.B.SIDE; JAIL = game.B.JAIL;
   }
   function setClock(turn, now) {
     if (now < ui.clockAt) return;
@@ -583,13 +586,13 @@
     // Tokens stand in the middle of the square (a little smaller than before, so the name still shows);
     // Prison has its own spots, set in positionTokens.
     const t = ui.tileEls[i], L = t.offsetLeft, T = t.offsetTop, w = t.offsetWidth, h = t.offsetHeight;
-    if (i % 10 === 0 && i !== 10) return { x: L + w / 2, y: T + h / 2, axis: 'grid' };
+    if (i % SD === 0 && i !== JAIL) return { x: L + w / 2, y: T + h / 2, axis: 'grid' };
     // the middle of the square's content (the part beside the colour strip), not of the whole square
     const body = t.querySelector('.body');
     const bx = body && body.offsetParent === t ? L + body.offsetLeft + body.offsetWidth / 2 : L + w / 2;
     const by = body && body.offsetParent === t ? T + body.offsetTop + body.offsetHeight / 2 : T + h / 2;
     const ok = body && body.offsetParent === t;
-    return { x: bx, y: by, bw: ok ? body.offsetWidth : w, bh: ok ? body.offsetHeight : h, axis: i < 10 || (i > 20 && i < 30) ? 'x' : 'y' };
+    return { x: bx, y: by, bw: ok ? body.offsetWidth : w, bh: ok ? body.offsetHeight : h, axis: i < SD || (i > 2 * SD && i < 3 * SD) ? 'x' : 'y' };
   }
   // Points a moving token passes through. Corners are crossed where the two strips meet (the inner corner),
   // so a walk round a corner stays on the track instead of cutting across the corner square.
@@ -599,16 +602,16 @@
     if (ev.jump) {
       // A jump (Go to Prison) glides round the edge of the board through the corners, the shorter way,
       // never straight across the middle.
-      const fwd = (ev.to - ev.from + 40) % 40, dir = fwd < 20 ? 1 : -1, n = dir > 0 ? fwd : 40 - fwd;
+      const fwd = (ev.to - ev.from + NB) % NB, dir = fwd < NB / 2 ? 1 : -1, n = dir > 0 ? fwd : NB - fwd;
       const corners = [];
-      for (let k = 1, pos = ev.from; k < n; k++) { pos = (pos + dir + 40) % 40; if (pos % 10 === 0) corners.push(tileCenter(pos)); }
+      for (let k = 1, pos = ev.from; k < n; k++) { pos = (pos + dir + NB) % NB; if (pos % SD === 0) corners.push(tileCenter(pos)); }
       return travel(ev.pid, ev.to, corners, speed().jump * (1 + corners.length * 0.6), false);
     }
     const n = Math.abs(ev.steps), dir = ev.steps < 0 ? -1 : 1;
     const via = [];
     let pos = ev.from;
     if (BOARD[ev.from].type === 'jail') via.push(tileCenter(ev.from)); // step out of the cell first
-    for (let k = 0; k < n - 1; k++) { pos = (pos + dir + 40) % 40; via.push(tileCenter(pos)); }
+    for (let k = 0; k < n - 1; k++) { pos = (pos + dir + NB) % NB; via.push(tileCenter(pos)); }
     await travel(ev.pid, ev.to, via, walkMs(n), false);
   }
   // Glides a token along tile centres in one eased motion, trailed by fading afterimages.
@@ -656,9 +659,9 @@
     if (BOARD[to].type === 'jail') ui.toCell[pid] = true;
     // round the edge of the board via the corners (the shorter way), never straight across the middle
     const p = game.player(pid), from = ui.displayPos[pid] != null ? ui.displayPos[pid] : p ? p.pos : to;
-    if (from !== to) { await walk({ jump: true, pid, from, to }); if (to === 10) Sound.jail(); return; }
+    if (from !== to) { await walk({ jump: true, pid, from, to }); if (to === JAIL) Sound.jail(); return; }
     await travel(pid, to, [], speed().jump, true);
-    if (to === 10) Sound.jail();
+    if (to === JAIL) Sound.jail();
   }
   const FACE_ROT = { 1: [0, 0], 2: [90, 0], 3: [0, -90], 4: [0, 90], 5: [-90, 0], 6: [0, -180] };
   const PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
@@ -1078,7 +1081,7 @@
     if (!p || s.over || s.turn.phase !== 'roll' || p.jail || ui.busy || !glowFor(p)) return null;
     let m = null;
     for (let d = 2; d <= 12; d++) {
-      const i = (p.pos + d) % 40, cost = landingCost(p, i, d);
+      const i = (p.pos + d) % NB, cost = landingCost(p, i, d);
       if (cost <= 0 || (cost < 50 && cost < p.money * 0.25)) continue;
       const level = cost >= p.money ? 1 : Math.max(0.22, Math.min(1, cost / Math.max(250, p.money * 0.6)));
       (m || (m = {}))[i] = { cost, odds: rollOdds(d), level };
@@ -1093,19 +1096,20 @@
   }
 
   function gridPos(i) {
-    if (i <= 10) return [1, i + 1];
-    if (i < 20) return [i - 9, 11];
-    if (i <= 30) return [11, 31 - i];
-    return [41 - i, 1];
+    const S = SD;
+    if (i <= S) return [1, i + 1];
+    if (i < 2 * S) return [i - S + 1, S + 1];
+    if (i <= 3 * S) return [S + 1, 3 * S + 1 - i];
+    return [4 * S + 1 - i, 1];
   }
-  function side(i) { if (i % 10 === 0) return 'corner'; if (i < 10) return 'top'; if (i < 20) return 'right'; if (i < 30) return 'bottom'; return 'left'; }
+  function side(i) { if (i % SD === 0) return 'corner'; if (i < SD) return 'top'; if (i < 2 * SD) return 'right'; if (i < 3 * SD) return 'bottom'; return 'left'; }
   function tileInner(t, i) {
     const st = game.st, A = window.BoomArt;
     const art = (k) => `<span class="tic">${A[k]}</span>`;
     switch (t.type) {
       case 'prop': return `<div class="band"></div><div class="body"><span class="flag">${A.flags[t.group]}</span><div class="tname ${t.name.length > 8 ? 'long' : ''}">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       case 'airport': return `<div class="band"></div><div class="body">${art('airport')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
-      case 'utility': return `<div class="band"></div><div class="body">${art(i === 12 ? 'power' : 'water')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
+      case 'utility': return `<div class="band"></div><div class="body">${art(t.name === 'Power Grid' ? 'power' : 'water')}<div class="tname long">${esc(t.name)}</div><div class="tprice">${fmt(t.price)}</div></div>`;
       // action squares: icon and name stacked in the middle of the square, on a lightly tinted card
       case 'chance': return `<div class="body sp">${art('surprise')}<div class="tname">Surprise</div></div>`;
       case 'chest': return `<div class="body sp">${art('treasure')}<div class="tname">Treasure</div></div>`;
@@ -1120,6 +1124,10 @@
   function buildBoard() {
     const board = $('#board');
     board.innerHTML = '';
+    // The grid: big corners, SD - 1 squares a side between them. Set here so the big board gets 13 x 13.
+    const track = `1.55fr repeat(${SD - 1}, minmax(0, 1fr)) 1.55fr`;
+    board.style.gridTemplateColumns = track; board.style.gridTemplateRows = track;
+    board.classList.toggle('big', SD > 10);
     ui.tileEls = [];
     BOARD.forEach((t, i) => {
       const el = document.createElement('div');
@@ -1147,6 +1155,7 @@
     board.appendChild(bars);
     const center = document.createElement('div');
     center.className = 'center';
+    center.style.gridArea = `2 / 2 / ${SD + 1} / ${SD + 1}`;
     center.innerHTML = `<canvas class="rosette" id="rosette" aria-hidden="true"></canvas>
       <div class="center-inner">
         <div class="cmeta" id="cMeta"></div>
@@ -1175,7 +1184,7 @@
     $('#dice').classList.toggle('gl', !!dice3d);
   }
   function layoutJailBars() {
-    const bars = $('#jailBars'), board = $('#board'), tile = ui.tileEls[10];
+    const bars = $('#jailBars'), board = $('#board'), tile = ui.tileEls[JAIL];
     const cell = tile && tile.querySelector('.cell');
     if (!bars || !board || !cell) return;
     // Measured inside the board (offsets, not screen rectangles), so the camera zoom and the board's
@@ -1192,8 +1201,8 @@
     layoutJailBars();
     const groups = {};
     const where = (p) => (ui.displayPos[p.id] != null ? ui.displayPos[p.id] : p.pos);
-    for (const id of Object.keys(ui.toCell)) { const q = game.player(+id); if (!q || q.jail || where(q) !== 10) delete ui.toCell[id]; }
-    const inCell = (p) => (p.jail || ui.toCell[p.id]) && where(p) === 10;
+    for (const id of Object.keys(ui.toCell)) { const q = game.player(+id); if (!q || q.jail || where(q) !== JAIL) delete ui.toCell[id]; }
+    const inCell = (p) => (p.jail || ui.toCell[p.id]) && where(p) === JAIL;
     for (const p of game.s.players) {
       if (p.bankrupt) continue;
       const k = where(p) + (inCell(p) ? ':cell' : '');
@@ -1209,7 +1218,7 @@
       const spot = tokenSpot(pos);
       let x = spot.x, y = spot.y;
       // Tokens stand on the square's inner strip, clear of its name; Prison has its own spots.
-      if (pos === 10) {
+      if (pos === JAIL) {
         if (inCell(p)) { x = tile.offsetLeft + w * 0.33; y = tile.offsetTop + h * 0.745; }
         else { x = tile.offsetLeft + w * 0.83; y = tile.offsetTop + h * 0.64; }
       }
@@ -1228,8 +1237,8 @@
         // Players sharing a square sit in a tidy grid (e.g. 3 + 2 for five), centred in the square, and
         // shrink a little when the square is too small for them all, so nobody covers anybody else.
         const tk = el.offsetWidth || Math.min(w, h) * 0.4;
-        const areaW = pos === 10 ? w * (inCell(p) ? 0.56 : 0.3) : (spot.bw || w) - 4;
-        const areaH = pos === 10 ? h * (inCell(p) ? 0.4 : 0.6) : (spot.bh || h) - 4;
+        const areaW = pos === JAIL ? w * (inCell(p) ? 0.56 : 0.3) : (spot.bw || w) - 4;
+        const areaH = pos === JAIL ? h * (inCell(p) ? 0.4 : 0.6) : (spot.bh || h) - 4;
         let best = null;
         for (let cols = 1; cols <= n; cols++) {
           const rows = Math.ceil(n / cols), cell = Math.min(areaW / cols, areaH / rows);
@@ -1335,7 +1344,7 @@
     let left, top;
     if (sd === 'left') { left = x + w + 8; top = y + h / 2 - th / 2; }
     else if (sd === 'right') { left = x - tw - 8; top = y + h / 2 - th / 2; }
-    else if (sd === 'bottom' || i === 20 || i === 30) { left = x + w / 2 - tw / 2; top = y - th - 8; }
+    else if (sd === 'bottom' || i === 2 * SD || i === 3 * SD) { left = x + w / 2 - tw / 2; top = y - th - 8; }
     else { left = x + w / 2 - tw / 2; top = y + h + 8; }
     tip.style.left = `${Math.round(Math.max(6, Math.min(bw - tw - 6, left)))}px`;
     tip.style.top = `${Math.round(Math.max(6, Math.min(bh - th - 6, top)))}px`;
@@ -1465,7 +1474,7 @@
   function emblemHTML(i, cls) {
     const t = BOARD[i], A = window.BoomArt;
     if (t.group) return `<span class="flag ${cls || ''}">${A.flags[t.group]}</span>`;
-    const k = t.type === 'airport' ? 'airport' : i === 12 ? 'power' : 'water';
+    const k = t.type === 'airport' ? 'airport' : t.name === 'Power Grid' ? 'power' : 'water';
     return `<span class="emblem e-${k} ${cls || ''}">${A[k]}</span>`;
   }
   function setNote(i, who) {
@@ -2215,7 +2224,7 @@
     const tiles = GROUP_TILES[grp].slice().sort((a, b) => P[a].houses - P[b].houses);
     const low = Math.min(...tiles.map((k) => P[k].houses));
     if (low >= 5) return [];
-    const cost = GROUPS[grp].house;
+    const cost = game.B.HOUSE[grp];
     let cash = p.money;
     const out = [];
     for (const k of tiles.filter((k) => P[k].houses === low)) { if (cash < cost) break; out.push(k); cash -= cost; }
@@ -2226,7 +2235,7 @@
     if (p.bankrupt) return `<div class="empty"><b>Out of the game</b>Went bankrupt in round ${p.outRound}.</div>`;
     if (!owned.length) return '<div class="empty"><b>No properties yet</b>Land on an unowned place, airport or utility to buy it.</div>';
     const sections = Object.keys(GROUP_TILES).map((g) => ({ key: g, name: GROUPS[g].name, color: GROUPS[g].color, tiles: GROUP_TILES[g] }));
-    sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: [5, 15, 25, 35] }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: [12, 28] });
+    sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: game.B.AIRPORTS }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: game.B.UTILITIES });
     let h = '';
     for (const sec of sections) {
       const have = sec.tiles.filter((i) => owned.includes(i));
@@ -2235,7 +2244,7 @@
       h += `<div class="grp"><div class="grp-h" style="--g:${sec.color}"><i></i>${flag}<span>${sec.name}</span><span class="muted">${have.length} of ${sec.tiles.length}</span>${have.length === sec.tiles.length && GROUPS[sec.key] ? '<span class="tag good">Full set</span>' : ''}</div>`;
       // A full region gets one button that puts a house on every city in it (evenly), in a single tap.
       if (manage && GROUPS[sec.key] && have.length === sec.tiles.length) {
-        const plan = buildPlan(p.id, sec.key), cost = GROUPS[sec.key].house;
+        const plan = buildPlan(p.id, sec.key), cost = game.B.HOUSE[sec.key];
         const lowest = Math.min(...sec.tiles.map((k) => s.props[k].houses));
         if (plan.length) h += `<button type="button" class="btn primary sm build-set" data-buildset="${sec.key}">Build ${plan.length === 1 ? 'a house' : `${plan.length} houses`}, ${fmt(plan.length * cost)}</button>`;
         else if (lowest < 5 && p.money < cost && !sec.tiles.some((k) => s.props[k].mortgaged)) h += `<button type="button" class="btn sm build-set" disabled title="Each house costs ${fmt(cost)}">Build a house, ${fmt(cost)} (you need ${fmt(cost - p.money)} more)</button>`;
@@ -2307,7 +2316,7 @@
     if (p.bankrupt) return h + `<div class="empty"><b>Out of the game</b>Went bankrupt in round ${p.outRound}.</div>`;
     if (!owned.length) return h + '<div class="empty"><b>No properties yet</b>Land on an unowned place, airport or utility to buy it.</div>';
     const sections = Object.keys(GROUP_TILES).map((g) => ({ key: g, name: GROUPS[g].name, color: GROUPS[g].color, tiles: GROUP_TILES[g] }));
-    sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: [5, 15, 25, 35] }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: [12, 28] });
+    sections.push({ key: 'air', name: 'Airports', color: '#9AA6C4', tiles: game.B.AIRPORTS }, { key: 'util', name: 'Utilities', color: '#7CC8FF', tiles: game.B.UTILITIES });
     for (const sec of sections) {
       const have = sec.tiles.filter((i) => owned.includes(i));
       if (!have.length) continue;
@@ -2475,7 +2484,7 @@
       const onIdx = !owner || pr.mortgaged ? -1 : pr.houses > 0 ? pr.houses + (st.doubleRentSet ? 1 : 0) : set && st.doubleRentSet ? 1 : 0;
       table = rows.map(([k, v], r) => `<tr class="${r === onIdx ? 'on' : ''}"><td>${k}</td><td>${fmt(v)}</td></tr>`).join('');
     } else if (t.type === 'airport') {
-      const n = owner ? [5, 15, 25, 35].filter((k) => s.props[k].owner === owner.id).length : 0;
+      const n = owner ? game.B.AIRPORTS.filter((k) => s.props[k].owner === owner.id).length : 0;
       table = [1, 2, 3, 4].map((k) => `<tr class="${k === n && !pr.mortgaged ? 'on' : ''}"><td>Owner has ${k} airport${k > 1 ? 's' : ''}</td><td>${fmt(25 * Math.pow(2, k - 1))}</td></tr>`).join('');
     } else {
       const n = owner ? [12, 28].filter((k) => s.props[k].owner === owner.id).length : 0;

@@ -8,7 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
-const { Game, Bot, DEFAULT_SETTINGS, BOARD } = require('./public/engine.js');
+const { Game, Bot, DEFAULT_SETTINGS } = require('./public/engine.js');
 const { createUnofficial } = require('./unofficial/rooms.js');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -22,11 +22,11 @@ const SPEED = {
   normal: { step: 110, dice: 1050, bot: 1, card: 350, jump: 480, auction: 10000 },
   fast: { step: 65, dice: 700, bot: 0.45, card: 220, jump: 380, auction: 7000 },
 };
-const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4'];
-const BOT_NAMES = ['Baroness Bly', 'Otto Vance', 'Mila Sterling', 'Rex Holloway', 'Juno Park', 'Kit Marlowe', 'Nova Reyes', 'Ivo Brandt', 'Zara Quill', 'Felix Dune', 'Opal Grant', 'Hugo Lake'];
+const COLORS = ['#F5B83D', '#FF7A59', '#F062A5', '#A78BFA', '#4FB3FF', '#2CC7B0', '#9BD34B', '#E3E8F4', '#E5484D', '#2563EB', '#16A34A', '#A16207', '#64748B', '#FDE047'];
+const BOT_NAMES = ['Baroness Bly', 'Otto Vance', 'Mila Sterling', 'Rex Holloway', 'Juno Park', 'Kit Marlowe', 'Nova Reyes', 'Ivo Brandt', 'Zara Quill', 'Felix Dune', 'Opal Grant', 'Hugo Lake', 'Theo Ashby', 'Wren Calloway'];
 
 const SETTING_RULES = {
-  maxPlayers: [2, 3, 4, 5, 6, 7, 8],
+  maxPlayers: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
   startingCash: [1000, 1500, 2000, 2500, 3000],
   salary: [100, 150, 200, 300, 400],
   bail: [50, 100, 150],
@@ -775,9 +775,9 @@ function handleAction(room, c, msg) {
       const r = g.smartRaise(pid, d.amount);
       const parts = [{ p: pid }, ' raised ', { m: me.money - r.start }];
       const bits = [];
-      if (r.mortgaged.length) bits.push(`mortgaged ${r.mortgaged.map((i) => BOARD[i].name).join(', ')}`);
+      if (r.mortgaged.length) bits.push(`mortgaged ${r.mortgaged.map((i) => g.B.BOARD[i].name).join(', ')}`);
       if (r.houses) bits.push(`sold ${r.houses} building${r.houses > 1 ? 's' : ''}`);
-      if (r.sold.length) bits.push(`sold ${r.sold.map((i) => BOARD[i].name).join(', ')}`);
+      if (r.sold.length) bits.push(`sold ${r.sold.map((i) => g.B.BOARD[i].name).join(', ')}`);
       if (bits.length) { parts.push(` (${bits.join('; ')}).`); g.log(parts); }
       if (me.money >= d.amount) g.payDebt();
       else if (!bits.length) return 'There is nothing left to mortgage or sell.';

@@ -3568,3 +3568,8 @@ dl dt + dd, .deed dt + dd { margin-top: 4px !important; }
   .actions > .postcard + .row, .actions > .postcard ~ .row { margin-top: 8px !important; }
   .pc-text > .pc-country + .pc-city { margin-top: 2px !important; }
 }
+
+/* big board (9-14 players): 13 squares a side, so the corner labels step down a little */
+#board.big .jail-corner .visit { font-size: clamp(5px, 1.05cqi, 10px) !important; letter-spacing: 0 !important; }
+#board.big .corner .tname { font-size: clamp(6px, 1.55cqi, 16px) !important; }
+:root:not([data-sketch]) #board.big .tile.t-left:not(.corner) .tic, :root:not([data-sketch]) #board.big .tile.t-right:not(.corner) .tic { width: 18px !important; height: 18px !important; padding: 3px !important; border-radius: 5px; }

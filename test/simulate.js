@@ -1,5 +1,5 @@
 // Headless stress test: all-bot games with invariant checks.
-const { Game, Bot, BOARD, GROUP_TILES } = require('../public/engine.js');
+const { Game, Bot } = require('../public/engine.js');
 
 function mulberry32(a) {
   return function () {
@@ -11,7 +11,7 @@ function mulberry32(a) {
 }
 
 function check(g, where) {
-  const s = g.s;
+  const s = g.s, { BOARD, GROUP_TILES, bank } = g.B;
   const fail = (m) => { throw new Error(`[${where}] round ${s.round}: ${m}`); };
   for (const p of s.players) {
     if (p.money < 0 && !(s.debt && s.debt.pid === p.id)) fail(`${p.name} negative money ${p.money}`);
@@ -31,8 +31,8 @@ function check(g, where) {
     if (pr.owner == null && (pr.houses || pr.mortgaged)) fail('unowned with state');
   }
   if (s.settings.limitedBuildings && !s.over) {
-    if (houses + s.bank.houses !== 32) fail(`house count ${houses}+${s.bank.houses}`);
-    if (hotels + s.bank.hotels !== 12) fail(`hotel count ${hotels}+${s.bank.hotels}`);
+    if (houses + s.bank.houses !== bank.houses) fail(`house count ${houses}+${s.bank.houses}`);
+    if (hotels + s.bank.hotels !== bank.hotels) fail(`hotel count ${hotels}+${s.bank.hotels}`);
     if (s.bank.houses < 0 || s.bank.hotels < 0) fail('bank negative');
   }
   const okPhase = ['roll', 'moving', 'buy', 'auction', 'end', 'debt', 'over'];
@@ -42,7 +42,7 @@ function check(g, where) {
 
 function play(seed, settings, nPlayers) {
   const rng = mulberry32(seed);
-  const names = ['Ada', 'Otto', 'Mila', 'Rex', 'Juno', 'Kit', 'Nova', 'Ivo'];
+  const names = ['Ada', 'Otto', 'Mila', 'Rex', 'Juno', 'Kit', 'Nova', 'Ivo', 'Zara', 'Felix', 'Opal', 'Hugo', 'Theo', 'Wren'];
   const seats = names.slice(0, nPlayers).map((n) => ({ name: n, color: '#fff', bot: true }));
   const g = Game.create(seats, settings, rng);
   let steps = 0;
@@ -70,6 +70,7 @@ const configs = [
   { name: 'no mortgages / no auctions', settings: { roundLimit: 300, mortgages: false, auctions: false } },
   { name: 'unlimited buildings, no even build', settings: { roundLimit: 300, limitedBuildings: false, evenBuild: false } },
   { name: 'short game 20 rounds', settings: { roundLimit: 20, startingCash: 1000 } },
+  { name: 'big board, 9-14 players', settings: { roundLimit: 300 }, players: (seed) => 9 + (seed % 6) },
 ];
 
 let total = 0;
@@ -77,7 +78,7 @@ const t0 = Date.now();
 for (const c of configs) {
   const stats = { endReasons: {}, avgRound: 0, medRound: 0, trades: 0, auctions: 0, firstBuild: 0 }; const rs = [];
   for (let seed = 1; seed <= 120; seed++) {
-    const n = 2 + (seed % 7);
+    const n = c.players ? c.players(seed) : 2 + (seed % 7);
     const g = play(seed * 7919 + c.name.length, c.settings, n);
     stats.endReasons[g.s.endReason] = (stats.endReasons[g.s.endReason] || 0) + 1;
     stats.avgRound += g.s.round; rs.push(g.s.round); const fb = g.s.log.find((l) => l.parts.some((x) => typeof x === "string" && x.includes("built a"))); stats.firstBuild += fb ? fb.r : 0;
